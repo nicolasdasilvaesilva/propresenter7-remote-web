@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#121316">
+  <title>ProPresenter 7 Remote</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="dark-theme">
+
+  <!-- HEADER SUPERIOR -->
+  <header class="app-header">
+    <div class="header-left">
+      <button id="btn-toggle-playlists" class="icon-btn" title="Selecionar Playlist / Pasta">
+        <svg class="icon-hamburger" viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none">
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+        <span class="settings-text">Pastas / Mídia</span>
+      </button>
+
+      <div class="active-playlist-badge" id="current-playlist-tag">
+        <span class="tag-type" id="playlist-type-label">MÍDIA</span>
+        <span class="tag-name" id="active-playlist-title">Carregando...</span>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div class="control-btn-group">
+        <!-- MENU DROPDOWN DE LOOKS (APARÊNCIA) -->
+        <div class="look-selector-wrapper">
+          <button id="btn-quick-look" class="action-btn btn-look" title="Alternar Look / Aparência">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+            <span id="current-look-label">Look</span>
+            <span class="dropdown-chevron">▼</span>
+          </button>
+          
+          <div class="look-dropdown-menu" id="look-dropdown-menu">
+            <div class="look-menu-header">Looks / Aparência</div>
+            <div class="look-menu-list" id="look-menu-list">
+              <!-- Preenchido via API do ProPresenter -->
+            </div>
+          </div>
+        </div>
+
+        <button id="btn-quick-black" class="action-btn" title="Blackout / Tela Preta">Black</button>
+        <button id="btn-quick-clear" class="action-btn btn-clear" title="Limpar Apresentação / Telas">Clear</button>
+      </div>
+
+      <div class="status-indicator" id="connection-status" title="Conectado ao ProPresenter">
+        <span class="status-dot"></span>
+      </div>
+
+      <button id="btn-open-settings" class="icon-btn btn-settings-icon" title="Configurações">
+        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- PAINEL PRINCIPAL (LAYOUT RESPONSIVO: 1 COLUNA MOBILE / 2 COLUNAS TABLET) -->
+  <main class="main-container">
+
+    <!-- COLUNA DA ESQUERDA: PREVIEW AO VIVO, TRANSPORTE E LISTA DA PLAYLIST -->
+    <section class="left-column">
+      
+      <!-- PREVIEW CARD AO VIVO -->
+      <div class="live-preview-card">
+        <div class="preview-screen" id="preview-screen">
+          <img id="live-slide-image" src="" alt="Slide ao Vivo" class="preview-img hidden">
+          <div id="preview-text-overlay" class="preview-text-layer"></div>
+          <div id="preview-placeholder" class="preview-empty-state">
+            <div class="empty-icon-box">
+              <svg viewBox="0 0 24 24" width="36" height="36" stroke="currentColor" stroke-width="1.5" fill="none">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                <line x1="8" y1="21" x2="16" y2="21"></line>
+                <line x1="12" y1="17" x2="12" y2="21"></line>
+              </svg>
+            </div>
+            <span>Nenhum slide no ar</span>
+          </div>
+
+          <button id="btn-expand-preview" class="btn-expand-view" title="Expandir Preview">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <polyline points="9 21 3 21 3 15"></polyline>
+              <line x1="21" y1="3" x2="14" y2="10"></line>
+              <line x1="3" y1="21" x2="10" y2="14"></line>
+            </svg>
+          </button>
+        </div>
+
+        <!-- BARRA DE TRANSPORTE (ANTERIOR / INFO / PRÓXIMO) -->
+        <div class="transport-bar">
+          <button id="btn-prev-slide" class="nav-arrow-btn" aria-label="Slide Anterior">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor">
+              <polygon points="11,5 1,12 11,19"></polygon>
+              <polygon points="22,5 12,12 22,19"></polygon>
+            </svg>
+          </button>
+
+          <div class="current-slide-info">
+            <div class="slide-title-primary" id="live-item-title">Pronto para Apresentação</div>
+            <div class="slide-title-secondary" id="live-cue-subtitle">Selecione um item da lista</div>
+          </div>
+
+          <button id="btn-next-slide" class="nav-arrow-btn" aria-label="Próximo Slide">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor">
+              <polygon points="2,5 12,12 2,19"></polygon>
+              <polygon points="13,5 23,12 13,19"></polygon>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- LISTA DE ITENS DA PLAYLIST SELECIONADA -->
+      <div class="playlist-items-section">
+        <div class="section-header">
+          <span class="section-title" id="items-section-header">Itens da Apresentação</span>
+          <span class="badge-count" id="items-counter">0</span>
+        </div>
+
+        <div class="playlist-items-list" id="playlist-items-container">
+          <div class="loading-spinner-box">
+            <div class="spinner"></div>
+            <span>Carregando itens...</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- COLUNA DA DIREITA (TABLET / IPAD): SLIDES INDIVIDUAIS DO ITEM SELECIONADO -->
+    <section class="right-column" id="slides-column">
+      <div class="slides-column-header">
+        <div class="header-titles">
+          <h2 id="selected-presentation-title">Selecione uma apresentação</h2>
+          <span class="selected-presentation-meta" id="selected-presentation-meta">0 slides disponíveis</span>
+        </div>
+        <div class="slide-view-actions">
+          <button id="btn-trigger-first-slide" class="btn-subtle-action hidden">Disparar Início</button>
+        </div>
+      </div>
+
+      <!-- GRID / LISTA DE SLIDES DO ITEM ATUAL -->
+      <div class="slides-grid-scrollable" id="slides-grid-container">
+        <div class="slides-empty-notice">
+          <svg viewBox="0 0 24 24" width="44" height="44" stroke="currentColor" stroke-width="1.5" fill="none">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+            <polyline points="21 15 16 10 5 21"></polyline>
+          </svg>
+          <p>Selecione um item da lista à esquerda para navegar pelos seus slides e disparar na hora.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL / DRAWER DE SELEÇÃO DE PLAYLISTS E PASTAS -->
+  <div class="drawer-overlay" id="drawer-overlay">
+    <div class="drawer-content" id="drawer-content">
+      <div class="drawer-header">
+        <div class="drawer-title-group">
+          <h3>Selecionar Pasta / Playlist</h3>
+          <span class="drawer-subtitle">Escolha o que será apresentado no ProPresenter</span>
+        </div>
+        <button id="btn-close-drawer" class="icon-btn" aria-label="Fechar">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- ABAS: MÍDIA (ÁREA VERMELHA DA FOTO) vs APRESENTAÇÃO -->
+      <div class="drawer-tabs">
+        <button class="tab-btn active" id="tab-media-playlists">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+            <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+            <line x1="7" y1="2" x2="7" y2="22"></line>
+            <line x1="17" y1="2" x2="17" y2="22"></line>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <line x1="2" y1="7" x2="7" y2="7"></line>
+            <line x1="2" y1="17" x2="7" y2="17"></line>
+            <line x1="17" y1="17" x2="22" y2="17"></line>
+            <line x1="17" y1="7" x2="22" y2="7"></line>
+          </svg>
+          Mídia / ProContent (Exclusivo)
+        </button>
+        <button class="tab-btn" id="tab-presentation-playlists">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
+          Playlists de Culto
+        </button>
+      </div>
+
+      <!-- LISTA DE PLAYLISTS -->
+      <div class="drawer-playlists-list" id="drawer-playlists-container">
+        <!-- Preenchido via JavaScript -->
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE CONFIGURAÇÕES -->
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Configurações de Conexão</h3>
+        <button id="btn-close-settings" class="icon-btn">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="cfg-pro-host">IP do ProPresenter 7:</label>
+          <input type="text" id="cfg-pro-host" value="10.0.21.145" placeholder="ex: 10.0.21.145 ou localhost">
+        </div>
+        <div class="form-group">
+          <label for="cfg-pro-port">Porta da API:</label>
+          <input type="number" id="cfg-pro-port" value="50820" placeholder="ex: 50820">
+        </div>
+
+        <div class="info-banner">
+          <strong>Endereço para iPad / Celular:</strong>
+          <p id="local-ips-display">Acesse via Wi-Fi: <code>http://10.0.21.145:3000</code></p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-save-settings" class="btn-primary">Salvar e Reconectar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

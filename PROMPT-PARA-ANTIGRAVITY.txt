@@ -1,0 +1,11 @@
+Cole a mensagem abaixo no chat do Antigravity no computador onde está o ProPresenter:
+
+--------------------------------------------------------------------------------------
+Olá! Eu baixei a pasta do "ProPresenter 7 Remote Controller" com a skill especialista "propresenter-expert". 
+
+Por favor, faça o seguinte para mim:
+1. Instale a skill "propresenter-expert" que está na pasta "skills/propresenter-expert/SKILL.md" copiando-a para a pasta global de skills do Antigravity (%USERPROFILE%\.gemini\config\skills\propresenter-expert\SKILL.md).
+2. Verifique se o Node.js está instalado nesta máquina.
+3. Inicie o servidor do controle remoto executando "node server.js".
+4. Me informe qual é o endereço IP local e o link que devo abrir no meu iPad, tablet e celular para controlar o ProPresenter 7.
+--------------------------------------------------------------------------------------

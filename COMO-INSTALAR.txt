@@ -1,0 +1,32 @@
+======================================================================================
+               GUIA RÁPIDO: INSTALAÇÃO NO COMPUTADOR DO PROPRESENTER 7
+======================================================================================
+
+Você tem 2 formas muito fáceis de usar no outro computador:
+
+--------------------------------------------------------------------------------------
+OPÇÃO 1: DE FORMA MANUAL (SUPER RÁPIDA - 2 CLIQUES)
+--------------------------------------------------------------------------------------
+1. Copie esta pasta inteira ("ProPresenter-Remote-Deploy") para o computador onde roda
+   o ProPresenter (via Pendrive, Google Drive, Rede Local, etc.).
+
+2. Instale a Skill no Antigravity:
+   - Dê 2 cliques no arquivo "Instalar-Skill.bat".
+   - Pronto! O Antigravity desse computador já reconhecerá a skill automaticamente.
+
+3. Inicie o Controle Remoto:
+   - Certifique-se de que o ProPresenter 7 está aberto.
+   - Dê 2 cliques no arquivo "Iniciar-Controle-Remoto.bat".
+   - Uma janela preta vai abrir mostrando o IP local (exemplo: http://192.168.1.50:3000).
+
+4. No Tablet ou Celular (conectado no mesmo Wi-Fi):
+   - Abra o navegador (Safari ou Chrome) e digite o endereço mostrado na tela!
+
+--------------------------------------------------------------------------------------
+OPÇÃO 2: PEDIR AO ANTIGRAVITY FAZER TUDO SOZINHO
+--------------------------------------------------------------------------------------
+1. Copie esta pasta para o computador do ProPresenter.
+2. Abra o Antigravity nessa pasta.
+3. Abra o arquivo "PROMPT-PARA-ANTIGRAVITY.txt", copie o texto e cole no chat do Antigravity.
+4. O Antigravity vai instalar a skill, verificar o ProPresenter e iniciar o servidor para você!
+======================================================================================
