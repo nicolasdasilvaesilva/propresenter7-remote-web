@@ -50,14 +50,25 @@ Controle remoto web responsivo para **ProPresenter 7**, projetado sob medida par
   * Ou, se estiver usando o terminal com o **Antigravity**, basta pedir para ele instalar ou rodar `winget install OpenJS.NodeJS.LTS`.
 
 * **Iniciando o Controle:**
-  1. Certifique-se de que o **ProPresenter 7** está aberto com a rede habilitada (*Preferências -> Rede*, porta padrão `50820`).
-  2. Dê dois cliques em **`Iniciar-Controle-Remoto.bat`** (ou execute no terminal: `node server.js`).
-  3. Uma janela exibirá o endereço IP local da máquina (ex.: `http://10.0.21.145:3000`).
+  * **Modo Silencioso em Segundo Plano (Recomendado):** Dê dois cliques em **`Iniciar-Segundo-Plano.vbs`** — o servidor sobe 100% invisível em background, sem abrir janela preta do CMD.
+  * **Modo com Janela de Logs:** Dê dois cliques em **`Iniciar-Controle-Remoto.bat`** (exibe o IP local da máquina na tela).
+  * **Para Parar o Servidor:** Dê dois cliques em **`Parar-Controle-Remoto.bat`**.
 
-### 2. No iPad, Tablet ou Celular:
-1. Conecte o dispositivo no **mesmo Wi-Fi** do computador.
-2. Abra o navegador (Safari ou Chrome) e acesse o endereço IP exibido (ex.: `http://10.0.21.145:3000`).
-3. **Dica:** Toque em *"Adicionar à Tela de Início"* para usar o controle em tela cheia como se fosse um aplicativo nativo!
+### 2. No iPad, Tablet ou Celular (Instalação do PWA na Tela Inicial):
+
+Como o acesso local ocorre via rede interna (`http://IP_DO_PC:3000`), siga o procedimento abaixo para criar o atalho com o ícone oficial em tela cheia:
+
+* **No iPad / iPhone (Safari):**
+  1. Abra o Safari e digite o IP (ex.: `http://10.0.21.208:3000`).
+  2. Toque no botão de **Compartilhar** (quadrado com seta para cima).
+  3. Escolha **"Adicionar à Tela de Início"**.
+  4. O ícone oficial do ProPresenter será fixado na tela inicial e abrirá em **tela cheia** (sem barras do navegador).
+
+* **No Tablet Android (Google Chrome / Firefox):**
+  1. Abra o navegador e acesse o endereço (ex.: `http://10.0.21.208:3000`).
+  2. Toque no menu de **3 pontinhos** no canto superior direito.
+  3. Selecione **"Adicionar à tela inicial"** (ou "Instalar aplicativo").
+  4. Pronto! O atalho nativo será instalado na área de trabalho do tablet.
 
 ---
 

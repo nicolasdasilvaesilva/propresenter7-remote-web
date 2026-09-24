@@ -550,8 +550,8 @@ function renderAllMediaItemsGrid(items, activeIdx = 0) {
     card.innerHTML = `
       <div class="slide-index-label">${idx + 1}</div>
       <div class="slide-preview-wrapper" style="max-height: 280px;">
-        <img class="slide-thumbnail-img" src="${thumbUrl}" onerror="this.style.display='none';" alt="${escapeHtml(itemName)}" loading="lazy">
-        <div class="slide-text-overlay">${escapeHtml(itemName)}</div>
+        <img class="slide-thumbnail-img" src="${thumbUrl}" onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');" alt="${escapeHtml(itemName)}" loading="lazy">
+        <div class="slide-text-overlay hidden">${escapeHtml(itemName)}</div>
         <div class="live-badge-tag ${isLive ? '' : 'hidden'}">AO VIVO</div>
       </div>
     `;
