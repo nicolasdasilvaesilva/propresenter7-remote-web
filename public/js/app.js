@@ -84,6 +84,38 @@ window.addEventListener('DOMContentLoaded', () => {
   loadLooks();
   loadInitialPlaylists();
   startStatusPolling();
+  registerServiceWorker();
+});
+
+// Registro do Service Worker para PWA
+function registerServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/service-worker.js')
+      .then(reg => console.log('ProPresenter PWA Service Worker registrado:', reg.scope))
+      .catch(err => console.log('Erro ao registrar Service Worker:', err));
+  }
+}
+
+// Suporte para prompt de instalação PWA
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Exibe o botão de instalar app no header se estiver oculto
+  const installBtn = document.getElementById('btn-install-pwa');
+  if (installBtn) {
+    installBtn.classList.remove('hidden');
+    installBtn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          installBtn.classList.add('hidden');
+        }
+        deferredPrompt = null;
+      }
+    });
+  }
 });
 
 function setupEventListeners() {
