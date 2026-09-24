@@ -1,11 +1,11 @@
 ---
 name: propresenter-expert
-description: Especialista em automação, integração e controle remoto do ProPresenter 7 via OpenAPI v1 REST API. Guia completo de endpoints (Looks, Mídia/ProContent, Playlists de Culto, Slides, Miniaturas, Triggers, Clear), arquitetura web remota responsiva para iPad/celular e solução de problemas.
+description: Especialista em automação, integração e controle remoto do ProPresenter 7 via OpenAPI v1 REST API. Guia completo de endpoints (Looks, Mídia/ProContent, Playlists de Culto, Slides, Miniaturas, Triggers, Clear), arquitetura web remota responsiva para iPad/celular, inicialização automática em segundo plano no Windows e PWA.
 ---
 
 # ProPresenter 7 Expert Skill
 
-Esta skill fornece conhecimento avançado sobre a integração, automação e desenvolvimento de controladores remotos para o **ProPresenter 7** através da **OpenAPI v1 REST API** oficial.
+Esta skill fornece conhecimento avançado sobre a integração, automação, desenvolvimento e implantação de controladores remotos para o **ProPresenter 7** através da **OpenAPI v1 REST API** oficial.
 
 ---
 
@@ -32,6 +32,7 @@ Esta skill fornece conhecimento avançado sobre a integração, automação e de
 * `GET /v1/media/playlist/{playlist_id}/{media_id}/trigger`: Dispara o item de mídia especificado na tela.
 * `GET /v1/media/{uuid}/thumbnail`: Retorna a imagem em JPEG da miniatura da mídia.
 * `GET /v1/trigger/media/next` e `GET /v1/trigger/media/previous`: Avança ou retrocede mídias.
+* **Apresentação de Mídia:** Na interface do controle remoto, a pasta de mídia deve exibir a grade completa com todos os itens da pasta. As imagens de arte gráfica (títulos de sermão, versículos) devem aparecer **sem texto sobreposto**, mantendo a arte limpa e 100% legível.
 
 ### C. Playlists de Culto / Apresentações (Área Superior)
 * `GET /v1/playlists`: Retorna a lista de playlists de apresentações de culto.
@@ -59,29 +60,56 @@ Esta skill fornece conhecimento avançado sobre a integração, automação e de
 
 ---
 
-## 3. Arquitetura Recomendada para o Controle Remoto Web
+## 3. Arquitetura do Controle Remoto Web & PWA
 
 1. **Backend (Node.js Nativo):**
-   * Servidor HTTP ultra-leve (`http`, `fs`, `path`, `os`), sem necessidade de `npm install`.
-   * Proxy reverso transparente: todas as chamadas em `/api/v1/...` são encaminhadas internamente para `http://localhost:50820/v1/...`.
-   * Detecção automática dos IPs locais da máquina para exibição fácil no terminal e no modal de configurações.
+   * Servidor HTTP ultra-leve (`http`, `fs`, `path`, `os`), sem dependências externas (`npm install`).
+   * Proxy reverso transparente embutido para `/api/v1/...`.
+   * Detecção automática dos IPs locais da máquina.
 
 2. **Frontend Responsivo (Mobile + iPad/Tablet):**
-   * **Modo Celular (< 768px):** Layout em coluna única com *Preview* de 16:9 no topo, botões de transporte grandes (`<<` e `>>`) e lista vertical de itens com destaque ativo em azul ProPresenter (`#2563eb`).
-   * **Modo Tablet / iPad (>= 768px):** Layout Split View em duas colunas:
-     * Coluna Esquerda: Preview grande ao vivo, transporte e lista de itens da playlist/pasta.
-     * Coluna Direita: Grade/lista com todos os slides ou mídias individuais da pasta em alta definição, com badge `AO VIVO` e disparo por toque direto.
-   * **Suporte a PWA / Tela Cheia:** Tags `apple-mobile-web-app-capable` para permitir "Adicionar à Tela de Início" no iPadOS e rodar sem barras de navegador.
+   * **Modo Celular (< 768px):** Coluna única vertical com *Preview* grande de 16:9, controles de transporte (`<<` e `>>`) e lista vertical.
+   * **Modo Tablet / iPad (>= 768px):** Split View em 2 colunas:
+     * Coluna Esquerda: Preview ao vivo e lista vertical da pasta.
+     * Coluna Direita: Grade completa de todos os slides ou mídias individuais da pasta com miniaturas reais e badge `AO VIVO`.
+   * **PWA (Progressive Web App):**
+     * Manifest (`manifest.json`) com `display: standalone`.
+     * Ícones oficiais do ProPresenter em alta resolução (192x192, 512x512, apple-touch-icon).
+     * Service Worker para cache e estabilidade em Wi-Fi.
 
 ---
 
-## 4. Checklist para Instalação em Nova Máquina
+## 4. Inicialização Automática com o Windows em Segundo Plano (Backend / Silencioso)
 
-1. **Pré-requisitos no computador:**
-   * ProPresenter 7 instalado e rodando com a opção **Rede** ativada nas preferências (porta padrão `50820`).
-   * Node.js instalado (v18 ou superior).
-2. **Execução:**
-   * Rodar `node server.js` ou dar dois cliques em `Iniciar-Controle-Remoto.bat`.
-   * Acessar no navegador do PC em `http://localhost:3000` ou no iPad/tablet em `http://<IP_DO_PC>:3000`.
-3. **Firewall do Windows:**
-   * Permitir entrada na porta TCP `3000` na rede local para liberar o acesso de tablets e smartphones.
+Quando o usuário solicitar para a aplicação **iniciar junto com o Windows em segundo plano**, você deve configurar um inicializador **VBScript silencioso** (sem janela preta aberta):
+
+1. **Localização da pasta Inicializar do Windows:**
+   `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`
+2. **Criação do Script de Inicialização Silenciosa:**
+   Criar um arquivo `ProPresenter-Remote-AutoStart.vbs` dentro da pasta `Startup`:
+   ```vbscript
+   Set WshShell = CreateObject("WScript.Shell")
+   WshShell.CurrentDirectory = "C:\caminho\para\propresenter-remote"
+   WshShell.Run "node server.js", 0, False
+   ```
+   *Nota: O parâmetro `0` faz com que o Node.js rode 100% invisível em segundo plano, sem janela de CMD atrapalhando os operadores da igreja.*
+3. **Controle Manual:**
+   * Iniciar em segundo plano manualmente: `Iniciar-Segundo-Plano.vbs`.
+   * Parar o servidor: `taskkill /f /im node.exe` (ou via `Parar-Controle-Remoto.bat`).
+
+---
+
+## 5. Como o Antigravity Deve Configurar uma Nova Máquina
+
+Ao ser acionado em um computador novo onde roda o ProPresenter 7, o agente Antigravity deve executar o seguinte fluxo de forma autônoma:
+
+1. **Instalar Node.js se ausente:**
+   ```powershell
+   winget install --id OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements --silent
+   ```
+2. **Instalar esta Skill globalmente:**
+   Copiar este arquivo `SKILL.md` para `%USERPROFILE%\.gemini\config\skills\propresenter-expert\SKILL.md`.
+3. **Configurar inicialização automática com o Windows:**
+   Executar `Configurar-Inicio-Automatico.bat` ou injetar o VBS na pasta Startup do usuário.
+4. **Iniciar o serviço e fornecer o link de rede:**
+   Executar `node server.js` ou `Iniciar-Segundo-Plano.vbs` e exibir o endereço IP local (ex.: `http://10.0.21.145:3000`) para o operador abrir no iPad ou smartphone.
