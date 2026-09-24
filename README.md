@@ -43,13 +43,20 @@ Controle remoto web responsivo para **ProPresenter 7**, projetado sob medida par
 ## 🚀 Como Executar
 
 ### 1. No computador onde roda o ProPresenter 7:
-1. Certifique-se de que o **Node.js** (v18+) está instalado e o **ProPresenter 7** está aberto com a rede habilitada (*Preferências -> Rede*, porta padrão `50820`).
-2. Dê dois cliques em **`Iniciar-Controle-Remoto.bat`** (ou execute no terminal: `node server.js`).
-3. Uma janela exibirá o endereço IP local da máquina (ex.: `http://10.0.21.208:3000`).
+
+* **Se for um computador novo (sem nada instalado):**
+  * Você só precisa do **Node.js** (não precisa de Python nem de Docker!).
+  * Dê 2 cliques no arquivo **`1-Instalar-NodeJS.bat`** incluído neste projeto — ele baixa e instala o Node.js LTS automaticamente para você!
+  * Ou, se estiver usando o terminal com o **Antigravity**, basta pedir para ele instalar ou rodar `winget install OpenJS.NodeJS.LTS`.
+
+* **Iniciando o Controle:**
+  1. Certifique-se de que o **ProPresenter 7** está aberto com a rede habilitada (*Preferências -> Rede*, porta padrão `50820`).
+  2. Dê dois cliques em **`Iniciar-Controle-Remoto.bat`** (ou execute no terminal: `node server.js`).
+  3. Uma janela exibirá o endereço IP local da máquina (ex.: `http://10.0.21.145:3000`).
 
 ### 2. No iPad, Tablet ou Celular:
 1. Conecte o dispositivo no **mesmo Wi-Fi** do computador.
-2. Abra o navegador (Safari ou Chrome) e acesse o endereço IP exibido (ex.: `http://10.0.21.208:3000`).
+2. Abra o navegador (Safari ou Chrome) e acesse o endereço IP exibido (ex.: `http://10.0.21.145:3000`).
 3. **Dica:** Toque em *"Adicionar à Tela de Início"* para usar o controle em tela cheia como se fosse um aplicativo nativo!
 
 ---

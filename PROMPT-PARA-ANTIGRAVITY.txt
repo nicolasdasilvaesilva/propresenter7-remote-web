@@ -1,11 +1,27 @@
-Cole a mensagem abaixo no chat do Antigravity no computador onde está o ProPresenter:
+Copie e cole a mensagem abaixo no chat do Antigravity no computador onde está o ProPresenter:
 
---------------------------------------------------------------------------------------
-Olá! Eu baixei a pasta do "ProPresenter 7 Remote Controller" com a skill especialista "propresenter-expert". 
+======================================================================================
+Olá! Preciso instalar e rodar o controle remoto web do ProPresenter 7 neste computador a partir do repositório:
+https://github.com/nicolasdasilvaesilva/propresenter7-remote-web.git
 
-Por favor, faça o seguinte para mim:
-1. Instale a skill "propresenter-expert" que está na pasta "skills/propresenter-expert/SKILL.md" copiando-a para a pasta global de skills do Antigravity (%USERPROFILE%\.gemini\config\skills\propresenter-expert\SKILL.md).
-2. Verifique se o Node.js está instalado nesta máquina.
-3. Inicie o servidor do controle remoto executando "node server.js".
-4. Me informe qual é o endereço IP local e o link que devo abrir no meu iPad, tablet e celular para controlar o ProPresenter 7.
---------------------------------------------------------------------------------------
+Por favor, faça tudo para mim de forma 100% autônoma seguindo estes passos:
+
+1. CLONAR O PROJETO:
+   - Clone o repositório acima em uma pasta local do workspace (ex: propresenter7-remote-web).
+
+2. VERIFICAR / INSTALAR NODE.JS:
+   - Verifique se o Node.js está instalado executando "node -v".
+   - Se o Node.js NÃO estiver instalado (máquina limpa), instale-o automaticamente executando no terminal:
+     winget install --id OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements --silent
+     (ou baixando o MSI oficial do Node.js v22 LTS caso o winget não esteja disponível).
+
+3. INSTALAR A SKILL NO ANTIGRAVITY:
+   - Copie o arquivo "skills/propresenter-expert/SKILL.md" deste projeto para a pasta global de skills do Antigravity:
+     %USERPROFILE%\.gemini\config\skills\propresenter-expert\SKILL.md
+   - Assim você se tornará especialista em ProPresenter 7 nesta máquina também.
+
+4. INICIAR O CONTROLE REMOTO:
+   - Certifique-se de que o ProPresenter 7 está aberto.
+   - Inicie o servidor executando: node server.js
+   - Descubra qual é o IP local desta máquina e me forneça o link exato para eu abrir no Safari/Chrome do meu iPad ou Celular!
+======================================================================================
