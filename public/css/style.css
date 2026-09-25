@@ -2409,11 +2409,38 @@ html, body {
 /* ==========================================================================
    RESPONSIVIDADE (MOBILE VS TABLET)
    ========================================================================== */
-/* No Celular (<= 768px): Exibe barra de menu elegante acima do preview conforme solicitado */
+/* No Celular (<= 768px): Menu corre fluido no cabeçalho superior igual ao iPad e Tablet */
 @media (max-width: 768px) {
   .app-header {
-    padding: 0 10px;
-    height: 50px;
+    height: 56px;
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-top: max(6px, env(safe-area-inset-top));
+    padding-bottom: 6px;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    white-space: nowrap !important;
+    scrollbar-width: none !important;
+    gap: 8px;
+  }
+
+  .app-header::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  .header-left {
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .header-right {
+    gap: 8px;
+    flex-shrink: 0;
+    margin-left: 0;
+    padding-left: 0;
   }
 
   .settings-text {
@@ -2421,18 +2448,22 @@ html, body {
   }
 
   .active-playlist-badge {
-    max-width: 170px;
+    max-width: 140px;
   }
 
-  /* Oculta os botões rápidos do header no celular para não quebrar a barra */
-  .header-controls-desktop,
-  .header-search-desktop {
-    display: none !important;
-  }
-
-  /* Exibe a barra dedicada de menu elegante no celular (logo acima do preview) */
-  .mobile-actions-bar {
+  /* MANTÉM OS CONTROLES NO CABEÇALHO CORRENDO FLUIDO NO CELULAR (IGUAL IPAD E TABLET) */
+  .header-controls-desktop {
     display: flex !important;
+    flex-shrink: 0;
+  }
+
+  .header-search-desktop {
+    display: none !important; /* Pesquisa de músicas fica acessível no drawer para economizar largura */
+  }
+
+  /* OCULTA A BARRA DUPLICADA DO CONTEÚDO POIS AGORA TUDO CORRE NO TOPO */
+  .mobile-actions-bar {
+    display: none !important;
   }
 
   .main-container {
@@ -2464,21 +2495,86 @@ html, body {
     font-size: 12px;
   }
 
-  /* Posicionamento dos menus suspensos na barra mobile */
-  .mobile-actions-bar .look-dropdown-menu {
-    left: 0;
-    right: auto;
-    top: calc(100% + 6px);
-    z-index: 2500;
-    min-width: 180px;
+  /* =========================================================================
+     AJUSTES DO POPUP DO STAGE DISPLAY NO CELULAR (100% RESPONSIVO E UNIFORME)
+     ========================================================================= */
+  .modal-stage-box {
+    width: 95% !important;
+    max-width: 95vw !important;
+    max-height: 90vh !important;
+    border-radius: 10px !important;
   }
 
-  .mobile-actions-bar .clear-dropdown-menu {
-    right: 0;
-    left: auto;
-    top: calc(100% + 6px);
-    z-index: 2500;
-    min-width: 210px;
+  .stage-modal-body {
+    padding: 10px 12px !important;
+    gap: 8px !important;
+  }
+
+  .stage-all-screens-card {
+    padding: 10px 12px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .stage-all-title {
+    font-size: 12px !important;
+  }
+
+  .stage-all-hint {
+    display: none !important; /* Oculta dica longa no celular para economizar altura */
+  }
+
+  .stage-all-grid {
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+  }
+
+  .stage-layout-chip-all {
+    padding: 8px 10px !important;
+    font-size: 11.5px !important;
+  }
+
+  .stage-screen-card {
+    padding: 10px 12px !important;
+  }
+
+  .stage-screen-name {
+    font-size: 12px !important;
+  }
+
+  .stage-screen-current-layout {
+    font-size: 10px !important;
+    padding: 2px 6px !important;
+  }
+
+  .stage-layouts-grid {
+    grid-template-columns: repeat(auto-fit, minmax(95px, 1fr)) !important;
+    gap: 5px !important;
+  }
+
+  .stage-layout-chip {
+    padding: 7px 6px !important;
+    font-size: 11px !important;
+  }
+
+  .stage-message-box {
+    padding: 10px 12px !important;
+  }
+
+  .stage-msg-input-row {
+    flex-direction: column !important;
+    gap: 6px !important;
+  }
+
+  .stage-msg-input {
+    width: 100% !important;
+    font-size: 12.5px !important;
+  }
+
+  .stage-msg-input-row .btn-primary,
+  .stage-msg-input-row .btn-pro-clear {
+    width: 100% !important;
+    justify-content: center !important;
+    text-align: center !important;
   }
 
   /* MODAL DE MACRO NO CELULAR (4x2 COMPACTO, ELEGANTE E SEM ROLAGEM) */
