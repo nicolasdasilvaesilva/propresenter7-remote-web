@@ -210,6 +210,107 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Endpoint para adicionar música à playlist de culto sem tocar e sem sair da tela atual
+  if (pathname === '/api/add-song-to-playlist' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', async () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        const { songUuid, songName } = payload;
+        let { playlistId, playlistName } = payload;
+
+        if (!songUuid) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'songUuid é obrigatório' }));
+          return;
+        }
+
+        // 1. Busca as playlists de apresentação (Culto) disponíveis
+        const plRes = await fetch(`http://${PROPRESENTER_HOST}:${PROPRESENTER_PORT}/v1/playlists`);
+        const playlists = await plRes.json();
+        const presPlaylists = Array.isArray(playlists) ? playlists : [];
+
+        let targetPl = null;
+        if (playlistId) {
+          targetPl = presPlaylists.find(p => (p.id?.uuid === playlistId || p.id?.index == playlistId));
+        }
+        if (!targetPl && playlistName) {
+          const normPlName = playlistName.trim().toUpperCase();
+          targetPl = presPlaylists.find(p => p.id?.name && p.id.name.trim().toUpperCase() === normPlName);
+        }
+        if (!targetPl && presPlaylists.length > 0) {
+          // Fallback para a primeira playlist de culto ativa (ex: DOMINGO)
+          targetPl = presPlaylists[0];
+        }
+
+        if (!targetPl || !targetPl.id?.uuid) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Nenhuma playlist de culto encontrada para receber a música.' }));
+          return;
+        }
+
+        const targetPlUuid = targetPl.id.uuid;
+        const targetPlName = targetPl.id.name || 'Playlist';
+
+        // 2. Busca os itens existentes na playlist
+        const curRes = await fetch(`http://${PROPRESENTER_HOST}:${PROPRESENTER_PORT}/v1/playlist/${targetPlUuid}`);
+        const curData = await curRes.json();
+        const existingItems = Array.isArray(curData?.items) ? curData.items : [];
+
+        // 3. Monta o novo item com a estrutura completa e validada pelo ProPresenter
+        const nextIdx = existingItems.length;
+        const newItem = {
+          id: {
+            index: nextIdx,
+            name: songName || 'Música',
+            uuid: songUuid
+          },
+          type: 'presentation',
+          is_hidden: false,
+          is_pco: false,
+          presentation_info: {
+            presentation_uuid: songUuid,
+            arrangement_name: '',
+            arrangement_uuid: ''
+          },
+          target_uuid: songUuid,
+          destination: 'presentation'
+        };
+
+        const updatedList = [...existingItems, newItem];
+
+        // 4. Envia o PUT com a lista completa para o ProPresenter
+        const putRes = await fetch(`http://${PROPRESENTER_HOST}:${PROPRESENTER_PORT}/v1/playlist/${targetPlUuid}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedList)
+        });
+
+        if (putRes.status === 204 || putRes.ok) {
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({
+            success: true,
+            playlistId: targetPlUuid,
+            playlistName: targetPlName,
+            songName: songName,
+            songUuid: songUuid,
+            totalItems: updatedList.length
+          }));
+        } else {
+          const errText = await putRes.text();
+          res.writeHead(putRes.status, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Erro ao adicionar item na API do ProPresenter', details: errText }));
+        }
+      } catch (err) {
+        console.error('Erro no /api/add-song-to-playlist:', err);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
   // Proxy reverso transparente para a API do ProPresenter (/api/v1/...)
   if (pathname.startsWith('/api/v1/')) {
     const targetPath = pathname.replace(/^\/api/, '') + (parsedUrl.search || '');

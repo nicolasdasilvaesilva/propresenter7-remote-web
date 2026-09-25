@@ -2133,6 +2133,22 @@ async function executeSearch(query, resultsEl) {
   }
 }
 
+function showToast(message, type = 'success') {
+  let toastEl = document.getElementById('app-floating-toast');
+  if (!toastEl) {
+    toastEl = document.createElement('div');
+    toastEl.id = 'app-floating-toast';
+    toastEl.className = 'app-floating-toast';
+    document.body.appendChild(toastEl);
+  }
+  toastEl.textContent = message;
+  toastEl.className = `app-floating-toast visible toast-${type}`;
+  clearTimeout(toastEl._timer);
+  toastEl._timer = setTimeout(() => {
+    toastEl.classList.remove('visible');
+  }, 3500);
+}
+
 function renderSearchResults(items, resultsEl) {
   if (items.length === 0) {
     resultsEl.innerHTML = `<div class="search-empty-state">Nenhuma música encontrada</div>`;
@@ -2147,12 +2163,29 @@ function renderSearchResults(items, resultsEl) {
     const row = document.createElement('div');
     row.className = 'search-item-row';
     row.innerHTML = `
-      <div class="search-item-title">${escapeHtml(item.name)}</div>
-      <div class="search-item-meta">
-        <span class="search-item-lib-badge">${escapeHtml(item.libraryName)}</span>
-        <span>Apresentação</span>
+      <div class="search-item-info">
+        <div class="search-item-title">${escapeHtml(item.name)}</div>
+        <div class="search-item-meta">
+          <span class="search-item-lib-badge">${escapeHtml(item.libraryName || 'Música')}</span>
+          <span>Apresentação</span>
+        </div>
       </div>
+      <button class="btn-add-search-playlist" title="Adicionar ao final da Playlist de Culto sem tocar ao vivo e sem sair da tela">
+        <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <span>＋ Add à Playlist</span>
+      </button>
     `;
+
+    // Botão de adicionar à playlist sem disparar no telão e sem sair da tela atual
+    const btnAdd = row.querySelector('.btn-add-search-playlist');
+    if (btnAdd) {
+      btnAdd.addEventListener('click', (e) => {
+        e.stopPropagation();
+        handleAddSongToCultoPlaylist(item, resultsEl);
+      });
+    }
+
+    // Clique na linha abre a apresentação
     row.addEventListener('click', () => {
       resultsEl.classList.add('hidden');
       openPresentationFromSearch(item);
@@ -2164,6 +2197,42 @@ function renderSearchResults(items, resultsEl) {
   if (inputEl) positionSearchResults(inputEl, resultsEl);
 
   resultsEl.classList.remove('hidden');
+}
+
+async function handleAddSongToCultoPlaylist(item, resultsEl) {
+  try {
+    const activePlId = (state.activePlaylistType === 'presentation') ? state.activePlaylistId : null;
+    const activePlName = (state.activePlaylistType === 'presentation') ? state.activePlaylistName : null;
+
+    showToast(`Adicionando "${item.name}" à playlist de culto...`, 'info');
+
+    const res = await fetch('/api/add-song-to-playlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        songUuid: item.uuid,
+        songName: item.name,
+        playlistId: activePlId,
+        playlistName: activePlName
+      })
+    });
+
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast(`✓ "${item.name}" adicionada à playlist ${data.playlistName}! (Não iniciada ao vivo)`, 'success');
+      
+      // Se o usuário já estiver na tela de apresentações com essa playlist aberta, atualiza a lista
+      if (state.activePlaylistType === 'presentation' && state.activePlaylistId === data.playlistId) {
+        await loadPlaylistItems('presentation', data.playlistId);
+      }
+      // Se estiver em Mídia (vídeos/avisos), permanece 100% nela sem alterar preview ou playback!
+    } else {
+      showToast(`Erro ao adicionar: ${data.error || 'Falha na API'}`, 'info');
+    }
+  } catch (err) {
+    console.error('Erro ao adicionar música na playlist:', err);
+    showToast('Erro ao comunicar com o servidor', 'info');
+  }
 }
 
 async function openPresentationFromSearch(item) {
@@ -2341,12 +2410,65 @@ async function loadStageData() {
     });
     const currentLayouts = await Promise.all(screenLayoutPromises);
 
+    // Helper para verificar se a tela participa da troca coletiva dos retornos de plataforma
+    function isScreenIncludedInSync(screen) {
+      const name = (screen.name || screen.id?.name || '').toLowerCase();
+      const screenId = (screen.index !== undefined) ? screen.index : (screen.id?.index ?? 0);
+      
+      const storedConfig = localStorage.getItem('propresenter_stage_sync_map');
+      if (storedConfig) {
+        try {
+          const map = JSON.parse(storedConfig);
+          if (map[name] !== undefined) return Boolean(map[name]);
+          if (map[screenId] !== undefined) return Boolean(map[screenId]);
+        } catch (e) {}
+      }
+
+      // Regra padrão solicitada: iPad ou NDI é SEMPRE independente (marcado com X vermelho)
+      if (name.includes('ipad') || name.includes('ndi')) {
+        return false;
+      }
+      // Retornos de plataforma (R / L) mudam em conjunto
+      return true;
+    }
+
+    window.toggleScreenSyncPreference = function(screenId, screenName, checked) {
+      try {
+        let map = {};
+        const storedConfig = localStorage.getItem('propresenter_stage_sync_map');
+        if (storedConfig) {
+          try { map = JSON.parse(storedConfig); } catch (e) {}
+        }
+        const key = (screenName || '').toLowerCase();
+        map[key] = checked;
+        map[screenId] = checked;
+        localStorage.setItem('propresenter_stage_sync_map', JSON.stringify(map));
+
+        const card = document.getElementById(`stage-card-screen-${screenId}`);
+        if (card) {
+          card.classList.toggle('is-independent', !checked);
+          const badgeContainer = card.querySelector('.stage-badge-container');
+          if (badgeContainer) {
+            badgeContainer.innerHTML = checked
+              ? '<span class="stage-sync-badge" title="Muda junto ao clicar nos botões da Plataforma">⚡ Plataforma</span>'
+              : '<span class="stage-independent-badge" title="Tela 100% independente: não altera ao clicar nos botões da Plataforma">🔒 Independente</span>';
+          }
+        }
+        showToast(checked ? `"${screenName}" agora muda junto com a Plataforma.` : `"${screenName}" agora é 100% independente!`, 'info');
+      } catch (err) {
+        console.error('Erro ao salvar preferência de sincronização de palco:', err);
+      }
+    };
+
     let html = '';
 
     // =========================================================================
-    // SEÇÃO 1: MUDAR TODOS OS RETORNOS DE UMA VEZ PARA A MESMA TELA
+    // SEÇÃO 1: MUDAR RETORNOS DA PLATAFORMA (R & L) - EXCLUI IPAD/NDI
     // =========================================================================
-    if (stageScreensCache.length > 0 && stageLayoutsCache.length > 0) {
+    const syncedScreens = stageScreensCache.filter(isScreenIncludedInSync);
+    const syncedNames = syncedScreens.map(s => s.name || s.id?.name || 'Retorno').join(' e ');
+
+    if (syncedScreens.length > 0 && stageLayoutsCache.length > 0) {
       html += `
         <div class="stage-all-screens-card">
           <div class="stage-all-screens-header">
@@ -2354,9 +2476,9 @@ async function loadStageData() {
               <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none">
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
               </svg>
-              Mudar Todos os Retornos de Uma Vez
+              Mudar Retornos Plataforma (${syncedScreens.length} Telas)
             </span>
-            <span class="stage-all-hint">Aplica o mesmo layout em todos os ${stageScreensCache.length} retornos</span>
+            <span class="stage-all-hint">Aplica em ${escapeHtml(syncedNames)} (iPad-PCA permanece 100% independente)</span>
           </div>
           <div class="stage-all-grid">
       `;
@@ -2370,7 +2492,7 @@ async function loadStageData() {
             <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none">
               <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
             </svg>
-            <span class="chip-text">Todos: ${escapeHtml(layoutName)}</span>
+            <span class="chip-text">Plataforma: ${escapeHtml(layoutName)}</span>
           </button>
         `;
       });
@@ -2399,19 +2521,32 @@ async function loadStageData() {
       html += '<div style="color: #6b7280; font-size: 13px; padding: 10px;">Nenhuma tela de palco configurada no momento.</div>';
     } else {
       stageScreensCache.forEach((screen, sIdx) => {
-        // Nome real retornado pela API do ProPresenter (ex: RETORNO PLATAFORMA R, RETORNO PLATAFORMA L, iPad-PCA - NDI 4)
         const screenName = screen.name || screen.id?.name || `Retorno ${sIdx + 1}`;
         const screenId = (screen.index !== undefined) ? screen.index : (screen.id?.index ?? sIdx);
         const curLayoutObj = currentLayouts[sIdx];
         const curLayoutName = curLayoutObj?.name || curLayoutObj?.id?.name || 'Padrão';
         const curLayoutIdx = (curLayoutObj?.index !== undefined) ? curLayoutObj.index : curLayoutObj?.id?.index;
         const curLayoutUuid = curLayoutObj?.id?.uuid || curLayoutObj?.uuid;
+        const isSync = isScreenIncludedInSync(screen);
 
         html += `
-          <div class="stage-screen-card" id="stage-card-screen-${screenId}" data-screen-id="${screenId}">
+          <div class="stage-screen-card ${isSync ? '' : 'is-independent'}" id="stage-card-screen-${screenId}" data-screen-id="${screenId}">
             <div class="stage-screen-header">
-              <span class="stage-screen-name">📺 ${escapeHtml(screenName)}</span>
-              <span class="stage-screen-current-layout">Layout Atual: <strong class="lbl-cur-layout">${escapeHtml(curLayoutName)}</strong></span>
+              <div class="stage-screen-name-row">
+                <span class="stage-screen-name">📺 ${escapeHtml(screenName)}</span>
+                <span class="stage-badge-container">
+                  ${isSync 
+                    ? '<span class="stage-sync-badge" title="Muda junto ao clicar nos botões da Plataforma">⚡ Plataforma</span>' 
+                    : '<span class="stage-independent-badge" title="Tela 100% independente: não altera ao clicar nos botões da Plataforma">🔒 Independente</span>'}
+                </span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <label class="stage-sync-toggle-label" title="Marque para incluir ou desmarque para deixar independente">
+                  <input type="checkbox" ${isSync ? 'checked' : ''} onchange="toggleScreenSyncPreference('${screenId}', '${escapeHtml(screenName)}', this.checked)">
+                  <span>Mudar em conjunto</span>
+                </label>
+                <span class="stage-screen-current-layout">Layout Atual: <strong class="lbl-cur-layout">${escapeHtml(curLayoutName)}</strong></span>
+              </div>
             </div>
             <div class="stage-layouts-grid">
         `;
@@ -2494,11 +2629,27 @@ window.handleSetStageLayout = async function(screenId, layoutTarget, layoutName,
   }
 };
 
-// Troca o layout de TODAS as telas sequencialmente usando UUID garantido
+// Troca o layout APENAS dos retornos de plataforma sincronizados (iPad-PCA permanece 100% independente!)
 window.handleSetAllStageLayouts = async function(layoutTarget, layoutName) {
   try {
-    // 1. Atualiza imediatamente o visual de todas as telas na interface
-    stageScreensCache.forEach(s => {
+    function isIncluded(s) {
+      const name = (s.name || s.id?.name || '').toLowerCase();
+      const sId = (s.index !== undefined) ? s.index : (s.id?.index ?? 0);
+      const stored = localStorage.getItem('propresenter_stage_sync_map');
+      if (stored) {
+        try {
+          const map = JSON.parse(stored);
+          if (map[name] !== undefined) return Boolean(map[name]);
+          if (map[sId] !== undefined) return Boolean(map[sId]);
+        } catch (e) {}
+      }
+      return !name.includes('ipad') && !name.includes('ndi');
+    }
+
+    const targetScreens = stageScreensCache.filter(isIncluded);
+
+    // 1. Atualiza visual APENAS das telas da plataforma
+    targetScreens.forEach(s => {
       const sId = (s.index !== undefined) ? s.index : (s.id?.index ?? 0);
       const card = document.getElementById(`stage-card-screen-${sId}`);
       if (card) {
@@ -2513,14 +2664,16 @@ window.handleSetAllStageLayouts = async function(layoutTarget, layoutName) {
       }
     });
 
-    // 2. Envia para cada tela sequencialmente com pequeno intervalo passando o UUID do layout
-    for (const screen of stageScreensCache) {
+    // 2. Envia comandos para a API do ProPresenter APENAS para as telas sincronizadas (iPad-PCA NUNCA é chamado)
+    for (const screen of targetScreens) {
       const sId = (screen.index !== undefined) ? screen.index : (screen.id?.index ?? 0);
       await apiRequest(`/v1/stage/screen/${encodeURIComponent(sId)}/layout/${encodeURIComponent(layoutTarget)}`);
       await new Promise(r => setTimeout(r, 70));
     }
+
+    showToast(`✓ Retornos Plataforma alterados para "${layoutName}"! (iPad-PCA inalterado)`, 'info');
   } catch (err) {
-    console.error('Erro ao trocar layouts de todos os retornos:', err);
+    console.error('Erro ao trocar layouts dos retornos da plataforma:', err);
   }
 };
 

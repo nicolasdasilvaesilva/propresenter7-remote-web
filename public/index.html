@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-title" content="Pro Remote">
   <meta name="theme-color" content="#121316">
   <title>ProPresenter 7 Remote</title>
-  <link rel="stylesheet" href="css/style.css?v=3.5">
+  <link rel="stylesheet" href="css/style.css?v=3.7">
 </head>
 <body class="dark-theme">
 
@@ -529,20 +529,20 @@
             <span>Instalar</span>
           </button>
         </div>
+      </div>
 
-        <!-- BUSCA INTEGRADA MOBILE -->
-        <div class="search-box-wrapper mobile-search-wrapper" id="mobile-search-wrapper">
-          <div class="search-input-inner">
-            <svg class="search-icon" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input type="text" id="mobile-search-input" class="search-input-field" placeholder="Buscar músicas e letras..." autocomplete="off">
-            <button id="btn-mobile-clear-search" class="clear-search-btn hidden" title="Limpar">✕</button>
-          </div>
-          <div class="search-dropdown-results hidden" id="mobile-search-results">
-            <!-- Resultados renderizados via JS -->
-          </div>
+      <!-- BARRA DE PESQUISA DEDICADA PARA CELULAR -->
+      <div class="mobile-search-strip" id="mobile-search-strip">
+        <div class="search-input-inner">
+          <svg class="search-icon" viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="mobile-search-input" class="search-input-field" placeholder="Buscar em 4.500+ músicas e letras..." autocomplete="off">
+          <button id="btn-mobile-clear-search" class="clear-search-btn hidden" title="Limpar">✕</button>
+        </div>
+        <div class="search-dropdown-results hidden" id="mobile-search-results">
+          <!-- Resultados renderizados via JS -->
         </div>
       </div>
 
@@ -1148,6 +1148,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=3.5"></script>
+  <script src="js/app.js?v=3.7"></script>
 </body>
 </html>
