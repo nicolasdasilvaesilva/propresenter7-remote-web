@@ -121,6 +121,12 @@ Acompanha a **Skill Especialista em ProPresenter 7** para o assistente de IA **G
 
 ## 📡 Endpoints Oficiais do ProPresenter Utilizados (OpenAPI v1)
 
+* `GET /v1/stage/screens` & `GET /v1/stage/screen/{id}/layout/{layout_id}` — Gerenciamento e troca de layout das telas de retorno de palco (individual e em massa).
+* `GET /v1/stage/message`, `PUT /v1/stage/message`, `DELETE /v1/stage/message` — Mensagens e avisos exclusivos para os retornos de palco.
+* `GET /v1/timers/current` & `GET /v1/timer/{id}/{start|stop|reset|increment}` — Cronômetros de culto em tempo real com controle e acréscimo de tempo.
+* `GET /v1/video_inputs` & `GET /v1/video_inputs/{id}/trigger` — Disparo de entradas de vídeo ao vivo (EasyWorship, Bíblia Holyrics, iPad, câmeras).
+* `GET /v1/props` & `GET /v1/prop/{id}/trigger` — Overlays e adereços de culto (Dízimos, Ofertas, Campanhas).
+* `GET /v1/capture/status` & `POST /v1/capture/{start|stop}` — Monitoramento e controle de gravação e transmissão ao vivo.
 * `GET /v1/messages` — Lista os templates de mensagens configurados (ex.: CARROS, KIDS).
 * `PUT /v1/message/{id}` — Atualiza os tokens e salva os dados no ProPresenter.
 * `POST /v1/message/{id}/trigger` — Dispara a mensagem com os tokens preenchidos para os telões.

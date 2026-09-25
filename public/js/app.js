@@ -96,6 +96,48 @@ const dom = {
   btnMobileClear: document.getElementById('btn-mobile-clear'),
   clearDropdownMenu: document.getElementById('clear-dropdown-menu'),
 
+  // Ferramentas & Submenu (Stage, Timers, Inputs, Props, Live)
+  btnQuickTools: document.getElementById('btn-quick-tools'),
+  toolsDropdownMenu: document.getElementById('tools-dropdown-menu'),
+  btnMobileTools: document.getElementById('btn-mobile-tools'),
+  mobileToolsDropdownMenu: document.getElementById('mobile-tools-dropdown-menu'),
+  toolItemStage: document.getElementById('tool-item-stage'),
+  toolItemTimers: document.getElementById('tool-item-timers'),
+  toolItemVideoInputs: document.getElementById('tool-item-video-inputs'),
+  toolItemProps: document.getElementById('tool-item-props'),
+  toolItemCapture: document.getElementById('tool-item-capture'),
+  mobileToolItemStage: document.getElementById('mobile-tool-item-stage'),
+  mobileToolItemTimers: document.getElementById('mobile-tool-item-timers'),
+  mobileToolItemVideoInputs: document.getElementById('mobile-tool-item-video-inputs'),
+  mobileToolItemProps: document.getElementById('mobile-tool-item-props'),
+  mobileToolItemCapture: document.getElementById('mobile-tool-item-capture'),
+
+  // Modais de Ferramentas
+  stageModal: document.getElementById('stage-modal'),
+  btnCloseStage: document.getElementById('btn-close-stage'),
+  stageBodyContainer: document.getElementById('stage-body-container'),
+  stageBadgeCount: document.getElementById('stage-badge-count'),
+
+  timersModal: document.getElementById('timers-modal'),
+  btnCloseTimers: document.getElementById('btn-close-timers'),
+  timersBodyContainer: document.getElementById('timers-body-container'),
+  timersBadgeCount: document.getElementById('timers-badge-count'),
+
+  videoInputsModal: document.getElementById('video-inputs-modal'),
+  btnCloseVideoInputs: document.getElementById('btn-close-video-inputs'),
+  videoInputsBodyContainer: document.getElementById('video-inputs-body-container'),
+  videoInputsBadgeCount: document.getElementById('video-inputs-badge-count'),
+
+  propsModal: document.getElementById('props-modal'),
+  btnCloseProps: document.getElementById('btn-close-props'),
+  propsBodyContainer: document.getElementById('props-body-container'),
+  propsBadgeCount: document.getElementById('props-badge-count'),
+
+  captureModal: document.getElementById('capture-modal'),
+  btnCloseCapture: document.getElementById('btn-close-capture'),
+  captureBodyContainer: document.getElementById('capture-body-container'),
+  captureBadgeCount: document.getElementById('capture-badge-count'),
+
   // Mobile Action Bar & Dropdowns
   btnMobileLook: document.getElementById('btn-mobile-look'),
   mobileLookLabel: document.getElementById('mobile-look-label'),
@@ -304,9 +346,11 @@ function teleportDropdownsToBody() {
   const elementsToPortal = [
     dom.lookDropdownMenu,
     dom.clearDropdownMenu,
+    dom.toolsDropdownMenu,
     dom.desktopSearchResults,
     dom.mobileLookDropdownMenu,
     dom.mobileClearDropdownMenu,
+    dom.mobileToolsDropdownMenu,
     dom.mobileSearchResults
   ];
 
@@ -333,7 +377,7 @@ function openFixedDropdown(btnEl, menuEl) {
   menuEl.style.top = `${rect.bottom + 6}px`;
   menuEl.style.zIndex = '99999';
 
-  const menuWidth = menuEl.offsetWidth || 210;
+  const menuWidth = menuEl.offsetWidth || 260;
   if (rect.right - menuWidth >= 10) {
     menuEl.style.left = 'auto';
     menuEl.style.right = `${window.innerWidth - rect.right}px`;
@@ -392,10 +436,65 @@ function setupEventListeners() {
     });
   }
 
+  // Submenu de Ferramentas (Desktop)
+  if (dom.btnQuickTools && dom.toolsDropdownMenu) {
+    dom.btnQuickTools.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openFixedDropdown(dom.btnQuickTools, dom.toolsDropdownMenu);
+    });
+  }
+
+  // Submenu de Ferramentas (Mobile)
+  if (dom.btnMobileTools && dom.mobileToolsDropdownMenu) {
+    dom.btnMobileTools.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openFixedDropdown(dom.btnMobileTools, dom.mobileToolsDropdownMenu);
+    });
+  }
+
+  // Itens de Ferramentas (abrem os pop-ups)
+  const bindToolAction = (el, action) => {
+    if (el) {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeAllDropdowns();
+        action();
+      });
+    }
+  };
+
+  bindToolAction(dom.toolItemStage, openStageModal);
+  bindToolAction(dom.mobileToolItemStage, openStageModal);
+  bindToolAction(dom.toolItemTimers, openTimersModal);
+  bindToolAction(dom.mobileToolItemTimers, openTimersModal);
+  bindToolAction(dom.toolItemVideoInputs, openVideoInputsModal);
+  bindToolAction(dom.mobileToolItemVideoInputs, openVideoInputsModal);
+  bindToolAction(dom.toolItemProps, openPropsModal);
+  bindToolAction(dom.mobileToolItemProps, openPropsModal);
+  bindToolAction(dom.toolItemCapture, openCaptureModal);
+  bindToolAction(dom.mobileToolItemCapture, openCaptureModal);
+
+  // Fechamento dos 5 Modais de Ferramentas
+  const bindModalClose = (btn, modal, closeFn) => {
+    if (btn) btn.addEventListener('click', closeFn);
+    if (modal) {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeFn();
+      });
+    }
+  };
+
+  bindModalClose(dom.btnCloseStage, dom.stageModal, closeStageModal);
+  bindModalClose(dom.btnCloseTimers, dom.timersModal, closeTimersModal);
+  bindModalClose(dom.btnCloseVideoInputs, dom.videoInputsModal, closeVideoInputsModal);
+  bindModalClose(dom.btnCloseProps, dom.propsModal, closePropsModal);
+  bindModalClose(dom.btnCloseCapture, dom.captureModal, closeCaptureModal);
+
   // Fecha dropdowns ao clicar ou tocar fora (com total compatibilidade com Safari no iPad)
   const handleOutsideClick = (e) => {
     if (e.target.closest('#btn-quick-look, #btn-mobile-look, #look-dropdown-menu, #mobile-look-dropdown-menu')) return;
     if (e.target.closest('#btn-quick-clear, #btn-mobile-clear, #clear-dropdown-menu, #mobile-clear-dropdown-menu')) return;
+    if (e.target.closest('#btn-quick-tools, #btn-mobile-tools, #tools-dropdown-menu, #mobile-tools-dropdown-menu')) return;
     if (e.target.closest('#desktop-search-input, #desktop-search-results, #mobile-search-input, #mobile-search-results')) return;
 
     closeAllDropdowns();
@@ -609,6 +708,8 @@ function closeAllDropdowns() {
   if (dom.mobileLookDropdownMenu) dom.mobileLookDropdownMenu.classList.remove('open');
   if (dom.clearDropdownMenu) dom.clearDropdownMenu.classList.remove('open');
   if (dom.mobileClearDropdownMenu) dom.mobileClearDropdownMenu.classList.remove('open');
+  if (dom.toolsDropdownMenu) dom.toolsDropdownMenu.classList.remove('open');
+  if (dom.mobileToolsDropdownMenu) dom.mobileToolsDropdownMenu.classList.remove('open');
 }
 
 function renderLooksMenu() {
@@ -2189,3 +2290,634 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 }
+
+// ==========================================================================
+// 1. STAGE DISPLAY (MONITORES DE PALCO E MENSAGENS)
+// ==========================================================================
+let stageScreensCache = [];
+let stageLayoutsCache = [];
+
+async function openStageModal() {
+  if (dom.stageModal) {
+    dom.stageModal.classList.add('open');
+    await loadStageData();
+  }
+}
+
+function closeStageModal() {
+  if (dom.stageModal) dom.stageModal.classList.remove('open');
+}
+
+async function loadStageData() {
+  if (!dom.stageBodyContainer) return;
+  dom.stageBodyContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #9ca3af;">Carregando telas de palco e layouts...</div>';
+
+  try {
+    const [screens, layouts, currentMessage] = await Promise.all([
+      apiRequest('/v1/stage/screens'),
+      apiRequest('/v1/stage/layouts'),
+      apiRequest('/v1/stage/message')
+    ]);
+
+    stageScreensCache = Array.isArray(screens) ? screens : [];
+    stageLayoutsCache = Array.isArray(layouts) ? layouts : [];
+
+    if (dom.stageBadgeCount) {
+      dom.stageBadgeCount.textContent = `${stageScreensCache.length} Telas`;
+    }
+
+    // Busca o layout atual de cada tela individualmente
+    const screenLayoutPromises = stageScreensCache.map(s => {
+      const screenId = (s.index !== undefined) ? s.index : (s.id?.index ?? 0);
+      return apiRequest(`/v1/stage/screen/${screenId}/layout`);
+    });
+    const currentLayouts = await Promise.all(screenLayoutPromises);
+
+    let html = '';
+
+    // =========================================================================
+    // SEÇÃO 1: MUDAR TODOS OS RETORNOS DE UMA VEZ PARA A MESMA TELA
+    // =========================================================================
+    if (stageScreensCache.length > 0 && stageLayoutsCache.length > 0) {
+      html += `
+        <div class="stage-all-screens-card">
+          <div class="stage-all-screens-header">
+            <span class="stage-all-title">
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+              </svg>
+              Mudar Todos os Retornos de Uma Vez
+            </span>
+            <span class="stage-all-hint">Aplica o mesmo layout em todos os ${stageScreensCache.length} retornos</span>
+          </div>
+          <div class="stage-layouts-grid">
+      `;
+
+      stageLayoutsCache.forEach((layout, lIdx) => {
+        const layoutName = layout.id?.name || layout.name || `Layout ${lIdx + 1}`;
+        const layoutId = (layout.id?.index !== undefined) ? layout.id.index : (layout.index !== undefined ? layout.index : lIdx);
+        html += `
+          <button class="stage-layout-chip stage-layout-chip-all" 
+                  onclick="handleSetAllStageLayouts(${layoutId}, '${escapeHtml(layoutName)}')">
+            ⚡ Todos em: ${escapeHtml(layoutName)}
+          </button>
+        `;
+      });
+
+      html += `
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // SEÇÃO 2: CONTROLE INDEPENDENTE DE CADA TELA
+    // =========================================================================
+    html += `
+      <div class="stage-section-title">
+        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+          <line x1="8" y1="21" x2="16" y2="21"></line>
+        </svg>
+        Controle Individual por Tela de Retorno
+      </div>
+    `;
+
+    if (stageScreensCache.length === 0) {
+      html += '<div style="color: #6b7280; font-size: 13px; padding: 10px;">Nenhuma tela de palco configurada no momento.</div>';
+    } else {
+      stageScreensCache.forEach((screen, sIdx) => {
+        // Nome real retornado pela API do ProPresenter (ex: RETORNO PLATAFORMA R, RETORNO PLATAFORMA L, iPad-PCA - NDI 4)
+        const screenName = screen.name || screen.id?.name || `Retorno ${sIdx + 1}`;
+        const screenId = (screen.index !== undefined) ? screen.index : (screen.id?.index ?? sIdx);
+        const curLayoutObj = currentLayouts[sIdx];
+        const curLayoutName = curLayoutObj?.name || curLayoutObj?.id?.name || 'Padrão';
+        const curLayoutIdx = (curLayoutObj?.index !== undefined) ? curLayoutObj.index : curLayoutObj?.id?.index;
+
+        html += `
+          <div class="stage-screen-card" id="stage-card-screen-${screenId}" data-screen-id="${screenId}">
+            <div class="stage-screen-header">
+              <span class="stage-screen-name">📺 ${escapeHtml(screenName)}</span>
+              <span class="stage-screen-current-layout">Layout Atual: <strong class="lbl-cur-layout">${escapeHtml(curLayoutName)}</strong></span>
+            </div>
+            <div class="stage-layouts-grid">
+        `;
+
+        stageLayoutsCache.forEach((layout, lIdx) => {
+          const layoutName = layout.id?.name || layout.name || `Layout ${lIdx + 1}`;
+          const layoutId = (layout.id?.index !== undefined) ? layout.id.index : (layout.index !== undefined ? layout.index : lIdx);
+          const isActive = (curLayoutIdx !== undefined && curLayoutIdx === layoutId) || (curLayoutName.toLowerCase() === layoutName.toLowerCase());
+
+          html += `
+            <button class="stage-layout-chip ${isActive ? 'active' : ''}" 
+                    data-layout-id="${layoutId}"
+                    onclick="handleSetStageLayout(${screenId}, ${layoutId}, '${escapeHtml(layoutName)}', this)">
+              ${escapeHtml(layoutName)}
+            </button>
+          `;
+        });
+
+        html += `
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    // =========================================================================
+    // SEÇÃO 3: MENSAGEM DE PALCO
+    // =========================================================================
+    const msgText = (typeof currentMessage === 'string') ? currentMessage : (currentMessage?.message || '');
+    html += `
+      <div class="stage-message-box">
+        <div class="stage-section-title" style="margin-top: 0;">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          Mensagem para o Palco (Avisos aos Ministros / Pregador)
+        </div>
+        <div class="stage-msg-input-row">
+          <input type="text" id="stage-msg-input" class="stage-msg-input" 
+                 placeholder="Digite um aviso para o retorno (ex: '2 minutos', 'Falar mais alto')..." 
+                 value="${escapeHtml(msgText)}" />
+          <button class="btn-primary" onclick="handleSendStageMessage()" style="padding: 8px 14px; font-size: 13px;">
+            Enviar
+          </button>
+          <button class="btn-pro-clear" onclick="handleClearStageMessage()" style="padding: 8px 12px; font-size: 13px; border-radius: 6px;">
+            Limpar
+          </button>
+        </div>
+      </div>
+    `;
+
+    dom.stageBodyContainer.innerHTML = html;
+  } catch (err) {
+    dom.stageBodyContainer.innerHTML = '<div style="color: #ef4444; padding: 20px; text-align: center;">Erro ao carregar dados do Stage Display. Verifique a conexão com o ProPresenter.</div>';
+  }
+}
+
+// Troca o layout de UMA ÚNICA tela de forma 100% independente
+window.handleSetStageLayout = async function(screenId, layoutId, layoutName, btnEl) {
+  try {
+    const parentCard = document.getElementById(`stage-card-screen-${screenId}`) || btnEl?.closest('.stage-screen-card');
+    if (parentCard) {
+      parentCard.querySelectorAll('.stage-layout-chip').forEach(c => c.classList.remove('active'));
+      if (btnEl) btnEl.classList.add('active');
+      const lbl = parentCard.querySelector('.lbl-cur-layout');
+      if (lbl && layoutName) lbl.textContent = layoutName;
+    }
+    // Dispara a rota do ProPresenter específica para aquela tela
+    await apiRequest(`/v1/stage/screen/${screenId}/layout/${layoutId}`);
+  } catch (err) {
+    console.error('Erro ao trocar layout de palco:', err);
+  }
+};
+
+// Troca o layout de TODAS as telas simultaneamente para a mesma configuração
+window.handleSetAllStageLayouts = async function(layoutId, layoutName) {
+  try {
+    // Atualiza imediatamente o visual de todas as telas
+    stageScreensCache.forEach(s => {
+      const sId = (s.index !== undefined) ? s.index : (s.id?.index ?? 0);
+      const card = document.getElementById(`stage-card-screen-${sId}`);
+      if (card) {
+        card.querySelectorAll('.stage-layout-chip').forEach(c => {
+          const cId = c.getAttribute('data-layout-id');
+          c.classList.toggle('active', cId == layoutId);
+        });
+        const lbl = card.querySelector('.lbl-cur-layout');
+        if (lbl && layoutName) lbl.textContent = layoutName;
+      }
+    });
+
+    // Envia comando para cada tela em paralelo
+    const promises = stageScreensCache.map(s => {
+      const sId = (s.index !== undefined) ? s.index : (s.id?.index ?? 0);
+      return apiRequest(`/v1/stage/screen/${sId}/layout/${layoutId}`);
+    });
+    await Promise.all(promises);
+  } catch (err) {
+    console.error('Erro ao trocar layouts de todos os retornos:', err);
+  }
+};
+
+window.handleSendStageMessage = async function() {
+  const input = document.getElementById('stage-msg-input');
+  if (!input) return;
+  const msg = input.value.trim();
+  try {
+    await fetch(`/api/v1/stage/message`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(msg)
+    });
+    alert('Mensagem enviada com sucesso para os retornos de palco!');
+  } catch (err) {
+    console.error('Erro ao enviar mensagem de palco:', err);
+  }
+};
+
+window.handleClearStageMessage = async function() {
+  const input = document.getElementById('stage-msg-input');
+  try {
+    await fetch(`/api/v1/stage/message`, { method: 'DELETE' });
+    if (input) input.value = '';
+  } catch (err) {
+    console.error('Erro ao limpar mensagem de palco:', err);
+  }
+};
+
+// ==========================================================================
+// 2. TIMERS (CRONÔMETROS DE CULTO)
+// ==========================================================================
+let timersInterval = null;
+
+async function openTimersModal() {
+  if (dom.timersModal) {
+    dom.timersModal.classList.add('open');
+    await loadTimersData();
+    if (timersInterval) clearInterval(timersInterval);
+    timersInterval = setInterval(loadTimersData, 1000);
+  }
+}
+
+function closeTimersModal() {
+  if (dom.timersModal) dom.timersModal.classList.remove('open');
+  if (timersInterval) {
+    clearInterval(timersInterval);
+    timersInterval = null;
+  }
+}
+
+async function loadTimersData() {
+  if (!dom.timersBodyContainer) return;
+  try {
+    const timers = await apiRequest('/v1/timers/current');
+    if (!timers || !Array.isArray(timers)) {
+      if (!dom.timersBodyContainer.innerHTML.includes('timer-card')) {
+        dom.timersBodyContainer.innerHTML = '<div style="color: #6b7280; text-align: center; padding: 20px;">Nenhum cronômetro ativo configurado no ProPresenter.</div>';
+      }
+      return;
+    }
+
+    if (dom.timersBadgeCount) {
+      dom.timersBadgeCount.textContent = `${timers.length} Cronômetros`;
+    }
+
+    let html = '';
+    timers.forEach(t => {
+      const name = t.id?.name || 'Cronômetro';
+      const id = t.id?.index ?? t.id?.uuid ?? 0;
+      const timeStr = t.time || '00:00';
+      const stateStr = (t.state || 'stopped').toLowerCase();
+      const isRunning = stateStr === 'running';
+
+      html += `
+        <div class="timer-card" data-timer-id="${id}">
+          <div class="timer-card-header">
+            <span class="timer-card-title">⏱️ ${escapeHtml(name)}</span>
+            <span class="timer-card-status ${isRunning ? 'running' : ''}">
+              ${isRunning ? '● Rodando' : '○ Parado'}
+            </span>
+          </div>
+          <div class="timer-display-box">
+            <div class="timer-display-time">${escapeHtml(timeStr)}</div>
+          </div>
+          <div class="timer-controls-row">
+            <button class="btn-timer-action btn-timer-start" onclick="handleTimerControl(${id}, 'start')">
+              ▶ Iniciar
+            </button>
+            <button class="btn-timer-action btn-timer-stop" onclick="handleTimerControl(${id}, 'stop')">
+              ⏸ Pausar
+            </button>
+            <button class="btn-timer-action btn-timer-reset" onclick="handleTimerControl(${id}, 'reset')">
+              ↺ Reiniciar
+            </button>
+            <button class="btn-timer-action btn-timer-inc" onclick="handleTimerIncrement(${id}, 60)">
+              +1 min
+            </button>
+            <button class="btn-timer-action btn-timer-inc" onclick="handleTimerIncrement(${id}, 300)">
+              +5 min
+            </button>
+          </div>
+        </div>
+      `;
+    });
+
+    dom.timersBodyContainer.innerHTML = html;
+  } catch (err) {
+    console.error('Erro ao atualizar cronômetros:', err);
+  }
+}
+
+window.handleTimerControl = async function(timerId, op) {
+  try {
+    await apiRequest(`/v1/timer/${encodeURIComponent(timerId)}/${op}`);
+    await loadTimersData();
+  } catch (err) {
+    console.error(`Erro ao executar ${op} no timer:`, err);
+  }
+};
+
+window.handleTimerIncrement = async function(timerId, seconds) {
+  try {
+    await apiRequest(`/v1/timer/${encodeURIComponent(timerId)}/increment/${seconds}`);
+    await loadTimersData();
+  } catch (err) {
+    console.error('Erro ao incrementar timer:', err);
+  }
+};
+
+// ==========================================================================
+// 3. VIDEO INPUTS (ENTRADAS DE VÍDEO / INPUT)
+// ==========================================================================
+async function openVideoInputsModal() {
+  if (dom.videoInputsModal) {
+    dom.videoInputsModal.classList.add('open');
+    await loadVideoInputsData();
+  }
+}
+
+function closeVideoInputsModal() {
+  if (dom.videoInputsModal) dom.videoInputsModal.classList.remove('open');
+}
+
+async function loadVideoInputsData() {
+  if (!dom.videoInputsBodyContainer) return;
+  dom.videoInputsBodyContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #9ca3af;">Carregando entradas de vídeo...</div>';
+
+  try {
+    const inputs = await apiRequest('/v1/video_inputs');
+    const inputList = Array.isArray(inputs) ? inputs : [];
+
+    if (dom.videoInputsBadgeCount) {
+      dom.videoInputsBadgeCount.textContent = `${inputList.length} Entradas`;
+    }
+
+    if (inputList.length === 0) {
+      dom.videoInputsBodyContainer.innerHTML = `
+        <div style="color: #6b7280; font-size: 13px; text-align: center; padding: 20px;">
+          Nenhuma entrada de vídeo (câmera, placa de captura ou NDI) configurada no ProPresenter.
+        </div>
+      `;
+      return;
+    }
+
+    let html = `
+      <div style="margin-bottom: 12px; font-size: 13px; color: #9ca3af;">
+        Selecione uma entrada de vídeo ao vivo para colocar no ar imediatamente:
+      </div>
+      <div class="video-inputs-grid">
+    `;
+
+    inputList.forEach((item, idx) => {
+      const name = item.id?.name || item.name || `Entrada ${idx + 1}`;
+      const id = item.id?.index ?? item.id?.uuid ?? idx;
+
+      html += `
+        <div class="video-input-card">
+          <div class="video-input-header">
+            <div class="video-input-icon">
+              <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none">
+                <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+              </svg>
+            </div>
+            <div>
+              <div class="video-input-name">${escapeHtml(name)}</div>
+              <div class="video-input-index">Canal / Input #${id}</div>
+            </div>
+          </div>
+          <button class="btn-trigger-input" onclick="handleTriggerVideoInput(${id})">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            Disparar no Telão
+          </button>
+        </div>
+      `;
+    });
+
+    html += `
+      </div>
+      <button class="btn-clear-video-input" onclick="handleClearVideoInput()">
+        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+        Limpar Entrada de Vídeo (Remover do Telão)
+      </button>
+    `;
+
+    dom.videoInputsBodyContainer.innerHTML = html;
+  } catch (err) {
+    dom.videoInputsBodyContainer.innerHTML = '<div style="color: #ef4444; padding: 20px; text-align: center;">Erro ao carregar entradas de vídeo.</div>';
+  }
+}
+
+window.handleTriggerVideoInput = async function(inputId) {
+  try {
+    await apiRequest(`/v1/video_inputs/${encodeURIComponent(inputId)}/trigger`);
+  } catch (err) {
+    console.error('Erro ao disparar entrada de vídeo:', err);
+  }
+};
+
+window.handleClearVideoInput = async function() {
+  try {
+    await apiRequest('/v1/clear/layer/video_input');
+  } catch (err) {
+    console.error('Erro ao limpar entrada de vídeo:', err);
+  }
+};
+
+// ==========================================================================
+// 4. PROPS (OVERLAYS / ADEREÇOS)
+// ==========================================================================
+async function openPropsModal() {
+  if (dom.propsModal) {
+    dom.propsModal.classList.add('open');
+    await loadPropsData();
+  }
+}
+
+function closePropsModal() {
+  if (dom.propsModal) dom.propsModal.classList.remove('open');
+}
+
+async function loadPropsData() {
+  if (!dom.propsBodyContainer) return;
+  dom.propsBodyContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #9ca3af;">Carregando Props...</div>';
+
+  try {
+    const props = await apiRequest('/v1/props');
+    const propList = Array.isArray(props) ? props : [];
+
+    if (dom.propsBadgeCount) {
+      dom.propsBadgeCount.textContent = `${propList.length} Props`;
+    }
+
+    if (propList.length === 0) {
+      dom.propsBodyContainer.innerHTML = `
+        <div style="color: #6b7280; font-size: 13px; text-align: center; padding: 20px;">
+          Nenhum Prop (Overlay / Adereço) configurado no ProPresenter.
+        </div>
+      `;
+      return;
+    }
+
+    let html = `
+      <div style="margin-bottom: 12px; font-size: 13px; color: #9ca3af;">
+        Adereços e sobreposições ativas no ProPresenter:
+      </div>
+      <div class="props-grid">
+    `;
+
+    propList.forEach((prop, idx) => {
+      const name = prop.id?.name || prop.name || `Prop ${idx + 1}`;
+      const id = prop.id?.index ?? prop.id?.uuid ?? idx;
+
+      html += `
+        <div class="prop-card">
+          <div class="prop-name">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="#a78bfa" stroke-width="2" fill="none">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+            ${escapeHtml(name)}
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-trigger-prop" style="flex: 1;" onclick="handleTriggerProp(${id})">
+              Ativar
+            </button>
+            <button class="btn-pro-clear" style="padding: 8px 12px; font-size: 12px;" onclick="handleClearProp(${id})">
+              Desativar
+            </button>
+          </div>
+        </div>
+      `;
+    });
+
+    html += `
+      </div>
+      <button class="btn-clear-all-props" onclick="handleClearAllProps()">
+        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+        Limpar Todos os Props
+      </button>
+    `;
+
+    dom.propsBodyContainer.innerHTML = html;
+  } catch (err) {
+    dom.propsBodyContainer.innerHTML = '<div style="color: #ef4444; padding: 20px; text-align: center;">Erro ao carregar props.</div>';
+  }
+}
+
+window.handleTriggerProp = async function(propId) {
+  try {
+    await apiRequest(`/v1/prop/${encodeURIComponent(propId)}/trigger`);
+  } catch (err) {
+    console.error('Erro ao disparar prop:', err);
+  }
+};
+
+window.handleClearProp = async function(propId) {
+  try {
+    await apiRequest(`/v1/prop/${encodeURIComponent(propId)}/clear`);
+  } catch (err) {
+    console.error('Erro ao limpar prop:', err);
+  }
+};
+
+window.handleClearAllProps = async function() {
+  try {
+    await apiRequest('/v1/clear/layer/props');
+  } catch (err) {
+    console.error('Erro ao limpar camada de props:', err);
+  }
+};
+
+// ==========================================================================
+// 5. CAPTURE (GRAVAÇÃO & TRANSMISSÃO)
+// ==========================================================================
+let captureInterval = null;
+
+async function openCaptureModal() {
+  if (dom.captureModal) {
+    dom.captureModal.classList.add('open');
+    await loadCaptureData();
+    if (captureInterval) clearInterval(captureInterval);
+    captureInterval = setInterval(loadCaptureData, 1000);
+  }
+}
+
+function closeCaptureModal() {
+  if (dom.captureModal) dom.captureModal.classList.remove('open');
+  if (captureInterval) {
+    clearInterval(captureInterval);
+    captureInterval = null;
+  }
+}
+
+async function loadCaptureData() {
+  if (!dom.captureBodyContainer) return;
+  try {
+    const data = await apiRequest('/v1/capture/status');
+    const statusStr = (data?.status || 'inactive').toLowerCase();
+    const isActive = statusStr === 'active';
+    const timeStr = data?.time || '00:00:00';
+
+    if (dom.captureBadgeCount) {
+      dom.captureBadgeCount.textContent = isActive ? 'AO VIVO' : 'PARADO';
+      dom.captureBadgeCount.style.color = isActive ? '#ef4444' : '#9ca3af';
+    }
+
+    dom.captureBodyContainer.innerHTML = `
+      <div class="capture-status-panel">
+        <div class="capture-status-indicator ${isActive ? 'active' : ''}">
+          <span style="font-size: 16px;">●</span> ${isActive ? 'Gravando / Transmitindo' : 'Captura Inativa'}
+        </div>
+        <div class="capture-time-display">${escapeHtml(timeStr)}</div>
+      </div>
+      <div class="capture-actions-row">
+        <button class="btn-capture-start" onclick="handleStartCapture()" ${isActive ? 'disabled style="opacity: 0.5;"' : ''}>
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+            <circle cx="12" cy="12" r="10"></circle>
+            <circle cx="12" cy="12" r="4" fill="currentColor"></circle>
+          </svg>
+          Iniciar Gravação
+        </button>
+        <button class="btn-capture-stop" onclick="handleStopCapture()" ${!isActive ? 'disabled style="opacity: 0.5;"' : ''}>
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+            <rect x="6" y="6" width="12" height="12"></rect>
+          </svg>
+          Parar Gravação
+        </button>
+      </div>
+    `;
+  } catch (err) {
+    console.error('Erro ao verificar status de captura:', err);
+  }
+}
+
+window.handleStartCapture = async function() {
+  try {
+    await fetch('/api/v1/capture/start', { method: 'POST' });
+    await loadCaptureData();
+  } catch (err) {
+    console.error('Erro ao iniciar captura:', err);
+  }
+};
+
+window.handleStopCapture = async function() {
+  try {
+    await fetch('/api/v1/capture/stop', { method: 'POST' });
+    await loadCaptureData();
+  } catch (err) {
+    console.error('Erro ao parar captura:', err);
+  }
+};
+
