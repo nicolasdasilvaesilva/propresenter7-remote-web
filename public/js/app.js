@@ -2350,7 +2350,7 @@ async function loadStageData() {
             </span>
             <span class="stage-all-hint">Aplica o mesmo layout em todos os ${stageScreensCache.length} retornos</span>
           </div>
-          <div class="stage-layouts-grid">
+          <div class="stage-all-grid">
       `;
 
       stageLayoutsCache.forEach((layout, lIdx) => {
@@ -2359,7 +2359,10 @@ async function loadStageData() {
         html += `
           <button class="stage-layout-chip stage-layout-chip-all" 
                   onclick="handleSetAllStageLayouts(${layoutId}, '${escapeHtml(layoutName)}')">
-            ⚡ Todos em: ${escapeHtml(layoutName)}
+            <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+            <span>Todos: ${escapeHtml(layoutName)}</span>
           </button>
         `;
       });
@@ -2381,6 +2384,7 @@ async function loadStageData() {
         </svg>
         Controle Individual por Tela de Retorno
       </div>
+      <div class="stage-screens-list">
     `;
 
     if (stageScreensCache.length === 0) {
@@ -2424,6 +2428,10 @@ async function loadStageData() {
       });
     }
 
+    html += `
+      </div>
+    `;
+
     // =========================================================================
     // SEÇÃO 3: MENSAGEM DE PALCO
     // =========================================================================
@@ -2466,17 +2474,17 @@ window.handleSetStageLayout = async function(screenId, layoutId, layoutName, btn
       const lbl = parentCard.querySelector('.lbl-cur-layout');
       if (lbl && layoutName) lbl.textContent = layoutName;
     }
-    // Dispara a rota do ProPresenter específica para aquela tela
+    // Dispara a rota do ProPresenter específica para aquela tela individual
     await apiRequest(`/v1/stage/screen/${screenId}/layout/${layoutId}`);
   } catch (err) {
     console.error('Erro ao trocar layout de palco:', err);
   }
 };
 
-// Troca o layout de TODAS as telas simultaneamente para a mesma configuração
+// Troca o layout de TODAS as telas sequencialmente (evita sobrecarga no ProPresenter)
 window.handleSetAllStageLayouts = async function(layoutId, layoutName) {
   try {
-    // Atualiza imediatamente o visual de todas as telas
+    // 1. Atualiza imediatamente o visual de todas as telas na interface
     stageScreensCache.forEach(s => {
       const sId = (s.index !== undefined) ? s.index : (s.id?.index ?? 0);
       const card = document.getElementById(`stage-card-screen-${sId}`);
@@ -2490,12 +2498,17 @@ window.handleSetAllStageLayouts = async function(layoutId, layoutName) {
       }
     });
 
-    // Envia comando para cada tela em paralelo
-    const promises = stageScreensCache.map(s => {
-      const sId = (s.index !== undefined) ? s.index : (s.id?.index ?? 0);
-      return apiRequest(`/v1/stage/screen/${sId}/layout/${layoutId}`);
-    });
-    await Promise.all(promises);
+    // 2. Envia para cada tela sequencialmente com pequeno intervalo
+    // O ProPresenter 7 descarta requisições simultâneas em paralelo, portanto o envio sequencial é obrigatório!
+    for (const screen of stageScreensCache) {
+      const sId = (screen.index !== undefined) ? screen.index : (screen.id?.index ?? 0);
+      await apiRequest(`/v1/stage/screen/${sId}/layout/${layoutId}`);
+      await new Promise(r => setTimeout(r, 70));
+    }
+
+    // 3. Aguarda e recarrega os dados para confirmar a sincronização total
+    await new Promise(r => setTimeout(r, 150));
+    await loadStageData();
   } catch (err) {
     console.error('Erro ao trocar layouts de todos os retornos:', err);
   }

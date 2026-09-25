@@ -3090,11 +3090,24 @@ html, body {
 
 /* 1. STAGE DISPLAY (TELAS DE PALCO E MENSAGEM) */
 .modal-stage-box {
-  max-width: 620px;
+  max-width: 660px;
   width: 95%;
-  background: #14151b;
-  border: 1px solid rgba(96, 165, 250, 0.25);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85);
+  background: #14151a;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.9);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  max-height: 88vh;
+  overflow: hidden;
+}
+
+.stage-modal-body {
+  padding: 16px 18px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .stage-modal-title-row,
@@ -3113,45 +3126,46 @@ html, body {
 .props-badge-count,
 .capture-badge-count {
   font-size: 11px;
-  font-weight: 600;
-  color: #9ca3af;
-  background: rgba(255, 255, 255, 0.08);
-  padding: 2px 8px;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  padding: 2px 10px;
   border-radius: 12px;
 }
 
 .stage-section-title {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: #93c5fd;
-  margin: 14px 0 8px 0;
+  letter-spacing: 0.6px;
+  color: #94a3b8;
+  margin: 4px 0 2px 0;
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-/* PAINEL: MUDAR TODOS OS RETORNOS DE UMA VEZ */
+/* PAINEL MESTRE: MUDAR TODOS OS RETORNOS DE UMA VEZ */
 .stage-all-screens-card {
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.16) 0%, rgba(30, 41, 59, 0.4) 100%);
-  border: 1px solid rgba(96, 165, 250, 0.35);
-  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 10px;
   padding: 12px 14px;
-  margin-bottom: 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 .stage-all-screens-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .stage-all-title {
   font-size: 13px;
   font-weight: 700;
-  color: #93c5fd;
+  color: #38bdf8;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -3162,86 +3176,133 @@ html, body {
   color: #94a3b8;
 }
 
+.stage-all-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+}
+
 .stage-layout-chip-all {
-  background: rgba(37, 99, 235, 0.22);
-  border: 1px solid rgba(96, 165, 250, 0.35);
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.3);
   color: #e0f2fe;
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
 }
 
 .stage-layout-chip-all:hover {
-  background: #2563eb;
-  color: #fff;
-  border-color: #60a5fa;
-  box-shadow: 0 0 12px rgba(37, 99, 235, 0.4);
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #38bdf8;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.4);
+  transform: translateY(-1px);
+}
+
+.stage-layout-chip-all:active {
+  transform: scale(0.97);
+}
+
+/* CARDS INDIVIDUAIS DE RETORNO */
+.stage-screens-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .stage-screen-card {
-  background: #1a1c24;
+  background: #181a22;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 10px;
+  border-radius: 9px;
+  padding: 12px 14px;
+  transition: border-color 0.15s ease;
+}
+
+.stage-screen-card:hover {
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
 .stage-screen-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .stage-screen-name {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   color: #f3f4f6;
+  display: flex;
+  align-items: center;
+  gap: 7px;
 }
 
 .stage-screen-current-layout {
   font-size: 11px;
-  color: #60a5fa;
-  background: rgba(37, 99, 235, 0.2);
-  padding: 3px 8px;
-  border-radius: 6px;
-  font-weight: 600;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
 }
 
 .stage-layouts-grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 6px;
 }
 
 .stage-layout-chip {
-  padding: 6px 12px;
+  padding: 8px 10px;
   font-size: 12px;
   font-weight: 600;
-  background: #242733;
-  color: #d1d5db;
+  background: #20232c;
+  color: #cbd5e1;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 6px;
   cursor: pointer;
+  text-align: center;
   transition: all 0.15s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .stage-layout-chip:hover {
-  background: #313545;
-  color: #fff;
-  border-color: #60a5fa;
+  background: #282c38;
+  color: #ffffff;
+  border-color: rgba(56, 189, 248, 0.4);
 }
 
 .stage-layout-chip.active {
-  background: #2563eb;
-  color: #fff;
-  border-color: #3b82f6;
-  box-shadow: 0 0 10px rgba(37, 99, 235, 0.4);
+  background: #0284c7 !important;
+  color: #ffffff !important;
+  border-color: #38bdf8 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
 }
 
+.stage-layout-chip:active {
+  transform: scale(0.97);
+}
+
+/* CAIXA DE MENSAGEM PARA O PALCO */
 .stage-message-box {
-  background: #1a1c24;
+  background: #181a22;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  padding: 12px;
-  margin-top: 14px;
+  border-radius: 9px;
+  padding: 12px 14px;
 }
 
 .stage-msg-input-row {
@@ -3252,17 +3313,19 @@ html, body {
 
 .stage-msg-input {
   flex: 1;
-  background: #121318;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #111216;
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 6px;
   padding: 8px 12px;
   color: #fff;
   font-size: 13px;
   outline: none;
+  transition: border-color 0.15s ease;
 }
 
 .stage-msg-input:focus {
-  border-color: #60a5fa;
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
 }
 
 /* 2. TIMERS (CRONÔMETROS DE CULTO) */
