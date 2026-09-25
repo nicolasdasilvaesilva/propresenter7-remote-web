@@ -2172,7 +2172,7 @@ function renderSearchResults(items, resultsEl) {
       </div>
       <button class="btn-add-search-playlist" title="Adicionar ao final da Playlist de Culto sem tocar ao vivo e sem sair da tela">
         <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-        <span>＋ Add à Playlist</span>
+        <span>Add à Playlist</span>
       </button>
     `;
 
@@ -2201,8 +2201,12 @@ function renderSearchResults(items, resultsEl) {
 
 async function handleAddSongToCultoPlaylist(item, resultsEl) {
   try {
-    const activePlId = (state.activePlaylistType === 'presentation') ? state.activePlaylistId : null;
-    const activePlName = (state.activePlaylistType === 'presentation') ? state.activePlaylistName : null;
+    const activePlId = (state.activePlaylistType === 'presentation' && state.activePlaylistId)
+      ? state.activePlaylistId
+      : (localStorage.getItem('propresenter_last_culto_pl_id') || null);
+    const activePlName = (state.activePlaylistType === 'presentation' && state.activePlaylistName)
+      ? state.activePlaylistName
+      : (localStorage.getItem('propresenter_last_culto_pl_name') || null);
 
     showToast(`Adicionando "${item.name}" à playlist de culto...`, 'info');
 
@@ -2263,57 +2267,94 @@ async function fetchLiveSlideStatus() {
     checkAudioTransportStatus();
   }
 
-  // 1. MÍDIA / PROCONTENT:
-  // A tela de preview é mantida 100% FIXA no item selecionado pelo usuário.
-  // O polling não deve sobrescrever a seleção manual do usuário para evitar piscadas e reversões indesejadas.
+  // 1. SINCRONISMO AO VIVO DE MÍDIA / PROCONTENT (Acompanha automaticamente entre Tablets, Celular e ProPresenter)
+  if (state.activePlaylistType === 'media') {
+    try {
+      const activeMediaData = await apiRequest('/v1/media/playlist/active');
+      if (activeMediaData && activeMediaData.item) {
+        const mItem = activeMediaData.item;
+        const mIdx = (mItem.index !== undefined) ? mItem.index : 0;
+        const mUuid = mItem.uuid;
 
-  try {
-    // 2. SINCRONISMO AO VIVO DE APRESENTAÇÕES (PLAYLIST DE CULTO / MÚSICAS)
-    const slideIndexData = await apiRequest('/v1/presentation/slide_index');
-    if (slideIndexData && slideIndexData.presentation_index) {
-      const pIndex = slideIndexData.presentation_index;
-      const curIdx = pIndex.index;
-      const presUuid = pIndex.presentation_id?.uuid;
-      const presName = pIndex.presentation_id?.name;
-      const totalCues = pIndex.total_cues || 1;
+        if (mUuid !== state.liveMediaUuid || mIdx !== state.liveMediaIndex) {
+          state.liveMediaUuid = mUuid;
+          state.liveMediaIndex = mIdx;
+          state.selectedItemIndex = mIdx;
 
-      if (curIdx !== state.liveSlideIndex || presUuid !== state.livePresentationUuid) {
-        state.liveSlideIndex = curIdx;
-        state.currentSlideIndex = curIdx;
-        state.livePresentationUuid = presUuid;
+          // Destaca o card na lista vertical e rola até ele
+          highlightPlaylistItem(mIdx);
 
-        if (state.activePlaylistType === 'presentation') {
+          // Atualiza o player de preview ao vivo
+          dom.liveItemTitle.textContent = mItem.name || 'Mídia';
+          const totalItems = state.playlistItems?.length || 1;
+          dom.liveCueSubtitle.textContent = `${state.activePlaylistName || 'Mídia'} • item ${mIdx + 1} de ${totalItems}`;
+
+          dom.previewPlaceholder.classList.add('hidden');
+          dom.previewTextOverlay.classList.add('hidden');
+          dom.liveSlideImage.classList.remove('hidden');
+          dom.liveSlideImage.src = `/api/v1/media/${mUuid}/thumbnail?t=${Date.now()}`;
+        }
+      }
+    } catch (err) {
+      // Silencioso
+    }
+  }
+
+  // 2. SINCRONISMO AO VIVO DE APRESENTAÇÕES (PLAYLIST DE CULTO / MÚSICAS)
+  if (state.activePlaylistType === 'presentation') {
+    try {
+      const slideIndexData = await apiRequest('/v1/presentation/slide_index');
+      if (slideIndexData && slideIndexData.presentation_index) {
+        const pIndex = slideIndexData.presentation_index;
+        const curIdx = pIndex.index;
+        const presUuid = pIndex.presentation_id?.uuid;
+        const presName = pIndex.presentation_id?.name;
+        const totalCues = pIndex.total_cues || 1;
+
+        if (curIdx !== state.liveSlideIndex || presUuid !== state.livePresentationUuid) {
+          state.liveSlideIndex = curIdx;
+          state.currentSlideIndex = curIdx;
+          state.livePresentationUuid = presUuid;
+
           dom.liveItemTitle.textContent = presName || 'Apresentação';
           dom.liveCueSubtitle.textContent = `Slide ${curIdx + 1} de ${totalCues}`;
 
           dom.previewPlaceholder.classList.add('hidden');
 
-          const curSlide = state.currentPresentationSlides && state.currentPresentationSlides[curIdx];
-          const hasLyrics = curSlide && curSlide.text && curSlide.text.trim().length > 0;
-          const slideKey = `${presUuid}_${curIdx}`;
-
-          if (hasLyrics) {
-            dom.liveSlideImage.classList.add('hidden');
-            dom.liveSlideImage.dataset.loadedUuid = '';
-            dom.previewTextOverlay.classList.remove('hidden');
-            dom.previewTextOverlay.innerHTML = `<div class="slide-lyrics-text" style="font-size: 20px; font-weight: 700; color: #fff;">${escapeHtml(curSlide.text)}</div>`;
+          // Se a apresentação ativa no ProPresenter mudou, carrega os slides dela automaticamente
+          if (presUuid && (!state.currentPresentationUuid || state.currentPresentationUuid !== presUuid)) {
+            state.currentPresentationUuid = presUuid;
+            dom.selectedPresentationTitle.textContent = presName || 'Apresentação';
+            dom.itemsSectionHeader.textContent = presName || 'Apresentação';
+            loadPresentationSlides(presUuid, presName, curIdx, false);
           } else {
-            dom.previewTextOverlay.classList.add('hidden');
-            dom.previewTextOverlay.innerHTML = '';
-            dom.liveSlideImage.classList.remove('hidden');
+            const curSlide = state.currentPresentationSlides && state.currentPresentationSlides[curIdx];
+            const hasLyrics = curSlide && curSlide.text && curSlide.text.trim().length > 0;
+            const slideKey = `${presUuid}_${curIdx}`;
 
-            if (dom.liveSlideImage.dataset.loadedUuid !== slideKey) {
-              dom.liveSlideImage.dataset.loadedUuid = slideKey;
-              dom.liveSlideImage.src = `/api/v1/presentation/${presUuid}/thumbnail/${curIdx}`;
+            if (hasLyrics) {
+              dom.liveSlideImage.classList.add('hidden');
+              dom.liveSlideImage.dataset.loadedUuid = '';
+              dom.previewTextOverlay.classList.remove('hidden');
+              dom.previewTextOverlay.innerHTML = `<div class="slide-lyrics-text" style="font-size: 20px; font-weight: 700; color: #fff;">${escapeHtml(curSlide.text)}</div>`;
+            } else {
+              dom.previewTextOverlay.classList.add('hidden');
+              dom.previewTextOverlay.innerHTML = '';
+              dom.liveSlideImage.classList.remove('hidden');
+
+              if (dom.liveSlideImage.dataset.loadedUuid !== slideKey) {
+                dom.liveSlideImage.dataset.loadedUuid = slideKey;
+                dom.liveSlideImage.src = `/api/v1/presentation/${presUuid}/thumbnail/${curIdx}?t=${Date.now()}`;
+              }
             }
-          }
 
-          highlightActiveSlide(curIdx);
+            highlightActiveSlide(curIdx);
+          }
         }
       }
+    } catch (err) {
+      // Silencioso
     }
-  } catch (err) {
-    // Silencioso
   }
 }
 

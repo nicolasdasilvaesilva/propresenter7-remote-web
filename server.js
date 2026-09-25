@@ -226,39 +226,54 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        // 1. Busca as playlists de apresentação (Culto) disponíveis
+        // 1. Busca as playlists de apresentação (Culto) disponíveis (com busca recursiva em pastas)
         const plRes = await fetch(`http://${PROPRESENTER_HOST}:${PROPRESENTER_PORT}/v1/playlists`);
-        const playlists = await plRes.json();
-        const presPlaylists = Array.isArray(playlists) ? playlists : [];
+        const rawPlaylists = await plRes.json();
+        
+        function flattenPlaylists(list) {
+          let flat = [];
+          if (!Array.isArray(list)) return flat;
+          for (const item of list) {
+            if (item.field_type === 'playlist' || item.type === 'playlist' || !item.children || item.children.length === 0) {
+              flat.push(item);
+            }
+            if (Array.isArray(item.children) && item.children.length > 0) {
+              flat = flat.concat(flattenPlaylists(item.children));
+            }
+          }
+          return flat;
+        }
+
+        const presPlaylists = flattenPlaylists(rawPlaylists);
 
         let targetPl = null;
         if (playlistId) {
-          targetPl = presPlaylists.find(p => (p.id?.uuid === playlistId || p.id?.index == playlistId));
+          targetPl = presPlaylists.find(p => (p.id?.uuid === playlistId || p.id?.index == playlistId || p.id?.name === playlistId));
         }
         if (!targetPl && playlistName) {
           const normPlName = playlistName.trim().toUpperCase();
           targetPl = presPlaylists.find(p => p.id?.name && p.id.name.trim().toUpperCase() === normPlName);
         }
         if (!targetPl && presPlaylists.length > 0) {
-          // Fallback para a primeira playlist de culto ativa (ex: DOMINGO)
-          targetPl = presPlaylists[0];
+          // Procura primeiro por playlist com nome DOMINGO ou CULTO, ou usa a primeira
+          targetPl = presPlaylists.find(p => p.id?.name && /domingo|culto/i.test(p.id.name)) || presPlaylists[0];
         }
 
-        if (!targetPl || !targetPl.id?.uuid) {
+        if (!targetPl || !targetPl.id) {
           res.writeHead(404, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Nenhuma playlist de culto encontrada para receber a música.' }));
           return;
         }
 
-        const targetPlUuid = targetPl.id.uuid;
+        const targetPlUuid = targetPl.id.uuid || targetPl.id.name;
         const targetPlName = targetPl.id.name || 'Playlist';
 
         // 2. Busca os itens existentes na playlist
-        const curRes = await fetch(`http://${PROPRESENTER_HOST}:${PROPRESENTER_PORT}/v1/playlist/${targetPlUuid}`);
+        const curRes = await fetch(`http://${PROPRESENTER_HOST}:${PROPRESENTER_PORT}/v1/playlist/${encodeURIComponent(targetPlUuid)}`);
         const curData = await curRes.json();
         const existingItems = Array.isArray(curData?.items) ? curData.items : [];
 
-        // 3. Monta o novo item com a estrutura completa e validada pelo ProPresenter
+        // 3. Monta o novo item com a estrutura 100% validada pelo ProPresenter 7
         const nextIdx = existingItems.length;
         const newItem = {
           id: {
@@ -266,22 +281,16 @@ const server = http.createServer(async (req, res) => {
             name: songName || 'Música',
             uuid: songUuid
           },
-          type: 'presentation',
           is_hidden: false,
           is_pco: false,
-          presentation_info: {
-            presentation_uuid: songUuid,
-            arrangement_name: '',
-            arrangement_uuid: ''
-          },
-          target_uuid: songUuid,
-          destination: 'presentation'
+          type: 'presentation',
+          target_uuid: songUuid
         };
 
         const updatedList = [...existingItems, newItem];
 
         // 4. Envia o PUT com a lista completa para o ProPresenter
-        const putRes = await fetch(`http://${PROPRESENTER_HOST}:${PROPRESENTER_PORT}/v1/playlist/${targetPlUuid}`, {
+        const putRes = await fetch(`http://${PROPRESENTER_HOST}:${PROPRESENTER_PORT}/v1/playlist/${encodeURIComponent(targetPlUuid)}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updatedList)
