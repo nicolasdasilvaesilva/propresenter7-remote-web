@@ -144,5 +144,20 @@ Para carregar esta skill no assistente **Google Antigravity**:
 
 ---
 
+## 👥 Autores & Créditos
+
+* **Autor e developer:** **Nicolas da Silva e Silva**
+* **Designer de funções:** **Marcelo Rocha**
+
+---
+
 ## 📄 Licença
-Distribuído sob a licença MIT. Desenvolvido para a equipe de multimídia e transmissão da igreja.
+
+Distribuído sob a **Licença MIT** com **obrigatoriedade de atribuição dos créditos aos autores originais**.
+
+É permitida a utilização, cópia, modificação, fusão e distribuição deste software, **desde que mantida obrigatoriamente a citação expressa dos autores**:
+* **Autor e developer:** Nicolas da Silva e Silva
+* **Designer de funções:** Marcelo Rocha
+
+Para o termo legal completo, consulte o arquivo [`LICENSE`](./LICENSE).
+
