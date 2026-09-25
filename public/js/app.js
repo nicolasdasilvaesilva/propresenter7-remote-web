@@ -150,11 +150,16 @@ const dom = {
   localIpsDisplay: document.getElementById('local-ips-display'),
   btnSaveSettings: document.getElementById('btn-save-settings'),
 
-  // Instalação PWA / iOS Safari
+  // Instalação PWA Multiplataforma (iPad, Tablet, Android, iOS, PC)
   btnInstallPwa: document.getElementById('btn-install-pwa'),
+  btnMobileInstall: document.getElementById('btn-mobile-install'),
   iosInstallModal: document.getElementById('ios-install-modal'),
   btnCloseIosInstall: document.getElementById('btn-close-ios-install'),
-  btnDismissIosInstall: document.getElementById('btn-dismiss-ios-install')
+  btnDismissIosInstall: document.getElementById('btn-dismiss-ios-install'),
+  tabPwaIos: document.getElementById('tab-pwa-ios'),
+  tabPwaAndroid: document.getElementById('tab-pwa-android'),
+  tabPwaDesktop: document.getElementById('tab-pwa-desktop'),
+  btnTriggerDesktopInstall: document.getElementById('btn-trigger-desktop-install')
 };
 
 // ==========================================================================
@@ -170,6 +175,7 @@ window.addEventListener('DOMContentLoaded', () => {
   loadInitialPlaylists();
   startStatusPolling();
   registerServiceWorker();
+  setupPwaInstall();
 });
 
 // Registro do Service Worker para PWA
@@ -177,42 +183,99 @@ function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js')
       .then(reg => console.log('ProPresenter PWA Service Worker registrado:', reg.scope))
-      .catch(err => console.log('Erro ao registrar Service Worker:', err));
+      .catch(err => console.log('Aviso ao registrar Service Worker:', err));
   }
 }
 
-// Suporte para prompt de instalação PWA (com suporte dedicado para iPad e iPhone)
+// Suporte para prompt de instalação PWA multiplataforma
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
-  if (dom.btnInstallPwa) {
-    dom.btnInstallPwa.classList.remove('hidden');
-  }
+  if (dom.btnInstallPwa) dom.btnInstallPwa.classList.remove('hidden');
+  if (dom.btnMobileInstall) dom.btnMobileInstall.classList.remove('hidden');
 });
+
+function detectPlatform() {
+  const ua = navigator.userAgent || '';
+  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /Android/i.test(ua);
+  return isIOS ? 'ios' : (isAndroid ? 'android' : 'desktop');
+}
+
+function switchPwaTab(targetTab) {
+  const tabs = [
+    { id: 'tab-pwa-ios', content: 'pwa-content-ios', key: 'ios' },
+    { id: 'tab-pwa-android', content: 'pwa-content-android', key: 'android' },
+    { id: 'tab-pwa-desktop', content: 'pwa-content-desktop', key: 'desktop' }
+  ];
+  tabs.forEach(tab => {
+    const btn = document.getElementById(tab.id);
+    const content = document.getElementById(tab.content);
+    const isActive = tab.key === targetTab;
+    if (btn) btn.classList.toggle('active', isActive);
+    if (content) {
+      content.classList.toggle('active', isActive);
+      content.style.display = isActive ? 'block' : 'none';
+    }
+  });
+}
 
 function setupPwaInstall() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
   if (isStandalone) {
     dom.btnInstallPwa?.classList.add('hidden');
+    dom.btnMobileInstall?.classList.add('hidden');
   } else {
     dom.btnInstallPwa?.classList.remove('hidden');
+    dom.btnMobileInstall?.classList.remove('hidden');
   }
 
-  if (dom.btnInstallPwa) {
-    dom.btnInstallPwa.addEventListener('click', async () => {
-      if (deferredPrompt) {
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      try {
         deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
         if (outcome === 'accepted') {
-          dom.btnInstallPwa.classList.add('hidden');
+          dom.btnInstallPwa?.classList.add('hidden');
+          dom.btnMobileInstall?.classList.add('hidden');
         }
         deferredPrompt = null;
-      } else {
+      } catch (err) {
         openIosInstallModal();
       }
-    });
+    } else {
+      openIosInstallModal();
+    }
+  };
+
+  if (dom.btnInstallPwa) {
+    dom.btnInstallPwa.addEventListener('click', handleInstallClick);
   }
+  if (dom.btnMobileInstall) {
+    dom.btnMobileInstall.addEventListener('click', handleInstallClick);
+  }
+
+  // Abas de plataforma
+  document.getElementById('tab-pwa-ios')?.addEventListener('click', () => switchPwaTab('ios'));
+  document.getElementById('tab-pwa-android')?.addEventListener('click', () => switchPwaTab('android'));
+  document.getElementById('tab-pwa-desktop')?.addEventListener('click', () => switchPwaTab('desktop'));
+
+  // Botão direto no desktop
+  document.getElementById('btn-trigger-desktop-install')?.addEventListener('click', async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        closeIosInstallModal();
+        dom.btnInstallPwa?.classList.add('hidden');
+        dom.btnMobileInstall?.classList.add('hidden');
+      }
+      deferredPrompt = null;
+    } else {
+      alert('Para instalar no computador, você também pode clicar no ícone de instalação (⊕) ao lado da barra de endereços do Chrome ou Edge.');
+    }
+  });
 
   if (dom.btnCloseIosInstall) {
     dom.btnCloseIosInstall.addEventListener('click', closeIosInstallModal);
@@ -228,6 +291,7 @@ function setupPwaInstall() {
 }
 
 function openIosInstallModal() {
+  switchPwaTab(detectPlatform());
   dom.iosInstallModal?.classList.add('open');
 }
 
@@ -1516,7 +1580,6 @@ async function loadMessages() {
   }
 
   if (list.length === 0) {
-    if (dom.messagesTabs) dom.messagesTabs.innerHTML = '';
     if (dom.messagesBodyContainer) {
       dom.messagesBodyContainer.innerHTML = `
         <div class="slides-empty-notice">
@@ -1527,8 +1590,6 @@ async function loadMessages() {
     return;
   }
 
-  renderMessagesTabs(list);
-
   let selected = list.find(m => m.id?.uuid === state.messages.activeMessageUuid);
   if (!selected) {
     selected = list.find(m => m.is_active) || list[0];
@@ -1536,39 +1597,10 @@ async function loadMessages() {
   selectMessageTemplate(selected);
 }
 
-function renderMessagesTabs(list) {
-  if (!dom.messagesTabs) return;
-  dom.messagesTabs.innerHTML = '';
-
-  list.forEach(msg => {
-    const pill = document.createElement('button');
-    const msgUuid = msg.id?.uuid || msg.id?.index;
-    const msgName = msg.id?.name || 'Mensagem';
-    const isActive = msgUuid === state.messages.activeMessageUuid;
-    const isOnScreen = !!msg.is_active;
-
-    pill.className = `message-tab-pill ${isActive ? 'active' : ''} ${isOnScreen ? 'is-active-on-screen' : ''}`;
-    pill.dataset.uuid = msgUuid;
-    pill.innerHTML = `
-      <span>${escapeHtml(msgName)}</span>
-      ${isOnScreen ? '<span title="Exibindo no telão" style="color:#ef4444;font-size:10px;">● AO VIVO</span>' : ''}
-    `;
-
-    pill.addEventListener('click', () => {
-      selectMessageTemplate(msg);
-    });
-
-    dom.messagesTabs.appendChild(pill);
-  });
-}
-
 function selectMessageTemplate(msg) {
+  if (!msg) return;
   state.messages.activeMessageUuid = msg.id?.uuid || msg.id?.index;
   state.messages.activeTemplate = msg;
-
-  document.querySelectorAll('.message-tab-pill').forEach(pill => {
-    pill.classList.toggle('active', pill.dataset.uuid == state.messages.activeMessageUuid);
-  });
 
   if (!dom.messagesBodyContainer) return;
 
@@ -1583,82 +1615,137 @@ function selectMessageTemplate(msg) {
     }
   });
 
-  let tokensInputsHtml = '';
+  const allTemplates = state.messages.list || [];
+
+  let tokensRowsHtml = '';
   if (tokens.length > 0) {
-    tokensInputsHtml = `
-      <div class="message-tokens-grid">
-        ${tokens.map(tok => {
-          const val = state.messages.tokenValues[tok.name] !== undefined ? state.messages.tokenValues[tok.name] : (tok.text?.text || '');
-          return `
-            <div class="message-token-field">
-              <label class="message-token-label">${escapeHtml(tok.name)}</label>
-              <input type="text" class="message-token-input" data-token-name="${escapeHtml(tok.name)}" value="${escapeHtml(val)}" placeholder="Digite ${escapeHtml(tok.name)}...">
-            </div>
-          `;
-        }).join('')}
-      </div>
-    `;
+    tokensRowsHtml = tokens.map(tok => {
+      const val = state.messages.tokenValues[tok.name] !== undefined ? state.messages.tokenValues[tok.name] : (tok.text?.text || '');
+      return `
+        <div class="pro-token-row">
+          <div class="pro-token-header">${escapeHtml(tok.name)}</div>
+          <div class="pro-token-value-row">
+            <span class="pro-token-value-label">Value:</span>
+            <input type="text" class="pro-token-input" data-token-name="${escapeHtml(tok.name)}" value="${escapeHtml(val)}" placeholder="Digite ${escapeHtml(tok.name)}...">
+          </div>
+        </div>
+      `;
+    }).join('');
   } else {
-    tokensInputsHtml = `
-      <div style="font-size:12px; color: var(--text-dim); padding: 8px 0;">
-        Esta mensagem é de texto fixo (não requer campos dinâmicos).
+    tokensRowsHtml = `
+      <div style="font-size:12px; color: var(--text-dim); padding: 12px 14px; background: #1e1e1e;">
+        Esta mensagem é de texto fixo (sem variáveis dinâmicas).
       </div>
     `;
   }
 
   dom.messagesBodyContainer.innerHTML = `
-    <div class="message-template-card">
-      <div class="message-template-name-row">
-        <div class="message-template-title">${escapeHtml(msgName)}</div>
-        <span class="message-template-status-badge ${isOnScreen ? 'active' : 'inactive'}">
-          ${isOnScreen ? '● NO TELÃO' : 'OCULTA'}
-        </span>
-      </div>
-      <div class="message-template-raw-text">${escapeHtml(rawMessage)}</div>
-    </div>
+    <div class="pro-messages-container" id="pro-messages-card">
+      <!-- HEADER COM SELETOR DROPDOWN NATIVO DO PROPRESENTER (CARROS ↕ / KIDS ↕) -->
+      <div class="pro-msg-header">
+        <div class="pro-msg-select-trigger" id="pro-msg-select-trigger" title="Selecionar modelo de mensagem">
+          <svg class="pro-msg-send-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+          </svg>
+          <span class="pro-msg-current-name">${escapeHtml(msgName)}</span>
+          <span class="pro-msg-chevron">↕</span>
+        </div>
 
-    ${tokensInputsHtml}
+        <div class="pro-msg-dropdown-list hidden" id="pro-msg-dropdown-list">
+          ${allTemplates.map(t => {
+            const isSel = (t.id?.uuid || t.id?.index) === state.messages.activeMessageUuid;
+            const tName = t.id?.name || 'Mensagem';
+            return `
+              <button class="pro-msg-dropdown-item ${isSel ? 'selected' : ''}" data-msg-uuid="${escapeHtml(t.id?.uuid || t.id?.index)}">
+                <span class="check-icon">${isSel ? '✓' : ''}</span>
+                <span>${escapeHtml(tName)}</span>
+                ${t.is_active ? '<span style="color:#ef4444;font-size:10px;margin-left:auto;">● NO TELÃO</span>' : ''}
+              </button>
+            `;
+          }).join('')}
+        </div>
 
-    <div class="message-preview-container">
-      <div class="message-preview-header">
-        <span>Pré-visualização do Telão</span>
+        <div class="message-template-status-badge ${isOnScreen ? 'active' : 'inactive'}">
+          ${isOnScreen ? '● NO TELÃO' : 'PRONTO'}
+        </div>
       </div>
-      <div class="message-preview-bubble" id="message-preview-bubble"></div>
+
+      <!-- TEXTO DO TEMPLATE (BASE COM AS VARIÁVEIS) -->
+      <div class="pro-msg-template-box" id="pro-msg-template-text">
+        ${escapeHtml(rawMessage)}
+      </div>
+
+      <!-- CAMPOS DE VARIÁVEIS (TOKENS) -->
+      <div class="pro-msg-tokens-container">
+        ${tokensRowsHtml}
+      </div>
+
+      <!-- RODAPÉ COM STATUS E BOTÕES CLEAR & SHOW -->
+      <div class="pro-msg-footer">
+        <div class="pro-msg-status" id="pro-msg-status">
+          ${isOnScreen ? '<span class="status-live">● Exibindo nos Telões (Resolume NDI 1 e 2)</span>' : '<span>Telões de Saída: Resolume NDI 1 e 2</span>'}
+        </div>
+        <div class="pro-msg-btn-group">
+          <button class="pro-btn-dark btn-pro-clear" id="btn-pro-clear" title="Ocultar mensagem do telão">
+            Clear
+          </button>
+          <button class="pro-btn-dark btn-pro-show ${isOnScreen ? 'active' : ''}" id="btn-pro-show" title="Exibir mensagem no telão">
+            ${isOnScreen ? 'Show (Ativo)' : 'Show'}
+          </button>
+        </div>
+      </div>
     </div>
   `;
 
-  dom.messagesBodyContainer.querySelectorAll('.message-token-input').forEach(input => {
+  // Dropdown toggle
+  const triggerBtn = document.getElementById('pro-msg-select-trigger');
+  const dropdownList = document.getElementById('pro-msg-dropdown-list');
+
+  if (triggerBtn && dropdownList) {
+    triggerBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdownList.classList.toggle('hidden');
+    });
+
+    dropdownList.querySelectorAll('.pro-msg-dropdown-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdownList.classList.add('hidden');
+        const targetUuid = item.dataset.msgUuid;
+        const targetTemplate = allTemplates.find(t => (t.id?.uuid || t.id?.index) == targetUuid);
+        if (targetTemplate) selectMessageTemplate(targetTemplate);
+      });
+    });
+
+    const closeDropdownOnClickOutside = (e) => {
+      if (!triggerBtn.contains(e.target) && !dropdownList.contains(e.target)) {
+        dropdownList.classList.add('hidden');
+      }
+    };
+    document.addEventListener('click', closeDropdownOnClickOutside, { once: true });
+  }
+
+  // Inputs
+  dom.messagesBodyContainer.querySelectorAll('.pro-token-input').forEach(input => {
     input.addEventListener('input', () => {
       const tokName = input.dataset.tokenName;
       state.messages.tokenValues[tokName] = input.value;
-      updateMessagePreview();
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        triggerSendMessage();
+      }
     });
   });
 
-  updateMessagePreview();
+  // Botões Show e Clear
+  const btnShow = document.getElementById('btn-pro-show');
+  const btnClear = document.getElementById('btn-pro-clear');
 
-  if (dom.msgStatusIndicator) {
-    dom.msgStatusIndicator.textContent = isOnScreen ? '● Mensagem ativa no telão' : 'Pronto para envio';
-    dom.msgStatusIndicator.style.color = isOnScreen ? '#f87171' : 'var(--text-dim)';
-  }
-}
-
-function updateMessagePreview() {
-  const bubble = document.getElementById('message-preview-bubble');
-  if (!bubble || !state.messages.activeTemplate) return;
-
-  const msg = state.messages.activeTemplate;
-  let formatted = escapeHtml(msg.message || '');
-  const tokens = msg.tokens || [];
-
-  tokens.forEach(tok => {
-    const val = state.messages.tokenValues[tok.name];
-    const displayVal = val ? escapeHtml(val) : `[${escapeHtml(tok.name)}]`;
-    const pattern = new RegExp(`\\{${tok.name}\\}`, 'g');
-    formatted = formatted.replace(pattern, `<span class="token-highlight">${displayVal}</span>`);
-  });
-
-  bubble.innerHTML = formatted || '<em>Nenhum texto de mensagem</em>';
+  if (btnShow) btnShow.addEventListener('click', triggerSendMessage);
+  if (btnClear) btnClear.addEventListener('click', clearCurrentMessage);
 }
 
 async function triggerSendMessage() {
@@ -1668,50 +1755,64 @@ async function triggerSendMessage() {
   const msgUuid = msg.id?.uuid || msg.id?.index;
   const tokens = msg.tokens || [];
 
-  if (dom.msgStatusIndicator) {
-    dom.msgStatusIndicator.textContent = 'Enviando para o telão...';
-    dom.msgStatusIndicator.style.color = '#38bdf8';
+  const statusEl = document.getElementById('pro-msg-status');
+  const btnShow = document.getElementById('btn-pro-show');
+
+  if (statusEl) {
+    statusEl.innerHTML = '<span style="color:#38bdf8;">Enviando para os telões...</span>';
+  }
+  if (btnShow) {
+    btnShow.textContent = 'Enviando...';
   }
 
-  const payloadTokens = tokens.map(tok => ({
+  const cleanTokens = tokens.map(tok => ({
     name: tok.name,
-    uuid: tok.uuid,
     text: {
-      text: state.messages.tokenValues[tok.name] !== undefined ? state.messages.tokenValues[tok.name] : (tok.text?.text || '')
+      text: state.messages.tokenValues[tok.name] !== undefined ? String(state.messages.tokenValues[tok.name]) : (tok.text?.text || '')
     }
   }));
 
   try {
+    // 1. Atualiza e salva o modelo no ProPresenter via PUT
+    const msgObjToSave = Object.assign({}, msg, {
+      tokens: cleanTokens,
+      visible_on_network: true
+    });
+    await apiRequest(`/v1/message/${msgUuid}`, 'PUT', msgObjToSave);
+
+    // 2. Dispara a exibição no telão via POST trigger
     const res = await fetch(`/api/v1/message/${msgUuid}/trigger`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payloadTokens)
+      body: JSON.stringify(cleanTokens)
     });
 
-    if (res.ok) {
-      if (dom.msgStatusIndicator) {
-        dom.msgStatusIndicator.textContent = '● Mensagem exibida no telão!';
-        dom.msgStatusIndicator.style.color = '#34d399';
-      }
+    if (res.ok || res.status === 204) {
       msg.is_active = true;
-      renderMessagesTabs(state.messages.list);
-      const statusBadge = dom.messagesBodyContainer?.querySelector('.message-template-status-badge');
-      if (statusBadge) {
-        statusBadge.className = 'message-template-status-badge active';
-        statusBadge.textContent = '● NO TELÃO';
+      if (statusEl) {
+        statusEl.innerHTML = '<span class="status-live">● Exibindo nos Telões (Resolume NDI 1 e 2)!</span>';
+      }
+      if (btnShow) {
+        btnShow.className = 'pro-btn-dark btn-pro-show active';
+        btnShow.textContent = 'Show (Ativo)';
+      }
+      const badge = dom.messagesBodyContainer?.querySelector('.message-template-status-badge');
+      if (badge) {
+        badge.className = 'message-template-status-badge active';
+        badge.textContent = '● NO TELÃO';
       }
     } else {
-      if (dom.msgStatusIndicator) {
-        dom.msgStatusIndicator.textContent = 'Erro ao enviar mensagem.';
-        dom.msgStatusIndicator.style.color = '#ef4444';
+      if (statusEl) {
+        statusEl.innerHTML = '<span style="color:#ef4444;">Erro ao enviar mensagem.</span>';
       }
+      if (btnShow) btnShow.textContent = 'Show';
     }
   } catch (err) {
     console.error('Erro ao disparar mensagem:', err);
-    if (dom.msgStatusIndicator) {
-      dom.msgStatusIndicator.textContent = 'Falha de comunicação.';
-      dom.msgStatusIndicator.style.color = '#ef4444';
+    if (statusEl) {
+      statusEl.innerHTML = '<span style="color:#ef4444;">Falha de comunicação com o ProPresenter.</span>';
     }
+    if (btnShow) btnShow.textContent = 'Show';
   }
 }
 
@@ -1721,9 +1822,11 @@ async function clearCurrentMessage() {
   const msg = state.messages.activeTemplate;
   const msgUuid = msg.id?.uuid || msg.id?.index;
 
-  if (dom.msgStatusIndicator) {
-    dom.msgStatusIndicator.textContent = 'Ocultando do telão...';
-    dom.msgStatusIndicator.style.color = '#f87171';
+  const statusEl = document.getElementById('pro-msg-status');
+  const btnShow = document.getElementById('btn-pro-show');
+
+  if (statusEl) {
+    statusEl.innerHTML = '<span style="color:#f87171;">Ocultando do telão...</span>';
   }
 
   try {
@@ -1731,17 +1834,18 @@ async function clearCurrentMessage() {
     await apiRequest('/v1/clear/layer/messages');
 
     msg.is_active = false;
-    renderMessagesTabs(state.messages.list);
 
-    if (dom.msgStatusIndicator) {
-      dom.msgStatusIndicator.textContent = 'Mensagem ocultada do telão.';
-      dom.msgStatusIndicator.style.color = 'var(--text-dim)';
+    if (statusEl) {
+      statusEl.innerHTML = '<span>Mensagem ocultada do telão.</span>';
     }
-
-    const statusBadge = dom.messagesBodyContainer?.querySelector('.message-template-status-badge');
-    if (statusBadge) {
-      statusBadge.className = 'message-template-status-badge inactive';
-      statusBadge.textContent = 'OCULTA';
+    if (btnShow) {
+      btnShow.className = 'pro-btn-dark btn-pro-show';
+      btnShow.textContent = 'Show';
+    }
+    const badge = dom.messagesBodyContainer?.querySelector('.message-template-status-badge');
+    if (badge) {
+      badge.className = 'message-template-status-badge inactive';
+      badge.textContent = 'PRONTO';
     }
   } catch (err) {
     console.error('Erro ao ocultar mensagem:', err);

@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-title" content="Pro Remote">
   <meta name="theme-color" content="#121316">
   <title>ProPresenter 7 Remote</title>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=2.6">
 </head>
 <body class="dark-theme">
 
@@ -372,6 +372,16 @@
               </div>
             </div>
           </div>
+
+          <!-- BOTÃO INSTALAR MOBILE -->
+          <button id="btn-mobile-install" class="action-btn btn-install" title="Instalar Aplicativo no Celular">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Instalar</span>
+          </button>
         </div>
 
         <!-- BUSCA INTEGRADA MOBILE -->
@@ -680,51 +690,29 @@
         </button>
       </div>
 
-      <!-- SELETOR DE MODELOS DE MENSAGEM (TABS: CARROS, KIDS, ETC.) -->
-      <div class="messages-tabs" id="messages-tabs">
-        <!-- Injetado dinamicamente via JS -->
-      </div>
-
-      <!-- CORPO DA MENSAGEM SELECIONADA -->
+      <!-- CORPO DA MENSAGEM (LAYOUT NATIVO DO PROPRESENTER 7) -->
       <div class="modal-body messages-modal-body" id="messages-body-container">
-        <!-- Campos de tokens e preview gerados dinamicamente -->
-      </div>
-
-      <!-- BARRA DE AÇÕES DA MENSAGEM -->
-      <div class="messages-action-bar">
-        <div class="msg-status-indicator" id="msg-status-indicator">Pronto para envio</div>
-        <div class="msg-action-buttons">
-          <button class="msg-action-btn btn-msg-clear" id="btn-clear-message" title="Ocultar mensagem do telão">
-            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="15" y1="9" x2="9" y2="15"></line>
-              <line x1="9" y1="9" x2="15" y2="15"></line>
-            </svg>
-            <span>Ocultar Telão</span>
-          </button>
-          <button class="msg-action-btn btn-msg-trigger" id="btn-trigger-message" title="Disparar mensagem para o telão">
-            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none">
-              <line x1="22" y1="2" x2="11" y2="13"></line>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-            </svg>
-            <span>Mostrar no Telão</span>
-          </button>
-        </div>
+        <!-- Injetado dinamicamente exatamente como nas imagens oficiais do ProPresenter -->
       </div>
     </div>
   </div>
 
-  <!-- MODAL DE INSTRUÇÕES DE INSTALAÇÃO NO IPAD / IPHONE / SAFARI -->
+  <!-- MODAL UNIVERSAL DE INSTALAÇÃO PWA (IPAD, TABLET, ANDROID, IOS, DESKTOP) -->
   <div class="modal-overlay" id="ios-install-modal">
-    <div class="modal-box modal-ios-install-box">
+    <div class="modal-box modal-pwa-install-box">
       <div class="modal-header">
-        <div class="messages-modal-title-row">
-          <svg viewBox="0 0 24 24" width="20" height="20" stroke="#10b981" stroke-width="2" fill="none">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
-          </svg>
-          <h3>Instalar App no iPad / iPhone</h3>
+        <div class="pwa-modal-title-row">
+          <div class="pwa-header-icon-box">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="#10b981" stroke-width="2" fill="none">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+          </div>
+          <div>
+            <h3>Instalar Aplicativo</h3>
+            <span class="pwa-modal-subtitle">ProPresenter 7 Remote PWA</span>
+          </div>
         </div>
         <button id="btn-close-ios-install" class="icon-btn" aria-label="Fechar">
           <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2">
@@ -734,49 +722,135 @@
         </button>
       </div>
 
-      <div class="modal-body ios-install-body">
-        <p class="ios-install-subtitle">
-          Instale o <strong>ProPresenter Remote</strong> na tela de início do seu iPad para abrir em <strong>tela cheia</strong>, sem as barras do Safari!
-        </p>
+      <!-- ABAS DE PLATAFORMAS (IOS / ANDROID / DESKTOP) -->
+      <div class="pwa-tabs-bar">
+        <button class="pwa-tab-btn active" data-pwa-tab="ios" id="tab-pwa-ios">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+            <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.63-.77 1.06-1.85.94-2.93-.93.04-2.02.63-2.67 1.4-.57.65-.99 1.76-.87 2.81 1.03.08 2.06-.54 2.6-.28z"/>
+          </svg>
+          <span>iPad / iPhone</span>
+        </button>
+        <button class="pwa-tab-btn" data-pwa-tab="android" id="tab-pwa-android">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+            <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.551 0 .9993.4482.9993.9993.0001.5511-.4483.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4482.9993.9993 0 .5511-.4482.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.4116 13.8533 8 12 8s-3.5902.4116-5.1367.9507L4.841 5.4477a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/>
+          </svg>
+          <span>Android (Celular/Tablet)</span>
+        </button>
+        <button class="pwa-tab-btn" data-pwa-tab="desktop" id="tab-pwa-desktop">
+          <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+            <line x1="8" y1="21" x2="16" y2="21"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+          </svg>
+          <span>PC / Mac</span>
+        </button>
+      </div>
 
-        <div class="ios-install-steps">
-          <div class="ios-step-card">
-            <div class="ios-step-num">1</div>
-            <div class="ios-step-content">
-              <div class="ios-step-title">Toque em Compartilhar</div>
-              <div class="ios-step-desc">
-                No Safari (topo ou rodapé), toque no ícone:
-                <span class="ios-share-badge">
-                  <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none">
-                    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
-                    <polyline points="16 6 12 2 8 6"></polyline>
-                    <line x1="12" y1="2" x2="12" y2="15"></line>
-                  </svg>
-                  Compartilhar
-                </span>
+      <div class="modal-body pwa-install-body">
+        <!-- CONTEÚDO DA ABA IOS -->
+        <div class="pwa-tab-content active" id="pwa-content-ios">
+          <p class="pwa-install-subtitle">
+            Instale no <strong>iPad ou iPhone</strong> para abrir em <strong>tela cheia</strong>, sem as barras do Safari!
+          </p>
+          <div class="ios-install-steps">
+            <div class="ios-step-card">
+              <div class="ios-step-num">1</div>
+              <div class="ios-step-content">
+                <div class="ios-step-title">Toque em Compartilhar</div>
+                <div class="ios-step-desc">
+                  No Safari (no topo do iPad ou na base do iPhone), toque no ícone:
+                  <span class="ios-share-badge">
+                    <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none">
+                      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
+                      <polyline points="16 6 12 2 8 6"></polyline>
+                      <line x1="12" y1="2" x2="12" y2="15"></line>
+                    </svg>
+                    Compartilhar
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="ios-step-card">
+              <div class="ios-step-num">2</div>
+              <div class="ios-step-content">
+                <div class="ios-step-title">Adicionar à Tela de Início</div>
+                <div class="ios-step-desc">
+                  Role a lista para baixo e selecione a opção:
+                  <span class="ios-add-badge">➕ Adicionar à Tela de Início</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="ios-step-card">
+              <div class="ios-step-num">3</div>
+              <div class="ios-step-content">
+                <div class="ios-step-title">Toque em "Adicionar"</div>
+                <div class="ios-step-desc">
+                  No canto superior direito da janela de confirmação, toque em <strong>Adicionar</strong>.
+                </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <div class="ios-step-card">
-            <div class="ios-step-num">2</div>
-            <div class="ios-step-content">
-              <div class="ios-step-title">Adicionar à Tela de Início</div>
-              <div class="ios-step-desc">
-                Role as opções e toque em:
-                <span class="ios-add-badge">➕ Adicionar à Tela de Início</span>
+        <!-- CONTEÚDO DA ABA ANDROID -->
+        <div class="pwa-tab-content" id="pwa-content-android" style="display: none;">
+          <p class="pwa-install-subtitle">
+            Instale no seu <strong>celular ou tablet Android</strong> (Chrome / Samsung Internet) para acesso com 1 toque!
+          </p>
+          <div class="ios-install-steps">
+            <div class="ios-step-card">
+              <div class="ios-step-num">1</div>
+              <div class="ios-step-content">
+                <div class="ios-step-title">Abra o menu do navegador</div>
+                <div class="ios-step-desc">
+                  No Chrome ou navegador do Android, toque no menu de <strong>3 pontinhos (⋮)</strong> no canto superior:
+                  <span class="android-dots-badge">⋮ Menu de Opções</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="ios-step-card">
+              <div class="ios-step-num">2</div>
+              <div class="ios-step-content">
+                <div class="ios-step-title">Instalar aplicativo / Adicionar</div>
+                <div class="ios-step-desc">
+                  Toque na opção <strong>"Instalar aplicativo"</strong> ou <strong>"Adicionar à tela inicial"</strong>:
+                  <span class="android-install-badge">📲 Instalar aplicativo</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="ios-step-card">
+              <div class="ios-step-num">3</div>
+              <div class="ios-step-content">
+                <div class="ios-step-title">Confirmar instalação</div>
+                <div class="ios-step-desc">
+                  Toque em <strong>Instalar</strong>. O ícone aparecerá imediatamente na tela inicial e gaveta de aplicativos!
+                </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <div class="ios-step-card">
-            <div class="ios-step-num">3</div>
-            <div class="ios-step-content">
-              <div class="ios-step-title">Toque em "Adicionar"</div>
-              <div class="ios-step-desc">
-                No canto superior direito da janela, toque no botão <strong>Adicionar</strong>.
-              </div>
-            </div>
+        <!-- CONTEÚDO DA ABA DESKTOP -->
+        <div class="pwa-tab-content" id="pwa-content-desktop" style="display: none;">
+          <p class="pwa-install-subtitle">
+            Instale o <strong>ProPresenter Remote</strong> no seu computador (Google Chrome / Microsoft Edge).
+          </p>
+          <div class="desktop-install-action" id="desktop-install-action-box">
+            <button id="btn-trigger-desktop-install" class="btn-primary pwa-direct-install-btn">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>Instalar Aplicativo Agora</span>
+            </button>
+            <p class="desktop-install-hint">
+              Ou clique no ícone de instalação <strong>(⊕ / 💻)</strong> localizado no canto direito da barra de endereços do seu navegador.
+            </p>
           </div>
         </div>
 
@@ -789,6 +863,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=2.5"></script>
+  <script src="js/app.js?v=2.6"></script>
 </body>
 </html>

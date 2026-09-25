@@ -113,3 +113,66 @@ Ao ser acionado em um computador novo onde roda o ProPresenter 7, o agente Antig
    Executar `Configurar-Inicio-Automatico.bat` ou injetar o VBS na pasta Startup do usuário.
 4. **Iniciar o serviço e fornecer o link de rede:**
    Executar `node server.js` ou `Iniciar-Segundo-Plano.vbs` e exibir o endereço IP local (ex.: `http://10.0.21.145:3000`) para o operador abrir no iPad ou smartphone.
+
+---
+
+## 6. Arquitetura para iPad / iOS Safari (Portals e Prevenção de Recorte)
+
+No iPadOS / iOS com Safari, existem peculiaridades específicas do motor WebKit que devem ser rigorosamente seguidas na interface web:
+
+1. **Prevenção de Recorte por Overflow no Header (Portals):**
+   * O menu superior (`.app-header`) utiliza `overflow-x: auto; -webkit-overflow-scrolling: touch;`.
+   * No WebKit, qualquer container com overflow cria um novo contexto de recorte e stacking.
+   * **Regra Obrigatória:** Menus suspensos (`#look-dropdown-menu`, `#clear-dropdown-menu`) e caixas de busca (`#desktop-search-results`) **DEVEM ser teleportados para o `document.body`** via JavaScript (`document.body.appendChild(...)`) e renderizados com `position: fixed; z-index: 99999;`. Dessa forma, eles nunca ficam "por baixo" ou cortados fora do cabeçalho de 56px no iPad.
+2. **Instalação PWA no iPad / iPhone:**
+   * O Safari no iOS/iPadOS **NÃO suporta** o evento `beforeinstallprompt`.
+   * O botão "Instalar App" deve permanecer visível em dispositivos Apple até que o aplicativo esteja rodando em modo standalone.
+   * Ao clicar no botão em um iPad/iPhone, exibir um modal instrutivo guiando o usuário a tocar no ícone de **Compartilhar** do Safari e escolher **"Adicionar à Tela de Início"**.
+3. **Barra de Espaço em Campos de Texto:**
+   * O listener global de teclado (`keydown`) para avançar slides com Barra de Espaço ou Setas deve verificar `document.activeElement`. Se for `INPUT` ou `TEXTAREA`, o evento não pode ser interceptado para permitir digitação natural.
+
+---
+
+## 7. Módulos Avançados de Operação do ProPresenter
+
+1. **Módulo de Mensagens no Telão (Design 100% Nativo ProPresenter 7):**
+   * **Interface e Layout:** Replicar exatamente o painel oficial do ProPresenter (`/v1/control`):
+     - Cabeçalho Dropdown: `[ ➤ NOME_DO_MODELO ↕ ]` abrindo menu suspenso com seleção `✓`.
+     - Card escuro com visualização do template e suas tags `{TOKEN}` destacadas.
+     - Linhas de Tokens no padrão nativo: Nome do token em cima e na linha abaixo `Value: [ input ]`.
+     - Rodapé com status em tempo real e botões `Clear` e `Show`.
+     - Suporte a tecla `Enter` para disparo imediato.
+   * **Ciclo de API Recomendado:**
+     - `PUT /v1/message/{id}`: Atualiza os tokens no ProPresenter garantindo persistência do modelo.
+     - `POST /v1/message/{id}/trigger`: Dispara os tokens para exibição imediata com payload: `[{ "name": "...", "text": { "text": "..." } }]`.
+     - `GET /v1/message/{id}/clear` e `GET /v1/clear/layer/messages`: Ocultam a mensagem do telão.
+   * **Importante sobre Telas e Looks na Igreja:**
+     - Ao inspecionar os Looks da igreja (`/v1/looks`), a camada de mensagens pode estar desativada em saídas de transmissão (`Screen 0: APHA-ATEM`).
+     - A exibição ocorre nos telões de audiência configurados (ex.: `RESOLUME NDI 1` e `RESOLUME NDI 2`).
+2. **PWA Universal (iOS, Android e Desktop):**
+   * Em dispositivos móveis por HTTP local, o navegador não dispara o evento automático `beforeinstallprompt`.
+   * A aplicação deve exibir um **Modal Universal de Instalação PWA** com abas dedicadas e detecção automática de sistema operacional:
+     - **iOS / iPad (Safari):** Passo a passo visual ensinando a tocar no botão de Compartilhar (`⎋`), rolar e tocar em "Adicionar à Tela de Início" (`➕`).
+     - **Android (Chrome/Edge):** Passo a passo ensinando a tocar no menu de 3 pontinhos (`⋮`) e selecionar "Instalar aplicativo" ou "Adicionar à tela inicial".
+     - **Desktop:** Botão direto acionando `deferredPrompt.prompt()`.
+3. **Sincronismo Bidirecional de Mídia e Culto:**
+   * O polling periódico de 1 segundo deve verificar simultaneamente `/v1/media/playlist/active` (para quando o operador passar mídias no computador ProPresenter) e `/v1/presentation/slide_index` (para cultos/músicas).
+   * Dessa forma, quando qualquer slide for disparado diretamente no PC do ProPresenter, o tablet acompanha em tempo real, atualizando o preview e destacando o item ativo com a tag `AO VIVO`.
+4. **Exibição de Letras Limpas (Sem Imagem Borrada):**
+   * Para slides de músicas que contêm texto, renderizar diretamente o texto em HTML (`.slide-lyrics-display`) com tipografia nítida, grande e centralizada em fundo preto puro, omitindo o thumbnail rasterizado em baixa resolução gerado pelo ProPresenter.
+
+---
+
+## 8. Status do Projeto & Próxima Sessão (Checklist)
+
+* **O que foi feito:**
+  - Módulo de Mensagens oficial com pop-up nativo e disparo direto via API.
+  - PWA Universal com modal de instruções para iPad/iPhone, Android e Desktop.
+  - Correção de atalho da barra de espaço na busca e z-index dos menus no iPad.
+  - Deploy preparado e compactado em `C:\Users\nicol\Desktop\ProPresenter-Remote-Deploy.zip`.
+* **Próximos passos (Amanhã):**
+  1. Testar o fluxo de "Adicionar à Tela de Início" no iPad real (`http://10.0.21.208:3000`).
+  2. Testar o envio de mensagem para o telão (Resolume NDI 1 e 2).
+  3. Fazer o `git push` para o repositório remoto no GitHub.
+
+
