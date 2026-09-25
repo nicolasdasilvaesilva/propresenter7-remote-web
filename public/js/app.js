@@ -1,5 +1,5 @@
 // ==========================================================================
-// PROPRESENTER 7 REMOTE - APLICAÇÃO CLIENTE COM LOOKS E GRID DE MÍDIA
+// PROPRESENTER 7 REMOTE - CLIENTE WEB COM MACROS, CLEAR LAYERS E BUSCA
 // ==========================================================================
 
 const state = {
@@ -16,6 +16,24 @@ const state = {
   lastActionSource: 'media', // 'media' ou 'presentation'
   looks: [],
   currentLook: null,
+  macros: [],
+  audio: {
+    playlists: [],
+    activePlaylistId: null,
+    activePlaylistName: '',
+    tracks: [],
+    currentTrackUuid: null,
+    currentTrackName: '',
+    isPlaying: false
+  },
+  messages: {
+    list: [],
+    activeMessageUuid: null,
+    activeTemplate: null,
+    tokenValues: {}
+  },
+  liveMediaUuid: null,
+  liveMediaIndex: -1,
   isConnected: false,
   pollTimer: null
 };
@@ -33,8 +51,67 @@ const dom = {
   lookDropdownMenu: document.getElementById('look-dropdown-menu'),
   lookMenuList: document.getElementById('look-menu-list'),
 
-  btnQuickBlack: document.getElementById('btn-quick-black'),
+  // Macros
+  btnQuickMacro: document.getElementById('btn-quick-macro'),
+  btnMobileMacro: document.getElementById('btn-mobile-macro'),
+  macroModal: document.getElementById('macro-modal'),
+  btnCloseMacro: document.getElementById('btn-close-macro'),
+  macroGridContainer: document.getElementById('macro-grid-container'),
+  macroBadgeCount: document.getElementById('macro-badge-count'),
+
+  // Áudio
+  btnQuickAudio: document.getElementById('btn-quick-audio'),
+  btnMobileAudio: document.getElementById('btn-mobile-audio'),
+  audioModal: document.getElementById('audio-modal'),
+  btnCloseAudio: document.getElementById('btn-close-audio'),
+  audioPlaylistsTabs: document.getElementById('audio-playlists-tabs'),
+  audioTracksContainer: document.getElementById('audio-tracks-container'),
+  audioBadgeCount: document.getElementById('audio-badge-count'),
+  audioCurrentTrackName: document.getElementById('audio-current-track-name'),
+  audioCurrentTrackMeta: document.getElementById('audio-current-track-meta'),
+  audioBarVisualizer: document.getElementById('audio-bar-visualizer'),
+  btnAudioPrev: document.getElementById('btn-audio-prev'),
+  btnAudioPlayPause: document.getElementById('btn-audio-playpause'),
+  btnAudioNext: document.getElementById('btn-audio-next'),
+  btnAudioClear: document.getElementById('btn-audio-clear'),
+  audioIconPlay: document.getElementById('audio-icon-play'),
+  audioIconPause: document.getElementById('audio-icon-pause'),
+  headerAudioPlayingIndicator: document.getElementById('header-audio-playing-indicator'),
+  mobileAudioPlayingIndicator: document.getElementById('mobile-audio-playing-indicator'),
+
+  // Mensagens
+  btnQuickMessages: document.getElementById('btn-quick-messages'),
+  btnMobileMessages: document.getElementById('btn-mobile-messages'),
+  messagesModal: document.getElementById('messages-modal'),
+  btnCloseMessages: document.getElementById('btn-close-messages'),
+  messagesTabs: document.getElementById('messages-tabs'),
+  messagesBodyContainer: document.getElementById('messages-body-container'),
+  messagesBadgeCount: document.getElementById('messages-badge-count'),
+  btnTriggerMessage: document.getElementById('btn-trigger-message'),
+  btnClearMessage: document.getElementById('btn-clear-message'),
+  msgStatusIndicator: document.getElementById('msg-status-indicator'),
+
+  // Clear Layers
   btnQuickClear: document.getElementById('btn-quick-clear'),
+  btnMobileClear: document.getElementById('btn-mobile-clear'),
+  clearDropdownMenu: document.getElementById('clear-dropdown-menu'),
+
+  // Mobile Action Bar & Dropdowns
+  btnMobileLook: document.getElementById('btn-mobile-look'),
+  mobileLookLabel: document.getElementById('mobile-look-label'),
+  mobileLookDropdownMenu: document.getElementById('mobile-look-dropdown-menu'),
+  mobileLookMenuList: document.getElementById('mobile-look-menu-list'),
+  mobileClearDropdownMenu: document.getElementById('mobile-clear-dropdown-menu'),
+
+  // Pesquisa de Músicas
+  desktopSearchInput: document.getElementById('desktop-search-input'),
+  desktopSearchResults: document.getElementById('desktop-search-results'),
+  btnDesktopClearSearch: document.getElementById('btn-desktop-clear-search'),
+  mobileSearchInput: document.getElementById('mobile-search-input'),
+  mobileSearchResults: document.getElementById('mobile-search-results'),
+  btnMobileClearSearch: document.getElementById('btn-mobile-clear-search'),
+
+  // Status & Settings
   connectionStatus: document.getElementById('connection-status'),
   btnOpenSettings: document.getElementById('btn-open-settings'),
 
@@ -46,7 +123,6 @@ const dom = {
   btnNextSlide: document.getElementById('btn-next-slide'),
   liveItemTitle: document.getElementById('live-item-title'),
   liveCueSubtitle: document.getElementById('live-cue-subtitle'),
-  btnExpandPreview: document.getElementById('btn-expand-preview'),
 
   // Lista de Itens (Coluna Esquerda)
   playlistItemsContainer: document.getElementById('playlist-items-container'),
@@ -72,7 +148,13 @@ const dom = {
   cfgProHost: document.getElementById('cfg-pro-host'),
   cfgProPort: document.getElementById('cfg-pro-port'),
   localIpsDisplay: document.getElementById('local-ips-display'),
-  btnSaveSettings: document.getElementById('btn-save-settings')
+  btnSaveSettings: document.getElementById('btn-save-settings'),
+
+  // Instalação PWA / iOS Safari
+  btnInstallPwa: document.getElementById('btn-install-pwa'),
+  iosInstallModal: document.getElementById('ios-install-modal'),
+  btnCloseIosInstall: document.getElementById('btn-close-ios-install'),
+  btnDismissIosInstall: document.getElementById('btn-dismiss-ios-install')
 };
 
 // ==========================================================================
@@ -80,8 +162,11 @@ const dom = {
 // ==========================================================================
 window.addEventListener('DOMContentLoaded', () => {
   setupEventListeners();
+  setupClearLayers();
+  setupSearchHandlers();
   loadServerInfo();
   loadLooks();
+  loadMacros();
   loadInitialPlaylists();
   startStatusPolling();
   registerServiceWorker();
@@ -96,29 +181,111 @@ function registerServiceWorker() {
   }
 }
 
-// Suporte para prompt de instalação PWA
+// Suporte para prompt de instalação PWA (com suporte dedicado para iPad e iPhone)
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
-  // Exibe o botão de instalar app no header se estiver oculto
-  const installBtn = document.getElementById('btn-install-pwa');
-  if (installBtn) {
-    installBtn.classList.remove('hidden');
-    installBtn.addEventListener('click', async () => {
+  if (dom.btnInstallPwa) {
+    dom.btnInstallPwa.classList.remove('hidden');
+  }
+});
+
+function setupPwaInstall() {
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  if (isStandalone) {
+    dom.btnInstallPwa?.classList.add('hidden');
+  } else {
+    dom.btnInstallPwa?.classList.remove('hidden');
+  }
+
+  if (dom.btnInstallPwa) {
+    dom.btnInstallPwa.addEventListener('click', async () => {
       if (deferredPrompt) {
         deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
         if (outcome === 'accepted') {
-          installBtn.classList.add('hidden');
+          dom.btnInstallPwa.classList.add('hidden');
         }
         deferredPrompt = null;
+      } else {
+        openIosInstallModal();
       }
     });
   }
-});
+
+  if (dom.btnCloseIosInstall) {
+    dom.btnCloseIosInstall.addEventListener('click', closeIosInstallModal);
+  }
+  if (dom.btnDismissIosInstall) {
+    dom.btnDismissIosInstall.addEventListener('click', closeIosInstallModal);
+  }
+  if (dom.iosInstallModal) {
+    dom.iosInstallModal.addEventListener('click', (e) => {
+      if (e.target === dom.iosInstallModal) closeIosInstallModal();
+    });
+  }
+}
+
+function openIosInstallModal() {
+  dom.iosInstallModal?.classList.add('open');
+}
+
+function closeIosInstallModal() {
+  dom.iosInstallModal?.classList.remove('open');
+}
+
+// Teleporta menus flutuantes para o <body> para NUNCA sofrerem corte de overflow no iPad/Safari
+function teleportDropdownsToBody() {
+  const elementsToPortal = [
+    dom.lookDropdownMenu,
+    dom.clearDropdownMenu,
+    dom.desktopSearchResults,
+    dom.mobileLookDropdownMenu,
+    dom.mobileClearDropdownMenu,
+    dom.mobileSearchResults
+  ];
+
+  elementsToPortal.forEach(el => {
+    if (el && el.parentElement !== document.body) {
+      document.body.appendChild(el);
+    }
+  });
+}
+
+function openFixedDropdown(btnEl, menuEl) {
+  if (!btnEl || !menuEl) return;
+  const isCurrentlyOpen = menuEl.classList.contains('open');
+  closeAllDropdowns();
+  if (isCurrentlyOpen) return;
+
+  if (menuEl.parentElement !== document.body) {
+    document.body.appendChild(menuEl);
+  }
+
+  menuEl.classList.add('open');
+  const rect = btnEl.getBoundingClientRect();
+  menuEl.style.position = 'fixed';
+  menuEl.style.top = `${rect.bottom + 6}px`;
+  menuEl.style.zIndex = '99999';
+
+  const menuWidth = menuEl.offsetWidth || 210;
+  if (rect.right - menuWidth >= 10) {
+    menuEl.style.left = 'auto';
+    menuEl.style.right = `${window.innerWidth - rect.right}px`;
+  } else {
+    menuEl.style.left = `${Math.max(10, rect.left)}px`;
+    menuEl.style.right = 'auto';
+  }
+}
 
 function setupEventListeners() {
+  // Teleporta menus flutuantes para o <body> para NUNCA sofrerem corte de overflow no iPad/Safari
+  teleportDropdownsToBody();
+
+  // Configuração do botão de Instalação PWA
+  setupPwaInstall();
+
   // Drawer de Playlists
   dom.btnTogglePlaylists.addEventListener('click', () => openDrawer());
   dom.btnCloseDrawer.addEventListener('click', () => closeDrawer());
@@ -129,28 +296,134 @@ function setupEventListeners() {
   dom.tabMediaPlaylists.addEventListener('click', () => switchDrawerTab('media'));
   dom.tabPresentationPlaylists.addEventListener('click', () => switchDrawerTab('presentation'));
 
-  // Looks Dropdown
-  dom.btnQuickLook.addEventListener('click', (e) => {
-    e.stopPropagation();
-    dom.lookDropdownMenu.classList.toggle('open');
-  });
+  // Looks Dropdown Desktop
+  if (dom.btnQuickLook && dom.lookDropdownMenu) {
+    dom.btnQuickLook.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openFixedDropdown(dom.btnQuickLook, dom.lookDropdownMenu);
+    });
+  }
 
-  document.addEventListener('click', (e) => {
-    if (!dom.lookDropdownMenu.contains(e.target) && e.target !== dom.btnQuickLook) {
-      dom.lookDropdownMenu.classList.remove('open');
-    }
-  });
+  // Looks Dropdown Mobile
+  if (dom.btnMobileLook && dom.mobileLookDropdownMenu) {
+    dom.btnMobileLook.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openFixedDropdown(dom.btnMobileLook, dom.mobileLookDropdownMenu);
+    });
+  }
 
-  // Botões Rápidos
-  dom.btnQuickClear.addEventListener('click', handleQuickClear);
-  dom.btnQuickBlack.addEventListener('click', handleQuickBlack);
+  // Clear Layers Dropdown Desktop
+  if (dom.btnQuickClear && dom.clearDropdownMenu) {
+    dom.btnQuickClear.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openFixedDropdown(dom.btnQuickClear, dom.clearDropdownMenu);
+    });
+  }
+
+  // Clear Layers Dropdown Mobile
+  if (dom.btnMobileClear && dom.mobileClearDropdownMenu) {
+    dom.btnMobileClear.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openFixedDropdown(dom.btnMobileClear, dom.mobileClearDropdownMenu);
+    });
+  }
+
+  // Fecha dropdowns ao clicar ou tocar fora (com total compatibilidade com Safari no iPad)
+  const handleOutsideClick = (e) => {
+    if (e.target.closest('#btn-quick-look, #btn-mobile-look, #look-dropdown-menu, #mobile-look-dropdown-menu')) return;
+    if (e.target.closest('#btn-quick-clear, #btn-mobile-clear, #clear-dropdown-menu, #mobile-clear-dropdown-menu')) return;
+    if (e.target.closest('#desktop-search-input, #desktop-search-results, #mobile-search-input, #mobile-search-results')) return;
+
+    closeAllDropdowns();
+    if (dom.desktopSearchResults) dom.desktopSearchResults.classList.add('hidden');
+    if (dom.mobileSearchResults) dom.mobileSearchResults.classList.add('hidden');
+  };
+
+  document.addEventListener('pointerdown', handleOutsideClick);
+  document.addEventListener('click', handleOutsideClick);
+
+  // Modal de Macros (Desktop e Mobile)
+  if (dom.btnQuickMacro) {
+    dom.btnQuickMacro.addEventListener('click', openMacroModal);
+  }
+  if (dom.btnMobileMacro) {
+    dom.btnMobileMacro.addEventListener('click', openMacroModal);
+  }
+  if (dom.btnCloseMacro) {
+    dom.btnCloseMacro.addEventListener('click', closeMacroModal);
+  }
+  if (dom.macroModal) {
+    dom.macroModal.addEventListener('click', (e) => {
+      if (e.target === dom.macroModal) closeMacroModal();
+    });
+  }
+
+  // Modal de Áudio (Desktop e Mobile)
+  if (dom.btnQuickAudio) {
+    dom.btnQuickAudio.addEventListener('click', openAudioModal);
+  }
+  if (dom.btnMobileAudio) {
+    dom.btnMobileAudio.addEventListener('click', openAudioModal);
+  }
+  if (dom.btnCloseAudio) {
+    dom.btnCloseAudio.addEventListener('click', closeAudioModal);
+  }
+  if (dom.audioModal) {
+    dom.audioModal.addEventListener('click', (e) => {
+      if (e.target === dom.audioModal) closeAudioModal();
+    });
+  }
+
+  // Controles de Transporte de Áudio
+  if (dom.btnAudioPlayPause) {
+    dom.btnAudioPlayPause.addEventListener('click', toggleAudioPlayPause);
+  }
+  if (dom.btnAudioNext) {
+    dom.btnAudioNext.addEventListener('click', triggerAudioNext);
+  }
+  if (dom.btnAudioPrev) {
+    dom.btnAudioPrev.addEventListener('click', triggerAudioPrev);
+  }
+  if (dom.btnAudioClear) {
+    dom.btnAudioClear.addEventListener('click', clearAudioLayer);
+  }
+
+  // Modais de Mensagens
+  if (dom.btnQuickMessages) {
+    dom.btnQuickMessages.addEventListener('click', openMessagesModal);
+  }
+  if (dom.btnMobileMessages) {
+    dom.btnMobileMessages.addEventListener('click', openMessagesModal);
+  }
+  if (dom.btnCloseMessages) {
+    dom.btnCloseMessages.addEventListener('click', closeMessagesModal);
+  }
+  if (dom.messagesModal) {
+    dom.messagesModal.addEventListener('click', (e) => {
+      if (e.target === dom.messagesModal) closeMessagesModal();
+    });
+  }
+  if (dom.btnTriggerMessage) {
+    dom.btnTriggerMessage.addEventListener('click', triggerSendMessage);
+  }
+  if (dom.btnClearMessage) {
+    dom.btnClearMessage.addEventListener('click', clearCurrentMessage);
+  }
 
   // Navegação nas setas << e >>
   dom.btnPrevSlide.addEventListener('click', handlePrevItem);
   dom.btnNextSlide.addEventListener('click', handleNextItem);
 
-  // Teclado
+  // Teclado (com proteção total para digitação na busca ou inputs)
   window.addEventListener('keydown', (e) => {
+    const activeEl = document.activeElement;
+    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) {
+      if (e.key === 'Escape') {
+        activeEl.blur();
+      }
+      return; // Permite digitação natural de espaço, setas e backspace
+    }
+
     if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
       e.preventDefault();
       handleNextItem();
@@ -158,7 +431,11 @@ function setupEventListeners() {
       e.preventDefault();
       handlePrevItem();
     } else if (e.key === 'Escape') {
-      handleQuickClear();
+      closeMacroModal();
+      closeAudioModal();
+      closeMessagesModal();
+      dom.clearDropdownMenu.classList.remove('open');
+      dom.lookDropdownMenu.classList.remove('open');
     }
   });
 
@@ -167,14 +444,42 @@ function setupEventListeners() {
   dom.btnCloseSettings.addEventListener('click', () => dom.settingsModal.classList.remove('open'));
   dom.btnSaveSettings.addEventListener('click', handleSaveSettings);
 
-  // Botão Expandir Preview
-  dom.btnExpandPreview.addEventListener('click', () => {
-    const screen = dom.previewScreen || dom.liveSlideImage.parentElement;
-    if (!document.fullscreenElement) {
-      screen.requestFullscreen().catch(() => {});
-    } else {
-      document.exitFullscreen().catch(() => {});
+  // Ativa rolagem por toque/arraste invisível no menu superior
+  enableHeaderDragToScroll();
+}
+
+// Permite arrastar o menu superior suavemente com toque no iPad ou mouse no tablet/desktop
+function enableHeaderDragToScroll() {
+  const header = document.querySelector('.app-header');
+  if (!header) return;
+
+  let isDown = false;
+  let startX = 0;
+  let scrollLeft = 0;
+
+  header.addEventListener('mousedown', (e) => {
+    if (e.target.closest('button, input, a, .action-btn, .icon-btn, .look-dropdown-menu, .clear-dropdown-menu, .search-dropdown-results')) {
+      return;
     }
+    isDown = true;
+    startX = e.pageX - header.offsetLeft;
+    scrollLeft = header.scrollLeft;
+    header.style.cursor = 'grab';
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (isDown) {
+      isDown = false;
+      header.style.cursor = '';
+    }
+  });
+
+  header.addEventListener('mousemove', (e) => {
+    if (!isDown) return;
+    e.preventDefault();
+    const x = e.pageX - header.offsetLeft;
+    const walk = (x - startX) * 1.4;
+    header.scrollLeft = scrollLeft - walk;
   });
 }
 
@@ -225,33 +530,43 @@ async function loadLooks() {
 
   if (looks && Array.isArray(looks)) {
     state.looks = looks;
+    const activeName = (currentLookData && currentLookData.id) ? (currentLookData.id.name || 'Look') : (looks[0]?.id?.name || 'Look');
     if (currentLookData && currentLookData.id) {
       state.currentLook = currentLookData.id;
-      dom.currentLookLabel.textContent = currentLookData.id.name || 'Look';
-    } else if (looks.length > 0) {
-      dom.currentLookLabel.textContent = looks[0].id.name || 'Look';
     }
+    if (dom.currentLookLabel) dom.currentLookLabel.textContent = activeName;
+    if (dom.mobileLookLabel) dom.mobileLookLabel.textContent = activeName;
     renderLooksMenu();
   }
 }
 
+function closeAllDropdowns() {
+  if (dom.lookDropdownMenu) dom.lookDropdownMenu.classList.remove('open');
+  if (dom.mobileLookDropdownMenu) dom.mobileLookDropdownMenu.classList.remove('open');
+  if (dom.clearDropdownMenu) dom.clearDropdownMenu.classList.remove('open');
+  if (dom.mobileClearDropdownMenu) dom.mobileClearDropdownMenu.classList.remove('open');
+}
+
 function renderLooksMenu() {
-  dom.lookMenuList.innerHTML = '';
-  state.looks.forEach(look => {
-    const item = document.createElement('div');
-    const isCurrent = state.currentLook && (state.currentLook.uuid === look.id.uuid || state.currentLook.name === look.id.name);
-    item.className = `look-menu-item ${isCurrent ? 'active' : ''}`;
-    item.innerHTML = `
-      <span>${escapeHtml(look.id.name)}</span>
-      ${isCurrent ? '<span class="check-icon">✓</span>' : ''}
-    `;
+  const containers = [dom.lookMenuList, dom.mobileLookMenuList].filter(Boolean);
+  containers.forEach(container => {
+    container.innerHTML = '';
+    state.looks.forEach(look => {
+      const item = document.createElement('div');
+      const isCurrent = state.currentLook && (state.currentLook.uuid === look.id.uuid || state.currentLook.name === look.id.name);
+      item.className = `look-menu-item ${isCurrent ? 'active' : ''}`;
+      item.innerHTML = `
+        <span>${escapeHtml(look.id.name)}</span>
+        ${isCurrent ? '<span class="check-icon">✓</span>' : ''}
+      `;
 
-    item.addEventListener('click', async () => {
-      await triggerLook(look);
-      dom.lookDropdownMenu.classList.remove('open');
+      item.addEventListener('click', async () => {
+        await triggerLook(look);
+        closeAllDropdowns();
+      });
+
+      container.appendChild(item);
     });
-
-    dom.lookMenuList.appendChild(item);
   });
 }
 
@@ -259,7 +574,9 @@ async function triggerLook(look) {
   const lookId = look.id.uuid || look.id.name || look.id.index;
   await apiRequest(`/v1/look/${encodeURIComponent(lookId)}/trigger`);
   state.currentLook = look.id;
-  dom.currentLookLabel.textContent = look.id.name || 'Look';
+  const name = look.id.name || 'Look';
+  if (dom.currentLookLabel) dom.currentLookLabel.textContent = name;
+  if (dom.mobileLookLabel) dom.mobileLookLabel.textContent = name;
   renderLooksMenu();
 }
 
@@ -642,12 +959,26 @@ async function loadPresentationSlides(presUuid, presName, itemIndex, shouldTrigg
     card.dataset.cue = slide.cueIndex;
 
     const thumbUrl = `/api/v1/presentation/${presUuid}/thumbnail/${slide.cueIndex}`;
+    const hasLyrics = slide.text && slide.text.trim().length > 0;
+
+    let contentHtml = '';
+    if (hasLyrics) {
+      contentHtml = `
+        <div class="slide-lyrics-display">
+          <div class="slide-lyrics-text">${escapeHtml(slide.text)}</div>
+        </div>
+      `;
+    } else {
+      contentHtml = `
+        <img class="slide-thumbnail-img" src="${thumbUrl}" onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');" alt="Slide ${slide.cueIndex + 1}" loading="lazy">
+        <div class="slide-text-overlay hidden">Slide ${slide.cueIndex + 1}</div>
+      `;
+    }
 
     card.innerHTML = `
       <div class="slide-index-label">${slide.cueIndex + 1}</div>
       <div class="slide-preview-wrapper">
-        <img class="slide-thumbnail-img" src="${thumbUrl}" alt="Slide ${slide.cueIndex + 1}" loading="lazy">
-        ${slide.text ? `<div class="slide-text-overlay">${escapeHtml(slide.text)}</div>` : ''}
+        ${contentHtml}
         <div class="live-badge-tag hidden">AO VIVO</div>
       </div>
     `;
@@ -679,9 +1010,18 @@ async function triggerSlideCue(presUuid, cueIndex, presName, slideText = '', tot
   dom.liveCueSubtitle.textContent = `Slide ${cueIndex + 1} de ${totalSlides || state.currentPresentationSlides.length}`;
 
   dom.previewPlaceholder.classList.add('hidden');
-  dom.liveSlideImage.classList.remove('hidden');
-  dom.liveSlideImage.src = `/api/v1/presentation/${presUuid}/thumbnail/${cueIndex}?t=${Date.now()}`;
-  dom.previewTextOverlay.textContent = slideText || '';
+
+  const hasLyrics = slideText && slideText.trim().length > 0;
+  if (hasLyrics) {
+    dom.liveSlideImage.classList.add('hidden');
+    dom.previewTextOverlay.classList.remove('hidden');
+    dom.previewTextOverlay.innerHTML = `<div class="slide-lyrics-text" style="font-size: 20px; font-weight: 700; color: #fff;">${escapeHtml(slideText)}</div>`;
+  } else {
+    dom.previewTextOverlay.classList.add('hidden');
+    dom.previewTextOverlay.innerHTML = '';
+    dom.liveSlideImage.classList.remove('hidden');
+    dom.liveSlideImage.src = `/api/v1/presentation/${presUuid}/thumbnail/${cueIndex}?t=${Date.now()}`;
+  }
 }
 
 function highlightActiveSlide(cueIndex) {
@@ -769,33 +1109,848 @@ async function handlePrevItem() {
 }
 
 // ==========================================================================
-// AÇÕES RÁPIDAS (CLEAR, BLACK)
+// MACROS DO PROPRESENTER (CARDS COLORIDOS NATIVOS)
 // ==========================================================================
-async function handleQuickClear() {
-  await apiRequest('/v1/clear/group/0/trigger');
-  await apiRequest('/v1/clear/layer/slide');
-  await apiRequest('/v1/clear/layer/media');
-  await apiRequest('/v1/clear/layer/video_input');
+const NUMBER_WORDS = {
+  'one': '1', 'two': '2', 'three': '3', 'four': '4',
+  'five': '5', 'six': '6', 'seven': '7', 'eight': '8',
+  'nine': '9', 'ten': '10', 'slide': 'P'
+};
 
-  dom.liveSlideImage.src = '';
-  dom.liveSlideImage.classList.add('hidden');
-  dom.previewTextOverlay.textContent = '';
-  dom.previewPlaceholder.classList.remove('hidden');
-  dom.liveItemTitle.textContent = 'Telas Limpas';
-  dom.liveCueSubtitle.textContent = 'Nenhum slide no ar';
+function openMacroModal() {
+  dom.lookDropdownMenu.classList.remove('open');
+  dom.clearDropdownMenu.classList.remove('open');
+  dom.macroModal.classList.add('open');
+  if (!state.macros || state.macros.length === 0) {
+    loadMacros();
+  }
+}
 
-  document.querySelectorAll('.slide-card-item').forEach(card => {
-    card.classList.remove('live');
-    const badge = card.querySelector('.live-badge-tag');
-    if (badge) badge.classList.add('hidden');
+function closeMacroModal() {
+  dom.macroModal.classList.remove('open');
+}
+
+async function loadMacros() {
+  const macrosData = await apiRequest('/v1/macros');
+  if (!macrosData || !Array.isArray(macrosData)) {
+    if (dom.macroBadgeCount) dom.macroBadgeCount.textContent = 'Indisponível';
+    return;
+  }
+
+  state.macros = macrosData;
+  if (dom.macroBadgeCount) dom.macroBadgeCount.textContent = `${macrosData.length} macros`;
+  renderMacroGrid(macrosData);
+}
+
+const ACTION_SVGS = {
+  audience_look: `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" title="Audience Look"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`,
+  clear: `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" title="Clear"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
+  stage_layout: `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" title="Stage Layout"><line x1="4" y1="12" x2="20" y2="12"/><line x1="12" y1="4" x2="12" y2="20"/><rect x="6" y="8" width="12" height="8" rx="1.5"/></svg>`,
+  prop: `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" title="Prop"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`,
+  media_bin_playlist: `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" title="Mídia"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`
+};
+
+const SLIDE_ICON_SVG = `
+  <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.2">
+    <rect x="3" y="4" width="18" height="16" rx="3" stroke-width="2.2"/>
+    <line x1="7" y1="9" x2="17" y2="9" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="7" y1="13" x2="17" y2="13" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="7" y1="17" x2="13" y2="17" stroke-width="2.5" stroke-linecap="round"/>
+  </svg>
+`;
+
+function renderMacroGrid(macros) {
+  if (!dom.macroGridContainer) return;
+  dom.macroGridContainer.innerHTML = '';
+
+  macros.forEach((m, idx) => {
+    const itemWrapper = document.createElement('div');
+    itemWrapper.className = 'macro-item-wrapper';
+
+    // Conversão das cores da API (0.0 a 1.0) para CSS rgb
+    let colorCss = '#2563eb';
+    if (m.color) {
+      const r = Math.round((m.color.red || 0) * 255);
+      const g = Math.round((m.color.green || 0) * 255);
+      const b = Math.round((m.color.blue || 0) * 255);
+      colorCss = `rgb(${r}, ${g}, ${b})`;
+    }
+
+    // Extrair o número da tecla ou identificar se é slide
+    const imgType = (m.image_type || '').toLowerCase();
+    const isSlide = (imgType === 'slide');
+    let keyNum = NUMBER_WORDS[imgType];
+    if (!keyNum) {
+      const match = (m.id?.name || '').match(/TECLA\s+(\d+)/i);
+      keyNum = match ? match[1] : String(idx + 1);
+    }
+
+    const macroName = m.id?.name || `Macro ${idx + 1}`;
+    const macroUuid = m.id?.uuid || idx;
+
+    // Gerar ícones das ações presentes
+    const actions = m.actions || [];
+    const actionIconsHtml = actions.map(a => ACTION_SVGS[a.type] || '').filter(Boolean).join('');
+
+    itemWrapper.innerHTML = `
+      <div class="macro-card-box" style="background: ${colorCss}; --macro-glow: ${colorCss};">
+        <div class="macro-inner-squircle">
+          ${isSlide ? `<span style="color: ${colorCss}; display: flex;">${SLIDE_ICON_SVG}</span>` : `<span class="macro-number-text" style="color: ${colorCss};">${escapeHtml(keyNum)}</span>`}
+        </div>
+        <div class="macro-actions-strip">
+          ${actionIconsHtml}
+        </div>
+      </div>
+      <div class="macro-label-text" title="${escapeHtml(macroName)}">${escapeHtml(macroName)}</div>
+    `;
+
+    itemWrapper.addEventListener('click', () => triggerMacro(macroUuid, macroName, itemWrapper));
+    dom.macroGridContainer.appendChild(itemWrapper);
   });
 }
 
-async function handleQuickBlack() {
-  await apiRequest('/v1/clear/layer/slide');
-  await apiRequest('/v1/clear/layer/media');
-  dom.liveItemTitle.textContent = 'Blackout Ativo';
-  dom.liveCueSubtitle.textContent = 'Saída cortada';
+async function triggerMacro(uuid, name, cardEl) {
+  if (cardEl) {
+    cardEl.classList.add('triggered');
+    setTimeout(() => cardEl.classList.remove('triggered'), 850);
+  }
+
+  dom.liveItemTitle.textContent = name;
+  dom.liveCueSubtitle.textContent = 'Macro Executado';
+
+  await apiRequest(`/v1/macro/${uuid}/trigger`);
+}
+
+// ==========================================================================
+// PLAYLISTS DE ÁUDIO DO PROPRESENTER
+// ==========================================================================
+function openAudioModal() {
+  if (dom.audioModal) {
+    dom.audioModal.classList.add('open');
+    loadAudioPlaylists();
+    checkAudioTransportStatus();
+  }
+}
+
+function closeAudioModal() {
+  if (dom.audioModal) {
+    dom.audioModal.classList.remove('open');
+  }
+}
+
+async function loadAudioPlaylists() {
+  try {
+    if (dom.audioBadgeCount) dom.audioBadgeCount.textContent = 'Carregando...';
+    const playlists = await apiRequest('/v1/audio/playlists');
+    if (!playlists || !Array.isArray(playlists)) {
+      if (dom.audioBadgeCount) dom.audioBadgeCount.textContent = '0 playlists';
+      return;
+    }
+
+    state.audio.playlists = playlists;
+    renderAudioPlaylistTabs(playlists);
+
+    if (!state.audio.activePlaylistId && playlists.length > 0) {
+      selectAudioPlaylist(playlists[0].id.uuid, playlists[0].id.name);
+    } else if (state.audio.activePlaylistId) {
+      selectAudioPlaylist(state.audio.activePlaylistId, state.audio.activePlaylistName);
+    }
+  } catch (err) {
+    console.error('Erro ao carregar playlists de áudio:', err);
+    if (dom.audioBadgeCount) dom.audioBadgeCount.textContent = 'Erro';
+  }
+}
+
+function renderAudioPlaylistTabs(playlists) {
+  if (!dom.audioPlaylistsTabs) return;
+  dom.audioPlaylistsTabs.innerHTML = '';
+
+  playlists.forEach(pl => {
+    const pill = document.createElement('button');
+    const plUuid = pl.id?.uuid;
+    const plName = pl.id?.name || 'Playlist';
+    const isActive = (state.audio.activePlaylistId === plUuid);
+
+    pill.className = `audio-tab-pill ${isActive ? 'active' : ''}`;
+    pill.dataset.uuid = plUuid;
+    pill.innerHTML = `<span>${escapeHtml(plName)}</span>`;
+
+    pill.addEventListener('click', () => {
+      selectAudioPlaylist(plUuid, plName);
+    });
+
+    dom.audioPlaylistsTabs.appendChild(pill);
+  });
+}
+
+async function selectAudioPlaylist(playlistUuid, playlistName) {
+  state.audio.activePlaylistId = playlistUuid;
+  state.audio.activePlaylistName = playlistName;
+
+  document.querySelectorAll('.audio-tab-pill').forEach(pill => {
+    if (pill.dataset.uuid === playlistUuid) {
+      pill.classList.add('active');
+    } else {
+      pill.classList.remove('active');
+    }
+  });
+
+  if (dom.audioTracksContainer) {
+    dom.audioTracksContainer.innerHTML = '<div class="loading-state" style="padding: 30px; text-align: center;"><div class="spinner"></div><p style="margin-top: 10px; color: var(--text-dim); font-size: 13px;">Carregando faixas...</p></div>';
+  }
+
+  try {
+    const data = await apiRequest(`/v1/audio/playlist/${playlistUuid}`);
+    const items = (data && Array.isArray(data.items)) ? data.items : [];
+    state.audio.tracks = items;
+    if (dom.audioBadgeCount) {
+      dom.audioBadgeCount.textContent = `${items.length} ${items.length === 1 ? 'faixa' : 'faixas'}`;
+    }
+    renderAudioTracksList(items, playlistUuid, playlistName);
+  } catch (err) {
+    console.error('Erro ao buscar faixas de áudio:', err);
+    if (dom.audioTracksContainer) {
+      dom.audioTracksContainer.innerHTML = '<div class="empty-state" style="padding: 30px; text-align: center; color: var(--color-danger);"><p>Erro ao carregar faixas</p></div>';
+    }
+  }
+}
+
+function formatDuration(seconds) {
+  if (!seconds || isNaN(seconds) || seconds <= 0) return '--:--';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+function renderAudioTracksList(tracks, playlistUuid, playlistName) {
+  if (!dom.audioTracksContainer) return;
+
+  if (tracks.length === 0) {
+    dom.audioTracksContainer.innerHTML = `
+      <div class="empty-state" style="padding: 40px 20px; text-align: center; color: var(--text-muted);">
+        <p>Nenhuma faixa nesta playlist de áudio.</p>
+      </div>
+    `;
+    return;
+  }
+
+  dom.audioTracksContainer.innerHTML = '';
+  tracks.forEach((track, idx) => {
+    const card = document.createElement('div');
+    const trackUuid = track.id?.uuid || track.id?.index || idx;
+    const trackName = track.id?.name || `Faixa ${idx + 1}`;
+    const artist = track.artist && track.artist !== 'unknown' ? track.artist : 'Áudio ProPresenter';
+    const duration = formatDuration(track.duration);
+    const isThisPlaying = state.audio.isPlaying && state.audio.currentTrackUuid === trackUuid;
+
+    card.className = `audio-track-item ${isThisPlaying ? 'playing' : ''}`;
+    card.dataset.uuid = trackUuid;
+    card.dataset.index = idx;
+
+    card.innerHTML = `
+      <div class="audio-track-left">
+        <span class="audio-track-index">${idx + 1}</span>
+        <div class="audio-track-info">
+          <div class="audio-track-title" title="${escapeHtml(trackName)}">${escapeHtml(trackName)}</div>
+          <div class="audio-track-meta">${escapeHtml(artist)}</div>
+        </div>
+      </div>
+      <div class="audio-track-right">
+        <span class="audio-track-duration">${duration}</span>
+        <button class="audio-track-play-btn" title="Tocar esta faixa">
+          ${isThisPlaying ? `
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+              <rect x="6" y="4" width="4" height="16"></rect>
+              <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>
+          ` : `
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+          `}
+        </button>
+      </div>
+    `;
+
+    card.addEventListener('click', () => {
+      triggerAudioTrack(playlistUuid, trackUuid, trackName, artist);
+    });
+
+    dom.audioTracksContainer.appendChild(card);
+  });
+}
+
+async function triggerAudioTrack(playlistUuid, trackUuid, trackName, artist = 'Áudio ProPresenter') {
+  state.audio.currentTrackUuid = trackUuid;
+  state.audio.currentTrackName = trackName;
+  state.audio.isPlaying = true;
+
+  updateAudioUIPlayingState(trackName, `${state.audio.activePlaylistName} • ${artist}`, true);
+
+  await apiRequest(`/v1/audio/playlist/${playlistUuid}/${trackUuid}/trigger`);
+  checkAudioTransportStatus();
+}
+
+async function toggleAudioPlayPause() {
+  if (state.audio.isPlaying) {
+    await apiRequest('/v1/transport/audio/pause');
+    state.audio.isPlaying = false;
+    updateAudioUIPlayingState(state.audio.currentTrackName, 'Pausado', false);
+  } else {
+    await apiRequest('/v1/transport/audio/play');
+    state.audio.isPlaying = true;
+    updateAudioUIPlayingState(state.audio.currentTrackName, 'Reproduzindo', true);
+  }
+}
+
+async function triggerAudioNext() {
+  if (state.audio.activePlaylistId) {
+    await apiRequest(`/v1/audio/playlist/${state.audio.activePlaylistId}/next/trigger`);
+  } else {
+    await apiRequest('/v1/trigger/audio/next');
+  }
+  setTimeout(checkAudioTransportStatus, 300);
+}
+
+async function triggerAudioPrev() {
+  if (state.audio.activePlaylistId) {
+    await apiRequest(`/v1/audio/playlist/${state.audio.activePlaylistId}/previous/trigger`);
+  } else {
+    await apiRequest('/v1/trigger/audio/previous');
+  }
+  setTimeout(checkAudioTransportStatus, 300);
+}
+
+async function clearAudioLayer() {
+  await apiRequest('/v1/clear/layer/audio');
+  state.audio.isPlaying = false;
+  state.audio.currentTrackUuid = null;
+  state.audio.currentTrackName = '';
+  updateAudioUIPlayingState('Nenhum áudio tocando', 'Camada de áudio limpa', false);
+}
+
+function updateAudioUIPlayingState(trackName, meta, isPlaying) {
+  if (dom.audioCurrentTrackName) dom.audioCurrentTrackName.textContent = trackName || 'Nenhum áudio tocando';
+  if (dom.audioCurrentTrackMeta) dom.audioCurrentTrackMeta.textContent = meta || '';
+
+  if (isPlaying) {
+    dom.audioIconPlay?.classList.add('hidden');
+    dom.audioIconPause?.classList.remove('hidden');
+    dom.audioBarVisualizer?.classList.remove('hidden');
+    dom.headerAudioPlayingIndicator?.classList.remove('hidden');
+    dom.mobileAudioPlayingIndicator?.classList.remove('hidden');
+    dom.btnQuickAudio?.classList.add('active');
+    dom.btnMobileAudio?.classList.add('active');
+  } else {
+    dom.audioIconPlay?.classList.remove('hidden');
+    dom.audioIconPause?.classList.add('hidden');
+    dom.audioBarVisualizer?.classList.add('hidden');
+    dom.headerAudioPlayingIndicator?.classList.add('hidden');
+    dom.mobileAudioPlayingIndicator?.classList.add('hidden');
+    dom.btnQuickAudio?.classList.remove('active');
+    dom.btnMobileAudio?.classList.remove('active');
+  }
+
+  document.querySelectorAll('.audio-track-item').forEach(card => {
+    const isThis = isPlaying && (card.dataset.uuid === state.audio.currentTrackUuid);
+    card.classList.toggle('playing', isThis);
+    const playBtn = card.querySelector('.audio-track-play-btn');
+    if (playBtn) {
+      playBtn.innerHTML = isThis ? `
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+          <rect x="6" y="4" width="4" height="16"></rect>
+          <rect x="14" y="4" width="4" height="16"></rect>
+        </svg>
+      ` : `
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+      `;
+    }
+  });
+}
+
+async function checkAudioTransportStatus() {
+  try {
+    const current = await apiRequest('/v1/transport/audio/current');
+    if (current && (current.name || current.id?.name)) {
+      const name = current.name || current.id?.name;
+      const artist = current.artist || 'ProPresenter';
+      state.audio.isPlaying = true;
+      state.audio.currentTrackName = name;
+      if (current.id?.uuid) state.audio.currentTrackUuid = current.id.uuid;
+      updateAudioUIPlayingState(name, `${state.audio.activePlaylistName || 'Playlist'} • ${artist}`, true);
+    }
+  } catch (e) {
+    // Silencioso
+  }
+}
+
+// ==========================================================================
+// MÓDULO DE MENSAGENS NO TELÃO (PROPRESENTER MESSAGES)
+// ==========================================================================
+function openMessagesModal() {
+  dom.messagesModal?.classList.add('open');
+  loadMessages();
+}
+
+function closeMessagesModal() {
+  dom.messagesModal?.classList.remove('open');
+}
+
+async function loadMessages() {
+  if (dom.messagesBadgeCount) dom.messagesBadgeCount.textContent = 'Carregando...';
+  
+  const data = await apiRequest('/v1/messages');
+  let list = [];
+  if (data && Array.isArray(data)) {
+    list = data;
+  } else if (data && Array.isArray(data.value)) {
+    list = data.value;
+  }
+
+  state.messages.list = list;
+
+  if (dom.messagesBadgeCount) {
+    dom.messagesBadgeCount.textContent = `${list.length} modelo${list.length !== 1 ? 's' : ''}`;
+  }
+
+  if (list.length === 0) {
+    if (dom.messagesTabs) dom.messagesTabs.innerHTML = '';
+    if (dom.messagesBodyContainer) {
+      dom.messagesBodyContainer.innerHTML = `
+        <div class="slides-empty-notice">
+          <p>Nenhum modelo de mensagem configurado no ProPresenter.</p>
+        </div>
+      `;
+    }
+    return;
+  }
+
+  renderMessagesTabs(list);
+
+  let selected = list.find(m => m.id?.uuid === state.messages.activeMessageUuid);
+  if (!selected) {
+    selected = list.find(m => m.is_active) || list[0];
+  }
+  selectMessageTemplate(selected);
+}
+
+function renderMessagesTabs(list) {
+  if (!dom.messagesTabs) return;
+  dom.messagesTabs.innerHTML = '';
+
+  list.forEach(msg => {
+    const pill = document.createElement('button');
+    const msgUuid = msg.id?.uuid || msg.id?.index;
+    const msgName = msg.id?.name || 'Mensagem';
+    const isActive = msgUuid === state.messages.activeMessageUuid;
+    const isOnScreen = !!msg.is_active;
+
+    pill.className = `message-tab-pill ${isActive ? 'active' : ''} ${isOnScreen ? 'is-active-on-screen' : ''}`;
+    pill.dataset.uuid = msgUuid;
+    pill.innerHTML = `
+      <span>${escapeHtml(msgName)}</span>
+      ${isOnScreen ? '<span title="Exibindo no telão" style="color:#ef4444;font-size:10px;">● AO VIVO</span>' : ''}
+    `;
+
+    pill.addEventListener('click', () => {
+      selectMessageTemplate(msg);
+    });
+
+    dom.messagesTabs.appendChild(pill);
+  });
+}
+
+function selectMessageTemplate(msg) {
+  state.messages.activeMessageUuid = msg.id?.uuid || msg.id?.index;
+  state.messages.activeTemplate = msg;
+
+  document.querySelectorAll('.message-tab-pill').forEach(pill => {
+    pill.classList.toggle('active', pill.dataset.uuid == state.messages.activeMessageUuid);
+  });
+
+  if (!dom.messagesBodyContainer) return;
+
+  const msgName = msg.id?.name || 'Mensagem';
+  const rawMessage = msg.message || '';
+  const tokens = msg.tokens || [];
+  const isOnScreen = !!msg.is_active;
+
+  tokens.forEach(tok => {
+    if (state.messages.tokenValues[tok.name] === undefined) {
+      state.messages.tokenValues[tok.name] = tok.text?.text || '';
+    }
+  });
+
+  let tokensInputsHtml = '';
+  if (tokens.length > 0) {
+    tokensInputsHtml = `
+      <div class="message-tokens-grid">
+        ${tokens.map(tok => {
+          const val = state.messages.tokenValues[tok.name] !== undefined ? state.messages.tokenValues[tok.name] : (tok.text?.text || '');
+          return `
+            <div class="message-token-field">
+              <label class="message-token-label">${escapeHtml(tok.name)}</label>
+              <input type="text" class="message-token-input" data-token-name="${escapeHtml(tok.name)}" value="${escapeHtml(val)}" placeholder="Digite ${escapeHtml(tok.name)}...">
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  } else {
+    tokensInputsHtml = `
+      <div style="font-size:12px; color: var(--text-dim); padding: 8px 0;">
+        Esta mensagem é de texto fixo (não requer campos dinâmicos).
+      </div>
+    `;
+  }
+
+  dom.messagesBodyContainer.innerHTML = `
+    <div class="message-template-card">
+      <div class="message-template-name-row">
+        <div class="message-template-title">${escapeHtml(msgName)}</div>
+        <span class="message-template-status-badge ${isOnScreen ? 'active' : 'inactive'}">
+          ${isOnScreen ? '● NO TELÃO' : 'OCULTA'}
+        </span>
+      </div>
+      <div class="message-template-raw-text">${escapeHtml(rawMessage)}</div>
+    </div>
+
+    ${tokensInputsHtml}
+
+    <div class="message-preview-container">
+      <div class="message-preview-header">
+        <span>Pré-visualização do Telão</span>
+      </div>
+      <div class="message-preview-bubble" id="message-preview-bubble"></div>
+    </div>
+  `;
+
+  dom.messagesBodyContainer.querySelectorAll('.message-token-input').forEach(input => {
+    input.addEventListener('input', () => {
+      const tokName = input.dataset.tokenName;
+      state.messages.tokenValues[tokName] = input.value;
+      updateMessagePreview();
+    });
+  });
+
+  updateMessagePreview();
+
+  if (dom.msgStatusIndicator) {
+    dom.msgStatusIndicator.textContent = isOnScreen ? '● Mensagem ativa no telão' : 'Pronto para envio';
+    dom.msgStatusIndicator.style.color = isOnScreen ? '#f87171' : 'var(--text-dim)';
+  }
+}
+
+function updateMessagePreview() {
+  const bubble = document.getElementById('message-preview-bubble');
+  if (!bubble || !state.messages.activeTemplate) return;
+
+  const msg = state.messages.activeTemplate;
+  let formatted = escapeHtml(msg.message || '');
+  const tokens = msg.tokens || [];
+
+  tokens.forEach(tok => {
+    const val = state.messages.tokenValues[tok.name];
+    const displayVal = val ? escapeHtml(val) : `[${escapeHtml(tok.name)}]`;
+    const pattern = new RegExp(`\\{${tok.name}\\}`, 'g');
+    formatted = formatted.replace(pattern, `<span class="token-highlight">${displayVal}</span>`);
+  });
+
+  bubble.innerHTML = formatted || '<em>Nenhum texto de mensagem</em>';
+}
+
+async function triggerSendMessage() {
+  if (!state.messages.activeTemplate) return;
+
+  const msg = state.messages.activeTemplate;
+  const msgUuid = msg.id?.uuid || msg.id?.index;
+  const tokens = msg.tokens || [];
+
+  if (dom.msgStatusIndicator) {
+    dom.msgStatusIndicator.textContent = 'Enviando para o telão...';
+    dom.msgStatusIndicator.style.color = '#38bdf8';
+  }
+
+  const payloadTokens = tokens.map(tok => ({
+    name: tok.name,
+    uuid: tok.uuid,
+    text: {
+      text: state.messages.tokenValues[tok.name] !== undefined ? state.messages.tokenValues[tok.name] : (tok.text?.text || '')
+    }
+  }));
+
+  try {
+    const res = await fetch(`/api/v1/message/${msgUuid}/trigger`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payloadTokens)
+    });
+
+    if (res.ok) {
+      if (dom.msgStatusIndicator) {
+        dom.msgStatusIndicator.textContent = '● Mensagem exibida no telão!';
+        dom.msgStatusIndicator.style.color = '#34d399';
+      }
+      msg.is_active = true;
+      renderMessagesTabs(state.messages.list);
+      const statusBadge = dom.messagesBodyContainer?.querySelector('.message-template-status-badge');
+      if (statusBadge) {
+        statusBadge.className = 'message-template-status-badge active';
+        statusBadge.textContent = '● NO TELÃO';
+      }
+    } else {
+      if (dom.msgStatusIndicator) {
+        dom.msgStatusIndicator.textContent = 'Erro ao enviar mensagem.';
+        dom.msgStatusIndicator.style.color = '#ef4444';
+      }
+    }
+  } catch (err) {
+    console.error('Erro ao disparar mensagem:', err);
+    if (dom.msgStatusIndicator) {
+      dom.msgStatusIndicator.textContent = 'Falha de comunicação.';
+      dom.msgStatusIndicator.style.color = '#ef4444';
+    }
+  }
+}
+
+async function clearCurrentMessage() {
+  if (!state.messages.activeTemplate) return;
+
+  const msg = state.messages.activeTemplate;
+  const msgUuid = msg.id?.uuid || msg.id?.index;
+
+  if (dom.msgStatusIndicator) {
+    dom.msgStatusIndicator.textContent = 'Ocultando do telão...';
+    dom.msgStatusIndicator.style.color = '#f87171';
+  }
+
+  try {
+    await apiRequest(`/v1/message/${msgUuid}/clear`);
+    await apiRequest('/v1/clear/layer/messages');
+
+    msg.is_active = false;
+    renderMessagesTabs(state.messages.list);
+
+    if (dom.msgStatusIndicator) {
+      dom.msgStatusIndicator.textContent = 'Mensagem ocultada do telão.';
+      dom.msgStatusIndicator.style.color = 'var(--text-dim)';
+    }
+
+    const statusBadge = dom.messagesBodyContainer?.querySelector('.message-template-status-badge');
+    if (statusBadge) {
+      statusBadge.className = 'message-template-status-badge inactive';
+      statusBadge.textContent = 'OCULTA';
+    }
+  } catch (err) {
+    console.error('Erro ao ocultar mensagem:', err);
+  }
+}
+
+// ==========================================================================
+// CAMADAS DE LIMPEZA (CLEAR LAYERS)
+// ==========================================================================
+function setupClearLayers() {
+  document.querySelectorAll('.clear-item-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const layer = btn.getAttribute('data-layer');
+      closeAllDropdowns();
+      await triggerClearLayer(layer);
+    });
+  });
+}
+
+async function triggerClearLayer(layer) {
+  if (layer === 'all') {
+    await apiRequest('/v1/clear/group/0/trigger');
+    await apiRequest('/v1/clear/layer/slide');
+    await apiRequest('/v1/clear/layer/media');
+    await apiRequest('/v1/clear/layer/video_input');
+    await apiRequest('/v1/clear/layer/audio');
+    await apiRequest('/v1/clear/layer/messages');
+    await apiRequest('/v1/clear/layer/props');
+    await apiRequest('/v1/clear/layer/announcements');
+
+    dom.liveSlideImage.src = '';
+    dom.liveSlideImage.classList.add('hidden');
+    dom.previewTextOverlay.textContent = '';
+    dom.previewPlaceholder.classList.remove('hidden');
+    dom.liveItemTitle.textContent = 'Telas Limpas';
+    dom.liveCueSubtitle.textContent = 'Todas as camadas limpas';
+
+    document.querySelectorAll('.slide-card-item').forEach(card => {
+      card.classList.remove('live');
+      const badge = card.querySelector('.live-badge-tag');
+      if (badge) badge.classList.add('hidden');
+    });
+
+    state.audio.isPlaying = false;
+    state.audio.currentTrackUuid = null;
+    state.audio.currentTrackName = '';
+    updateAudioUIPlayingState('Nenhum áudio tocando', 'Camada de áudio limpa', false);
+    return;
+  }
+
+  // Camada individual
+  await apiRequest(`/v1/clear/layer/${layer}`);
+
+  if (layer === 'audio') {
+    state.audio.isPlaying = false;
+    state.audio.currentTrackUuid = null;
+    state.audio.currentTrackName = '';
+    updateAudioUIPlayingState('Nenhum áudio tocando', 'Camada de áudio limpa', false);
+  }
+
+  if (layer === 'slide') {
+    dom.previewTextOverlay.textContent = '';
+    if (dom.liveSlideImage.classList.contains('hidden')) {
+      dom.previewPlaceholder.classList.remove('hidden');
+    }
+  } else if (layer === 'media') {
+    dom.liveSlideImage.src = '';
+    dom.liveSlideImage.classList.add('hidden');
+    if (!dom.previewTextOverlay.textContent) {
+      dom.previewPlaceholder.classList.remove('hidden');
+    }
+  }
+
+  dom.liveItemTitle.textContent = `Camada ${layer.toUpperCase()} Limpa`;
+  dom.liveCueSubtitle.textContent = 'Comando enviado ao ProPresenter';
+}
+
+// ==========================================================================
+// BUSCA GLOBAL DE MÚSICAS / APRESENTAÇÕES (4.500+ MÚSICAS)
+// ==========================================================================
+function setupSearchHandlers() {
+  bindSearchBox(dom.desktopSearchInput, dom.desktopSearchResults, dom.btnDesktopClearSearch);
+  bindSearchBox(dom.mobileSearchInput, dom.mobileSearchResults, dom.btnMobileClearSearch);
+}
+
+function bindSearchBox(inputEl, resultsEl, clearBtnEl) {
+  if (!inputEl || !resultsEl) return;
+
+  let debounceTimer = null;
+
+  inputEl.addEventListener('input', () => {
+    const query = inputEl.value.trim();
+    if (clearBtnEl) {
+      clearBtnEl.classList.toggle('hidden', query.length === 0);
+    }
+
+    if (query.length < 2) {
+      resultsEl.classList.add('hidden');
+      resultsEl.innerHTML = '';
+      return;
+    }
+
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => executeSearch(query, resultsEl), 150);
+  });
+
+  if (clearBtnEl) {
+    clearBtnEl.addEventListener('click', () => {
+      inputEl.value = '';
+      clearBtnEl.classList.add('hidden');
+      resultsEl.classList.add('hidden');
+      resultsEl.innerHTML = '';
+      inputEl.focus();
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!inputEl.contains(e.target) && !resultsEl.contains(e.target)) {
+      resultsEl.classList.add('hidden');
+    }
+  });
+
+  inputEl.addEventListener('focus', () => {
+    if (inputEl.value.trim().length >= 2 && resultsEl.children.length > 0) {
+      positionSearchResults(inputEl, resultsEl);
+      resultsEl.classList.remove('hidden');
+    }
+  });
+}
+
+function positionSearchResults(inputEl, resultsEl) {
+  if (resultsEl.parentElement !== document.body) {
+    document.body.appendChild(resultsEl);
+  }
+  const rect = inputEl.getBoundingClientRect();
+  resultsEl.style.position = 'fixed';
+  resultsEl.style.top = `${rect.bottom + 6}px`;
+  resultsEl.style.zIndex = '99999';
+
+  if (window.innerWidth <= 768) {
+    resultsEl.style.left = '10px';
+    resultsEl.style.right = '10px';
+    resultsEl.style.width = 'auto';
+    resultsEl.style.maxWidth = 'calc(100vw - 20px)';
+  } else {
+    resultsEl.style.left = `${Math.max(10, rect.left)}px`;
+    resultsEl.style.right = 'auto';
+    resultsEl.style.width = `${Math.max(rect.width, 360)}px`;
+  }
+  resultsEl.style.maxHeight = '60vh';
+}
+
+async function executeSearch(query, resultsEl) {
+  try {
+    const res = await fetch(`/api/search-songs?q=${encodeURIComponent(query)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    renderSearchResults(data.results || [], resultsEl);
+  } catch (err) {
+    console.error('Erro na busca:', err);
+  }
+}
+
+function renderSearchResults(items, resultsEl) {
+  if (items.length === 0) {
+    resultsEl.innerHTML = `<div class="search-empty-state">Nenhuma música encontrada</div>`;
+    const inputEl = (resultsEl === dom.desktopSearchResults) ? dom.desktopSearchInput : dom.mobileSearchInput;
+    if (inputEl) positionSearchResults(inputEl, resultsEl);
+    resultsEl.classList.remove('hidden');
+    return;
+  }
+
+  resultsEl.innerHTML = '';
+  items.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'search-item-row';
+    row.innerHTML = `
+      <div class="search-item-title">${escapeHtml(item.name)}</div>
+      <div class="search-item-meta">
+        <span class="search-item-lib-badge">${escapeHtml(item.libraryName)}</span>
+        <span>Apresentação</span>
+      </div>
+    `;
+    row.addEventListener('click', () => {
+      resultsEl.classList.add('hidden');
+      openPresentationFromSearch(item);
+    });
+    resultsEl.appendChild(row);
+  });
+
+  const inputEl = (resultsEl === dom.desktopSearchResults) ? dom.desktopSearchInput : dom.mobileSearchInput;
+  if (inputEl) positionSearchResults(inputEl, resultsEl);
+
+  resultsEl.classList.remove('hidden');
+}
+
+async function openPresentationFromSearch(item) {
+  state.activePlaylistType = 'presentation';
+  state.activePlaylistName = item.libraryName || 'Biblioteca';
+  dom.playlistTypeLabel.textContent = 'MÚSICA';
+  dom.activePlaylistTitle.textContent = item.name;
+
+  // Atualiza título da coluna de slides
+  dom.selectedPresentationTitle.textContent = item.name;
+  dom.itemsSectionHeader.textContent = item.name;
+
+  // Carrega slides da apresentação
+  await loadPresentationSlides(item.uuid, item.name, 0, false);
 }
 
 // ==========================================================================
@@ -806,33 +1961,77 @@ function startStatusPolling() {
   state.pollTimer = setInterval(fetchLiveSlideStatus, 1000);
 }
 
+let audioPollCounter = 0;
 async function fetchLiveSlideStatus() {
-  if (state.lastActionSource === 'media') {
-    return;
+  if (++audioPollCounter % 3 === 0) {
+    checkAudioTransportStatus();
   }
 
-  const slideIndexData = await apiRequest('/v1/presentation/slide_index');
-  if (slideIndexData && slideIndexData.presentation_index) {
-    const pIndex = slideIndexData.presentation_index;
-    const curIdx = pIndex.index;
-    const presUuid = pIndex.presentation_id?.uuid;
-    const presName = pIndex.presentation_id?.name;
-    const totalCues = pIndex.total_cues || 1;
+  try {
+    // 1. SINCRONISMO AO VIVO DE MÍDIA / PROCONTENT EXCLUSIVO (ÁREA DE MÍDIA / PREGAÇÃO)
+    const activeMediaData = await apiRequest('/v1/media/playlist/active');
+    if (activeMediaData && activeMediaData.item) {
+      const mItem = activeMediaData.item;
+      const mIdx = mItem.index;
+      const mUuid = mItem.uuid;
 
-    if (curIdx !== state.liveSlideIndex || presUuid !== state.livePresentationUuid) {
-      state.liveSlideIndex = curIdx;
-      state.currentSlideIndex = curIdx;
-      state.livePresentationUuid = presUuid;
+      if (mIdx !== state.liveMediaIndex || mUuid !== state.liveMediaUuid) {
+        state.liveMediaIndex = mIdx;
+        state.liveMediaUuid = mUuid;
 
-      dom.liveItemTitle.textContent = presName || 'Apresentação';
-      dom.liveCueSubtitle.textContent = `Slide ${curIdx + 1} de ${totalCues}`;
-
-      dom.previewPlaceholder.classList.add('hidden');
-      dom.liveSlideImage.classList.remove('hidden');
-      dom.liveSlideImage.src = `/api/v1/presentation/${presUuid}/thumbnail/${curIdx}?t=${Date.now()}`;
-
-      highlightActiveSlide(curIdx);
+        if (state.activePlaylistType === 'media') {
+          state.selectedItemIndex = mIdx;
+          highlightPlaylistItem(mIdx);
+          highlightActiveMediaCard(mIdx);
+          updateMediaPreviewUI(mItem, mIdx);
+        }
+      }
     }
+  } catch (err) {
+    // Silencioso se mídia não estiver ativa
+  }
+
+  try {
+    // 2. SINCRONISMO AO VIVO DE APRESENTAÇÕES (PLAYLIST DE CULTO / MÚSICAS)
+    const slideIndexData = await apiRequest('/v1/presentation/slide_index');
+    if (slideIndexData && slideIndexData.presentation_index) {
+      const pIndex = slideIndexData.presentation_index;
+      const curIdx = pIndex.index;
+      const presUuid = pIndex.presentation_id?.uuid;
+      const presName = pIndex.presentation_id?.name;
+      const totalCues = pIndex.total_cues || 1;
+
+      if (curIdx !== state.liveSlideIndex || presUuid !== state.livePresentationUuid) {
+        state.liveSlideIndex = curIdx;
+        state.currentSlideIndex = curIdx;
+        state.livePresentationUuid = presUuid;
+
+        if (state.activePlaylistType === 'presentation') {
+          dom.liveItemTitle.textContent = presName || 'Apresentação';
+          dom.liveCueSubtitle.textContent = `Slide ${curIdx + 1} de ${totalCues}`;
+
+          dom.previewPlaceholder.classList.add('hidden');
+
+          const curSlide = state.currentPresentationSlides && state.currentPresentationSlides[curIdx];
+          const hasLyrics = curSlide && curSlide.text && curSlide.text.trim().length > 0;
+
+          if (hasLyrics) {
+            dom.liveSlideImage.classList.add('hidden');
+            dom.previewTextOverlay.classList.remove('hidden');
+            dom.previewTextOverlay.innerHTML = `<div class="slide-lyrics-text" style="font-size: 20px; font-weight: 700; color: #fff;">${escapeHtml(curSlide.text)}</div>`;
+          } else {
+            dom.previewTextOverlay.classList.add('hidden');
+            dom.previewTextOverlay.innerHTML = '';
+            dom.liveSlideImage.classList.remove('hidden');
+            dom.liveSlideImage.src = `/api/v1/presentation/${presUuid}/thumbnail/${curIdx}?t=${Date.now()}`;
+          }
+
+          highlightActiveSlide(curIdx);
+        }
+      }
+    }
+  } catch (err) {
+    // Silencioso
   }
 }
 

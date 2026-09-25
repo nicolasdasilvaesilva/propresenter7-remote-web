@@ -36,7 +36,81 @@ function getLocalIPAddresses() {
   return addresses;
 }
 
-const server = http.createServer((req, res) => {
+// ========================================================================
+// CACHE E BUSCA DE BIBLIOTECAS (4.500+ Músicas com resposta < 5ms)
+// ========================================================================
+let libraryCache = null;
+let lastLibraryCacheTime = 0;
+let isIndexing = false;
+
+function fetchProJson(endpointPath) {
+  return new Promise((resolve) => {
+    const opts = {
+      hostname: PROPRESENTER_HOST,
+      port: PROPRESENTER_PORT,
+      path: endpointPath,
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    };
+    const req = http.request(opts, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); } catch (e) { resolve(null); }
+      });
+    });
+    req.on('error', () => resolve(null));
+    req.setTimeout(5000, () => { req.destroy(); resolve(null); });
+    req.end();
+  });
+}
+
+function normalizeText(str) {
+  return (str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+async function refreshLibraryCache() {
+  if (isIndexing) return libraryCache;
+  isIndexing = true;
+  try {
+    const libs = await fetchProJson('/v1/libraries');
+    if (!libs || !Array.isArray(libs)) {
+      isIndexing = false;
+      return libraryCache || [];
+    }
+
+    const allItems = [];
+    for (const lib of libs) {
+      const libData = await fetchProJson('/v1/library/' + lib.uuid);
+      if (libData && Array.isArray(libData.items)) {
+        libData.items.forEach(item => {
+          allItems.push({
+            uuid: item.uuid,
+            name: item.name,
+            index: item.index,
+            libraryName: lib.name,
+            libraryUuid: lib.uuid,
+            searchName: normalizeText(item.name)
+          });
+        });
+      }
+    }
+
+    libraryCache = allItems;
+    lastLibraryCacheTime = Date.now();
+    console.log(`[Busca] ${libraryCache.length} apresentações indexadas com sucesso.`);
+  } catch (e) {
+    console.error('[Busca] Erro ao indexar bibliotecas:', e.message);
+  } finally {
+    isIndexing = false;
+  }
+  return libraryCache || [];
+}
+
+const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -75,6 +149,63 @@ const server = http.createServer((req, res) => {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
       }
+    });
+    return;
+  }
+
+  // Endpoint de busca de músicas / apresentações
+  if (pathname === '/api/search-songs') {
+    const query = parsedUrl.searchParams.get('q') || '';
+    const normQ = normalizeText(query.trim());
+
+    if (!normQ) {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ query: '', count: 0, results: [] }));
+      return;
+    }
+
+    const now = Date.now();
+    // Se cache tiver mais de 5 minutos ou for nulo, dispara atualização
+    if (!libraryCache || (now - lastLibraryCacheTime > 5 * 60 * 1000)) {
+      if (!libraryCache) {
+        await refreshLibraryCache();
+      } else {
+        refreshLibraryCache(); // Atualiza em background
+      }
+    }
+
+    const list = libraryCache || [];
+    const results = [];
+    const terms = normQ.split(/\s+/).filter(Boolean);
+
+    for (let i = 0; i < list.length; i++) {
+      const item = list[i];
+      const matchAll = terms.every(term => item.searchName.includes(term));
+      if (matchAll) {
+        results.push({
+          uuid: item.uuid,
+          name: item.name,
+          libraryName: item.libraryName,
+          libraryUuid: item.libraryUuid
+        });
+        if (results.length >= 40) break; // Limite de 40 resultados para rapidez
+      }
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({
+      query,
+      count: results.length,
+      totalIndexed: list.length,
+      results
+    }));
+    return;
+  }
+
+  if (pathname === '/api/reload-library-cache') {
+    refreshLibraryCache().then(items => {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, count: (items || []).length }));
     });
     return;
   }
@@ -166,4 +297,5 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log('  -> http://10.0.21.145:' + PORT);
   }
   console.log('======================================================\n');
+  refreshLibraryCache().catch(() => {});
 });

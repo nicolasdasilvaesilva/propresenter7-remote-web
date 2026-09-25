@@ -32,10 +32,26 @@
         <span class="tag-type" id="playlist-type-label">MÍDIA</span>
         <span class="tag-name" id="active-playlist-title">Carregando...</span>
       </div>
+
+      <!-- BARRA DE PESQUISA RÁPIDA (DESKTOP / TABLET) -->
+      <div class="search-box-wrapper header-search-desktop" id="header-search-desktop">
+        <div class="search-input-inner">
+          <svg class="search-icon" viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="desktop-search-input" class="search-input-field" placeholder="Buscar em 4.500+ músicas..." autocomplete="off">
+          <button id="btn-desktop-clear-search" class="clear-search-btn hidden" title="Limpar">✕</button>
+        </div>
+        <div class="search-dropdown-results hidden" id="desktop-search-results">
+          <!-- Resultados da pesquisa renderizados via JS -->
+        </div>
+      </div>
     </div>
 
     <div class="header-right">
-      <div class="control-btn-group">
+      <!-- GRUPO DE CONTROLE RÁPIDO (DESKTOP / TABLET) -->
+      <div class="control-btn-group header-controls-desktop">
         <!-- MENU DROPDOWN DE LOOKS (APARÊNCIA) -->
         <div class="look-selector-wrapper">
           <button id="btn-quick-look" class="action-btn btn-look" title="Alternar Look / Aparência">
@@ -56,12 +72,135 @@
           </div>
         </div>
 
-        <button id="btn-quick-black" class="action-btn" title="Blackout / Tela Preta">Black</button>
-        <button id="btn-quick-clear" class="action-btn btn-clear" title="Limpar Apresentação / Telas">Clear</button>
+        <!-- BOTÃO MACRO (SUBSTITUIU BLACK) -->
+        <button id="btn-quick-macro" class="action-btn btn-macro" title="Abrir Macros do ProPresenter">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <span>Macro</span>
+        </button>
+
+        <!-- BOTÃO ÁUDIO -->
+        <button id="btn-quick-audio" class="action-btn btn-audio" title="Playlists de Áudio do ProPresenter">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+            <path d="M9 18V5l12-2v13"></path>
+            <circle cx="6" cy="18" r="3"></circle>
+            <circle cx="18" cy="16" r="3"></circle>
+          </svg>
+          <span>Áudio</span>
+          <span class="audio-playing-indicator hidden" id="header-audio-playing-indicator">
+            <span class="bar bar-1"></span>
+            <span class="bar bar-2"></span>
+            <span class="bar bar-3"></span>
+          </span>
+        </button>
+
+        <!-- BOTÃO MENSAGENS -->
+        <button id="btn-quick-messages" class="action-btn btn-messages" title="Mensagens no Telão (ProPresenter)">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span>Mensagem</span>
+        </button>
+
+        <!-- SELETOR DE CAMADAS DE LIMPEZA (CLEAR LAYERS) -->
+        <div class="clear-layers-wrapper">
+          <button id="btn-quick-clear" class="action-btn btn-clear" title="Limpar Camadas do ProPresenter">
+            <span>Clear</span>
+            <span class="dropdown-chevron">▼</span>
+          </button>
+
+          <div class="clear-dropdown-menu" id="clear-dropdown-menu">
+            <div class="clear-menu-header">Camadas (Ordem ProPresenter)</div>
+            <div class="clear-layers-list">
+              <!-- 1. ÁUDIO -->
+              <button class="clear-item-btn" data-layer="audio" title="Limpar Áudio">
+                <svg class="clear-layer-svg color-audio" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 18V5l12-2v13"></path>
+                  <circle cx="6" cy="18" r="3"></circle>
+                  <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+                <span class="layer-name">Áudio</span>
+              </button>
+
+              <!-- 2. MENSAGENS -->
+              <button class="clear-item-btn" data-layer="messages" title="Limpar Mensagens">
+                <svg class="clear-layer-svg color-msg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="22" y1="2" x2="11" y2="13"></line>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+                <span class="layer-name">Mensagens</span>
+              </button>
+
+              <!-- 3. PROPS -->
+              <button class="clear-item-btn" data-layer="props" title="Limpar Props">
+                <svg class="clear-layer-svg color-props" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                  <polyline points="2 17 12 22 22 17"></polyline>
+                  <polyline points="2 12 12 17 22 12"></polyline>
+                </svg>
+                <span class="layer-name">Props</span>
+              </button>
+
+              <!-- 4. ANÚNCIOS -->
+              <button class="clear-item-btn" data-layer="announcements" title="Limpar Anúncios">
+                <svg class="clear-layer-svg color-announ" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="m3 11 18-5v12L3 14v-3z"></path>
+                  <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"></path>
+                </svg>
+                <span class="layer-name">Anúncios</span>
+              </button>
+
+              <!-- 5. SLIDE -->
+              <button class="clear-item-btn" data-layer="slide" title="Limpar Slide">
+                <svg class="clear-layer-svg color-slide" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+                  <line x1="7" y1="8" x2="17" y2="8"></line>
+                  <line x1="7" y1="12" x2="17" y2="12"></line>
+                  <line x1="7" y1="16" x2="13" y2="16"></line>
+                </svg>
+                <span class="layer-name">Slide</span>
+              </button>
+
+              <!-- 6. MÍDIA -->
+              <button class="clear-item-btn" data-layer="media" title="Limpar Mídia">
+                <svg class="clear-layer-svg color-media" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                  <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                  <polyline points="21 15 16 10 5 21"></polyline>
+                </svg>
+                <span class="layer-name">Mídia</span>
+              </button>
+
+              <!-- 7. VIDEO INPUT -->
+              <button class="clear-item-btn" data-layer="video_input" title="Limpar Video Input">
+                <svg class="clear-layer-svg color-video" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                </svg>
+                <span class="layer-name">Video Input</span>
+              </button>
+
+              <!-- 8. LIMPAR TUDO (NO FINAL) -->
+              <div class="clear-divider"></div>
+              <button class="clear-item-btn clear-all-btn" data-layer="all" title="Limpar Todas as Telas">
+                <svg class="clear-layer-svg color-clear-all" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="15" y1="9" x2="9" y2="15"></line>
+                  <line x1="9" y1="9" x2="15" y2="15"></line>
+                </svg>
+                <span class="layer-name">Limpar Tudo</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- BOTÃO INSTALAR PWA (APARECE QUANDO SUPORTADO) -->
-      <button id="btn-install-pwa" class="icon-btn btn-install hidden" title="Instalar aplicativo na tela inicial">
+      <!-- BOTÃO INSTALAR PWA (VISÍVEL NO IPAD, SAFARI E PC) -->
+      <button id="btn-install-pwa" class="icon-btn btn-install" title="Instalar aplicativo na tela inicial">
         <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
           <polyline points="7 10 12 15 17 10"></polyline>
@@ -89,7 +228,169 @@
     <!-- COLUNA DA ESQUERDA: PREVIEW AO VIVO, TRANSPORTE E LISTA DA PLAYLIST -->
     <section class="left-column">
       
-      <!-- PREVIEW CARD AO VIVO -->
+      <!-- MENU DE AÇÕES DEDICADO PARA CELULAR (EXCLUSIVO MOBILE, POSICIONADO ACIMA DO PREVIEW) -->
+      <div class="mobile-actions-bar" id="mobile-actions-bar">
+        <div class="mobile-bar-row">
+          <!-- LOOK MOBILE -->
+          <div class="look-selector-wrapper">
+            <button id="btn-mobile-look" class="action-btn btn-look" title="Alternar Look">
+              <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                <line x1="8" y1="21" x2="16" y2="21"></line>
+                <line x1="12" y1="17" x2="12" y2="21"></line>
+              </svg>
+              <span id="mobile-look-label">Look</span>
+              <span class="dropdown-chevron">▼</span>
+            </button>
+            <div class="look-dropdown-menu" id="mobile-look-dropdown-menu">
+              <div class="look-menu-header">Looks / Aparência</div>
+              <div class="look-menu-list" id="mobile-look-menu-list"></div>
+            </div>
+          </div>
+
+          <!-- MACRO MOBILE -->
+          <button id="btn-mobile-macro" class="action-btn btn-macro" title="Abrir Macros">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            <span>Macro</span>
+          </button>
+
+          <!-- ÁUDIO MOBILE -->
+          <button id="btn-mobile-audio" class="action-btn btn-audio" title="Playlists de Áudio">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+              <path d="M9 18V5l12-2v13"></path>
+              <circle cx="6" cy="18" r="3"></circle>
+              <circle cx="18" cy="16" r="3"></circle>
+            </svg>
+            <span>Áudio</span>
+            <span class="audio-playing-indicator hidden" id="mobile-audio-playing-indicator">
+              <span class="bar bar-1"></span>
+              <span class="bar bar-2"></span>
+              <span class="bar bar-3"></span>
+            </span>
+          </button>
+
+          <!-- MENSAGENS MOBILE -->
+          <button id="btn-mobile-messages" class="action-btn btn-messages" title="Mensagens no Telão">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span>Mensagem</span>
+          </button>
+
+          <!-- CLEAR MOBILE -->
+          <div class="clear-layers-wrapper">
+            <button id="btn-mobile-clear" class="action-btn btn-clear" title="Limpar Camadas">
+              <span>Clear</span>
+              <span class="dropdown-chevron">▼</span>
+            </button>
+            <div class="clear-dropdown-menu" id="mobile-clear-dropdown-menu">
+              <div class="clear-menu-header">Camadas (Ordem ProPresenter)</div>
+              <div class="clear-layers-list">
+                <!-- 1. ÁUDIO -->
+                <button class="clear-item-btn" data-layer="audio" title="Limpar Áudio">
+                  <svg class="clear-layer-svg color-audio" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 18V5l12-2v13"></path>
+                    <circle cx="6" cy="18" r="3"></circle>
+                    <circle cx="18" cy="16" r="3"></circle>
+                  </svg>
+                  <span class="layer-name">Áudio</span>
+                </button>
+
+                <!-- 2. MENSAGENS -->
+                <button class="clear-item-btn" data-layer="messages" title="Limpar Mensagens">
+                  <svg class="clear-layer-svg color-msg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                  </svg>
+                  <span class="layer-name">Mensagens</span>
+                </button>
+
+                <!-- 3. PROPS -->
+                <button class="clear-item-btn" data-layer="props" title="Limpar Props">
+                  <svg class="clear-layer-svg color-props" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                    <polyline points="2 17 12 22 22 17"></polyline>
+                    <polyline points="2 12 12 17 22 12"></polyline>
+                  </svg>
+                  <span class="layer-name">Props</span>
+                </button>
+
+                <!-- 4. ANÚNCIOS -->
+                <button class="clear-item-btn" data-layer="announcements" title="Limpar Anúncios">
+                  <svg class="clear-layer-svg color-announ" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="m3 11 18-5v12L3 14v-3z"></path>
+                    <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"></path>
+                  </svg>
+                  <span class="layer-name">Anúncios</span>
+                </button>
+
+                <!-- 5. SLIDE -->
+                <button class="clear-item-btn" data-layer="slide" title="Limpar Slide">
+                  <svg class="clear-layer-svg color-slide" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+                    <line x1="7" y1="8" x2="17" y2="8"></line>
+                    <line x1="7" y1="12" x2="17" y2="12"></line>
+                    <line x1="7" y1="16" x2="13" y2="16"></line>
+                  </svg>
+                  <span class="layer-name">Slide</span>
+                </button>
+
+                <!-- 6. MÍDIA -->
+                <button class="clear-item-btn" data-layer="media" title="Limpar Mídia">
+                  <svg class="clear-layer-svg color-media" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <polyline points="21 15 16 10 5 21"></polyline>
+                  </svg>
+                  <span class="layer-name">Mídia</span>
+                </button>
+
+                <!-- 7. VIDEO INPUT -->
+                <button class="clear-item-btn" data-layer="video_input" title="Limpar Video Input">
+                  <svg class="clear-layer-svg color-video" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                  </svg>
+                  <span class="layer-name">Video Input</span>
+                </button>
+
+                <!-- 8. LIMPAR TUDO (NO FINAL) -->
+                <div class="clear-divider"></div>
+                <button class="clear-item-btn clear-all-btn" data-layer="all" title="Limpar Todas as Telas">
+                  <svg class="clear-layer-svg color-clear-all" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="15" y1="9" x2="9" y2="15"></line>
+                    <line x1="9" y1="9" x2="15" y2="15"></line>
+                  </svg>
+                  <span class="layer-name">Limpar Tudo</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- BUSCA INTEGRADA MOBILE -->
+        <div class="search-box-wrapper mobile-search-wrapper" id="mobile-search-wrapper">
+          <div class="search-input-inner">
+            <svg class="search-icon" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="mobile-search-input" class="search-input-field" placeholder="Buscar músicas e letras..." autocomplete="off">
+            <button id="btn-mobile-clear-search" class="clear-search-btn hidden" title="Limpar">✕</button>
+          </div>
+          <div class="search-dropdown-results hidden" id="mobile-search-results">
+            <!-- Resultados renderizados via JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- PREVIEW CARD AO VIVO (SEM BOTÃO DE FULLSCREEN) -->
       <div class="live-preview-card">
         <div class="preview-screen" id="preview-screen">
           <img id="live-slide-image" src="" alt="Slide ao Vivo" class="preview-img hidden">
@@ -104,15 +405,6 @@
             </div>
             <span>Nenhum slide no ar</span>
           </div>
-
-          <button id="btn-expand-preview" class="btn-expand-view" title="Expandir Preview">
-            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
-              <polyline points="15 3 21 3 21 9"></polyline>
-              <polyline points="9 21 3 21 3 15"></polyline>
-              <line x1="21" y1="3" x2="14" y2="10"></line>
-              <line x1="3" y1="21" x2="10" y2="14"></line>
-            </svg>
-          </button>
         </div>
 
         <!-- BARRA DE TRANSPORTE (ANTERIOR / INFO / PRÓXIMO) -->
@@ -261,6 +553,242 @@
     </div>
   </div>
 
-  <script src="js/app.js"></script>
+  <!-- MODAL DE MACROS DO PROPRESENTER (CARDS COLORIDOS NATIVOS) -->
+  <div class="modal-overlay" id="macro-modal">
+    <div class="modal-box modal-macro-box">
+      <div class="modal-header">
+        <div class="modal-header-info">
+          <h3>Macros do ProPresenter</h3>
+          <span class="macro-badge-count" id="macro-badge-count">Carregando...</span>
+        </div>
+        <button id="btn-close-macro" class="icon-btn" aria-label="Fechar">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body macro-modal-body">
+        <div class="macro-grid" id="macro-grid-container">
+          <!-- Cards coloridos renderizados dinamicamente pelo app.js -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE PLAYLISTS DE ÁUDIO DO PROPRESENTER -->
+  <div class="modal-overlay" id="audio-modal">
+    <div class="modal-box modal-audio-box">
+      <div class="modal-header">
+        <div class="modal-header-info">
+          <div class="audio-modal-title-row">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" class="audio-header-icon">
+              <path d="M9 18V5l12-2v13"></path>
+              <circle cx="6" cy="18" r="3"></circle>
+              <circle cx="18" cy="16" r="3"></circle>
+            </svg>
+            <h3>Playlists de Áudio</h3>
+          </div>
+          <span class="audio-badge-count" id="audio-badge-count">Carregando...</span>
+        </div>
+        <button id="btn-close-audio" class="icon-btn" aria-label="Fechar Áudio">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- SELETOR DE PLAYLISTS DE ÁUDIO (PILL TABS) -->
+      <div class="audio-playlists-tabs" id="audio-playlists-tabs">
+        <!-- Injetado dinamicamente via JS: Padrão, Teste, Colação de Grau... -->
+      </div>
+
+      <!-- LISTA DE MÚSICAS DA PLAYLIST -->
+      <div class="modal-body audio-modal-body" id="audio-tracks-container">
+        <!-- Faixas de áudio renderizadas dinamicamente -->
+      </div>
+
+      <!-- BARRA DE TRANSPORTE / CONTROLE DO ÁUDIO -->
+      <div class="audio-transport-bar" id="audio-transport-bar">
+        <div class="audio-now-playing-info">
+          <div class="audio-playing-indicator active" id="audio-bar-visualizer">
+            <span class="bar bar-1"></span>
+            <span class="bar bar-2"></span>
+            <span class="bar bar-3"></span>
+          </div>
+          <div class="audio-track-text-box">
+            <div class="audio-track-current-title" id="audio-current-track-name">Nenhum áudio tocando</div>
+            <div class="audio-track-current-meta" id="audio-current-track-meta">Selecione uma faixa para reproduzir</div>
+          </div>
+        </div>
+
+        <div class="audio-player-controls">
+          <button class="audio-ctrl-btn" id="btn-audio-prev" title="Faixa Anterior">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <polygon points="19 20 9 12 19 4 19 20"></polygon>
+              <line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2"></line>
+            </svg>
+          </button>
+          
+          <button class="audio-ctrl-btn btn-audio-playpause" id="btn-audio-playpause" title="Play / Pausar">
+            <svg class="icon-play" id="audio-icon-play" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            <svg class="icon-pause hidden" id="audio-icon-pause" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <rect x="6" y="4" width="4" height="16"></rect>
+              <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>
+          </button>
+
+          <button class="audio-ctrl-btn" id="btn-audio-next" title="Próxima Faixa">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <polygon points="5 4 15 12 5 20 5 4"></polygon>
+              <line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2"></line>
+            </svg>
+          </button>
+
+          <button class="audio-ctrl-btn btn-audio-clear" id="btn-audio-clear" title="Limpar / Parar Áudio">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="15" y1="9" x2="9" y2="15"></line>
+              <line x1="9" y1="9" x2="15" y2="15"></line>
+            </svg>
+            <span>Limpar Áudio</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  <!-- MODAL DE MENSAGENS (PROPRESENTER MESSAGES) -->
+  <div class="modal-overlay" id="messages-modal">
+    <div class="modal-box modal-messages-box">
+      <div class="modal-header">
+        <div class="modal-header-info">
+          <div class="messages-modal-title-row">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" class="msg-header-icon">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <h3>Mensagens no Telão</h3>
+          </div>
+          <span class="messages-badge-count" id="messages-badge-count">Carregando...</span>
+        </div>
+        <button id="btn-close-messages" class="icon-btn" aria-label="Fechar Mensagens">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- SELETOR DE MODELOS DE MENSAGEM (TABS: CARROS, KIDS, ETC.) -->
+      <div class="messages-tabs" id="messages-tabs">
+        <!-- Injetado dinamicamente via JS -->
+      </div>
+
+      <!-- CORPO DA MENSAGEM SELECIONADA -->
+      <div class="modal-body messages-modal-body" id="messages-body-container">
+        <!-- Campos de tokens e preview gerados dinamicamente -->
+      </div>
+
+      <!-- BARRA DE AÇÕES DA MENSAGEM -->
+      <div class="messages-action-bar">
+        <div class="msg-status-indicator" id="msg-status-indicator">Pronto para envio</div>
+        <div class="msg-action-buttons">
+          <button class="msg-action-btn btn-msg-clear" id="btn-clear-message" title="Ocultar mensagem do telão">
+            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="15" y1="9" x2="9" y2="15"></line>
+              <line x1="9" y1="9" x2="15" y2="15"></line>
+            </svg>
+            <span>Ocultar Telão</span>
+          </button>
+          <button class="msg-action-btn btn-msg-trigger" id="btn-trigger-message" title="Disparar mensagem para o telão">
+            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+            <span>Mostrar no Telão</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE INSTRUÇÕES DE INSTALAÇÃO NO IPAD / IPHONE / SAFARI -->
+  <div class="modal-overlay" id="ios-install-modal">
+    <div class="modal-box modal-ios-install-box">
+      <div class="modal-header">
+        <div class="messages-modal-title-row">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="#10b981" stroke-width="2" fill="none">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <h3>Instalar App no iPad / iPhone</h3>
+        </div>
+        <button id="btn-close-ios-install" class="icon-btn" aria-label="Fechar">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-body ios-install-body">
+        <p class="ios-install-subtitle">
+          Instale o <strong>ProPresenter Remote</strong> na tela de início do seu iPad para abrir em <strong>tela cheia</strong>, sem as barras do Safari!
+        </p>
+
+        <div class="ios-install-steps">
+          <div class="ios-step-card">
+            <div class="ios-step-num">1</div>
+            <div class="ios-step-content">
+              <div class="ios-step-title">Toque em Compartilhar</div>
+              <div class="ios-step-desc">
+                No Safari (topo ou rodapé), toque no ícone:
+                <span class="ios-share-badge">
+                  <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none">
+                    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
+                    <polyline points="16 6 12 2 8 6"></polyline>
+                    <line x1="12" y1="2" x2="12" y2="15"></line>
+                  </svg>
+                  Compartilhar
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="ios-step-card">
+            <div class="ios-step-num">2</div>
+            <div class="ios-step-content">
+              <div class="ios-step-title">Adicionar à Tela de Início</div>
+              <div class="ios-step-desc">
+                Role as opções e toque em:
+                <span class="ios-add-badge">➕ Adicionar à Tela de Início</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="ios-step-card">
+            <div class="ios-step-num">3</div>
+            <div class="ios-step-content">
+              <div class="ios-step-title">Toque em "Adicionar"</div>
+              <div class="ios-step-desc">
+                No canto superior direito da janela, toque no botão <strong>Adicionar</strong>.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ios-install-footer-action">
+          <button id="btn-dismiss-ios-install" class="btn-primary" style="width: 100%; justify-content: center; padding: 12px; font-size: 14px;">
+            Entendi, vou instalar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js?v=2.5"></script>
 </body>
 </html>
