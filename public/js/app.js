@@ -980,35 +980,49 @@ function highlightPlaylistItem(idx) {
   });
 }
 
+let lastUserActionTime = 0;
+
 // Disparo de Mídia
 async function triggerMediaItem(item, idx) {
-  const mediaId = item.id?.uuid || item.id?.index || idx;
+  lastUserActionTime = Date.now();
+  const mediaId = item.id?.uuid || item.uuid || item.id?.index || idx;
   await apiRequest(`/v1/media/playlist/${state.activePlaylistId}/${mediaId}/trigger`);
   updateMediaPreviewUI(item, idx);
 }
 
 function updateMediaPreviewUI(item, idx) {
-  const total = state.playlistItems.length || 1;
+  if (!item) return;
+  const total = state.playlistItems?.length || 1;
   const itemName = item.id?.name || item.name || 'Mídia';
   const itemType = item.type || 'Mídia';
 
   dom.liveItemTitle.textContent = itemName;
-  dom.liveCueSubtitle.textContent = `${state.activePlaylistName} • ${itemType} ${idx + 1} de ${total}`;
+  dom.liveCueSubtitle.textContent = `${state.activePlaylistName || 'Mídia'} • ${itemType} ${idx + 1} de ${total}`;
 
   dom.previewPlaceholder.classList.add('hidden');
-  dom.liveSlideImage.classList.remove('hidden');
 
-  if (item.id?.uuid) {
-    dom.liveSlideImage.src = `/api/v1/media/${item.id.uuid}/thumbnail?t=${Date.now()}`;
+  const mediaUuid = item.id?.uuid || item.uuid;
+  if (mediaUuid) {
+    dom.previewTextOverlay.classList.add('hidden');
+    dom.previewTextOverlay.textContent = '';
+    dom.liveSlideImage.classList.remove('hidden');
+
+    // Evita recarregar a mesma imagem com timestamp a cada segundo (elimina 100% qualquer piscada!)
+    if (dom.liveSlideImage.dataset.loadedUuid !== mediaUuid) {
+      dom.liveSlideImage.dataset.loadedUuid = mediaUuid;
+      dom.liveSlideImage.src = `/api/v1/media/${mediaUuid}/thumbnail`;
+    }
+
     dom.liveSlideImage.onerror = () => {
       dom.liveSlideImage.classList.add('hidden');
-      dom.previewTextOverlay.textContent = itemName;
+      dom.previewTextOverlay.classList.remove('hidden');
+      dom.previewTextOverlay.innerHTML = `<div style="font-size: 16px; font-weight: 700; color: #fff;">${escapeHtml(itemName)}</div>`;
     };
   } else {
     dom.liveSlideImage.classList.add('hidden');
-    dom.previewTextOverlay.textContent = itemName;
+    dom.previewTextOverlay.classList.remove('hidden');
+    dom.previewTextOverlay.innerHTML = `<div style="font-size: 16px; font-weight: 700; color: #fff;">${escapeHtml(itemName)}</div>`;
   }
-  dom.previewTextOverlay.textContent = '';
 }
 
 // ==========================================================================
@@ -1162,31 +1176,39 @@ async function loadPresentationSlides(presUuid, presName, itemIndex, shouldTrigg
 
 // Disparar slide individual ao clicar
 async function triggerSlideCue(presUuid, cueIndex, presName, slideText = '', totalSlides = 1) {
+  lastUserActionTime = Date.now();
   state.lastActionSource = 'presentation';
   state.currentSlideIndex = cueIndex;
   state.liveSlideIndex = cueIndex;
   state.livePresentationUuid = presUuid;
 
-  await apiRequest(`/v1/presentation/${presUuid}/${cueIndex}/trigger`);
-
   highlightActiveSlide(cueIndex);
 
-  dom.liveItemTitle.textContent = presName || dom.selectedPresentationTitle.textContent;
-  dom.liveCueSubtitle.textContent = `Slide ${cueIndex + 1} de ${totalSlides || state.currentPresentationSlides.length}`;
+  const title = presName || dom.selectedPresentationTitle?.textContent || 'Apresentação';
+  dom.liveItemTitle.textContent = title;
+  dom.liveCueSubtitle.textContent = `Slide ${cueIndex + 1} de ${totalSlides || state.currentPresentationSlides?.length || 1}`;
 
   dom.previewPlaceholder.classList.add('hidden');
 
+  const slideKey = `${presUuid}_${cueIndex}`;
   const hasLyrics = slideText && slideText.trim().length > 0;
   if (hasLyrics) {
     dom.liveSlideImage.classList.add('hidden');
+    dom.liveSlideImage.dataset.loadedUuid = '';
     dom.previewTextOverlay.classList.remove('hidden');
     dom.previewTextOverlay.innerHTML = `<div class="slide-lyrics-text" style="font-size: 20px; font-weight: 700; color: #fff;">${escapeHtml(slideText)}</div>`;
   } else {
     dom.previewTextOverlay.classList.add('hidden');
     dom.previewTextOverlay.innerHTML = '';
     dom.liveSlideImage.classList.remove('hidden');
-    dom.liveSlideImage.src = `/api/v1/presentation/${presUuid}/thumbnail/${cueIndex}?t=${Date.now()}`;
+
+    if (dom.liveSlideImage.dataset.loadedUuid !== slideKey) {
+      dom.liveSlideImage.dataset.loadedUuid = slideKey;
+      dom.liveSlideImage.src = `/api/v1/presentation/${presUuid}/thumbnail/${cueIndex}`;
+    }
   }
+
+  await apiRequest(`/v1/presentation/${presUuid}/${cueIndex}/trigger`);
 }
 
 function highlightActiveSlide(cueIndex) {
@@ -2172,29 +2194,9 @@ async function fetchLiveSlideStatus() {
     checkAudioTransportStatus();
   }
 
-  try {
-    // 1. SINCRONISMO AO VIVO DE MÍDIA / PROCONTENT EXCLUSIVO (ÁREA DE MÍDIA / PREGAÇÃO)
-    const activeMediaData = await apiRequest('/v1/media/playlist/active');
-    if (activeMediaData && activeMediaData.item) {
-      const mItem = activeMediaData.item;
-      const mIdx = mItem.index;
-      const mUuid = mItem.uuid;
-
-      if (mIdx !== state.liveMediaIndex || mUuid !== state.liveMediaUuid) {
-        state.liveMediaIndex = mIdx;
-        state.liveMediaUuid = mUuid;
-
-        if (state.activePlaylistType === 'media') {
-          state.selectedItemIndex = mIdx;
-          highlightPlaylistItem(mIdx);
-          highlightActiveMediaCard(mIdx);
-          updateMediaPreviewUI(mItem, mIdx);
-        }
-      }
-    }
-  } catch (err) {
-    // Silencioso se mídia não estiver ativa
-  }
+  // 1. MÍDIA / PROCONTENT:
+  // A tela de preview é mantida 100% FIXA no item selecionado pelo usuário.
+  // O polling não deve sobrescrever a seleção manual do usuário para evitar piscadas e reversões indesejadas.
 
   try {
     // 2. SINCRONISMO AO VIVO DE APRESENTAÇÕES (PLAYLIST DE CULTO / MÚSICAS)
@@ -2219,16 +2221,22 @@ async function fetchLiveSlideStatus() {
 
           const curSlide = state.currentPresentationSlides && state.currentPresentationSlides[curIdx];
           const hasLyrics = curSlide && curSlide.text && curSlide.text.trim().length > 0;
+          const slideKey = `${presUuid}_${curIdx}`;
 
           if (hasLyrics) {
             dom.liveSlideImage.classList.add('hidden');
+            dom.liveSlideImage.dataset.loadedUuid = '';
             dom.previewTextOverlay.classList.remove('hidden');
             dom.previewTextOverlay.innerHTML = `<div class="slide-lyrics-text" style="font-size: 20px; font-weight: 700; color: #fff;">${escapeHtml(curSlide.text)}</div>`;
           } else {
             dom.previewTextOverlay.classList.add('hidden');
             dom.previewTextOverlay.innerHTML = '';
             dom.liveSlideImage.classList.remove('hidden');
-            dom.liveSlideImage.src = `/api/v1/presentation/${presUuid}/thumbnail/${curIdx}?t=${Date.now()}`;
+
+            if (dom.liveSlideImage.dataset.loadedUuid !== slideKey) {
+              dom.liveSlideImage.dataset.loadedUuid = slideKey;
+              dom.liveSlideImage.src = `/api/v1/presentation/${presUuid}/thumbnail/${curIdx}`;
+            }
           }
 
           highlightActiveSlide(curIdx);
@@ -2355,14 +2363,14 @@ async function loadStageData() {
 
       stageLayoutsCache.forEach((layout, lIdx) => {
         const layoutName = layout.id?.name || layout.name || `Layout ${lIdx + 1}`;
-        const layoutId = (layout.id?.index !== undefined) ? layout.id.index : (layout.index !== undefined ? layout.index : lIdx);
+        const layoutUuid = layout.id?.uuid || layout.uuid || (layout.id?.index !== undefined ? layout.id.index : lIdx);
         html += `
           <button class="stage-layout-chip stage-layout-chip-all" 
-                  onclick="handleSetAllStageLayouts(${layoutId}, '${escapeHtml(layoutName)}')">
-            <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none">
+                  onclick="handleSetAllStageLayouts('${layoutUuid}', '${escapeHtml(layoutName)}')">
+            <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none">
               <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
             </svg>
-            <span>Todos: ${escapeHtml(layoutName)}</span>
+            <span class="chip-text">Todos: ${escapeHtml(layoutName)}</span>
           </button>
         `;
       });
@@ -2397,6 +2405,7 @@ async function loadStageData() {
         const curLayoutObj = currentLayouts[sIdx];
         const curLayoutName = curLayoutObj?.name || curLayoutObj?.id?.name || 'Padrão';
         const curLayoutIdx = (curLayoutObj?.index !== undefined) ? curLayoutObj.index : curLayoutObj?.id?.index;
+        const curLayoutUuid = curLayoutObj?.id?.uuid || curLayoutObj?.uuid;
 
         html += `
           <div class="stage-screen-card" id="stage-card-screen-${screenId}" data-screen-id="${screenId}">
@@ -2410,12 +2419,16 @@ async function loadStageData() {
         stageLayoutsCache.forEach((layout, lIdx) => {
           const layoutName = layout.id?.name || layout.name || `Layout ${lIdx + 1}`;
           const layoutId = (layout.id?.index !== undefined) ? layout.id.index : (layout.index !== undefined ? layout.index : lIdx);
-          const isActive = (curLayoutIdx !== undefined && curLayoutIdx === layoutId) || (curLayoutName.toLowerCase() === layoutName.toLowerCase());
+          const layoutUuid = layout.id?.uuid || layout.uuid || layoutId;
+          const isActive = (curLayoutUuid && curLayoutUuid === layoutUuid) ||
+                           (curLayoutIdx !== undefined && curLayoutIdx === layoutId) || 
+                           (curLayoutName.toLowerCase() === layoutName.toLowerCase());
 
           html += `
             <button class="stage-layout-chip ${isActive ? 'active' : ''}" 
-                    data-layout-id="${layoutId}"
-                    onclick="handleSetStageLayout(${screenId}, ${layoutId}, '${escapeHtml(layoutName)}', this)">
+                    data-layout-id="${layoutUuid}"
+                    data-layout-name="${escapeHtml(layoutName)}"
+                    onclick="handleSetStageLayout('${screenId}', '${layoutUuid}', '${escapeHtml(layoutName)}', this)">
               ${escapeHtml(layoutName)}
             </button>
           `;
@@ -2448,10 +2461,10 @@ async function loadStageData() {
           <input type="text" id="stage-msg-input" class="stage-msg-input" 
                  placeholder="Digite um aviso para o retorno (ex: '2 minutos', 'Falar mais alto')..." 
                  value="${escapeHtml(msgText)}" />
-          <button class="btn-primary" onclick="handleSendStageMessage()" style="padding: 8px 14px; font-size: 13px;">
+          <button class="btn-primary" onclick="handleSendStageMessage()">
             Enviar
           </button>
-          <button class="btn-pro-clear" onclick="handleClearStageMessage()" style="padding: 8px 12px; font-size: 13px; border-radius: 6px;">
+          <button class="btn-pro-clear" onclick="handleClearStageMessage()">
             Limpar
           </button>
         </div>
@@ -2464,8 +2477,8 @@ async function loadStageData() {
   }
 }
 
-// Troca o layout de UMA ÚNICA tela de forma 100% independente
-window.handleSetStageLayout = async function(screenId, layoutId, layoutName, btnEl) {
+// Troca o layout de UMA ÚNICA tela de forma 100% independente usando UUID
+window.handleSetStageLayout = async function(screenId, layoutTarget, layoutName, btnEl) {
   try {
     const parentCard = document.getElementById(`stage-card-screen-${screenId}`) || btnEl?.closest('.stage-screen-card');
     if (parentCard) {
@@ -2474,15 +2487,15 @@ window.handleSetStageLayout = async function(screenId, layoutId, layoutName, btn
       const lbl = parentCard.querySelector('.lbl-cur-layout');
       if (lbl && layoutName) lbl.textContent = layoutName;
     }
-    // Dispara a rota do ProPresenter específica para aquela tela individual
-    await apiRequest(`/v1/stage/screen/${screenId}/layout/${layoutId}`);
+    // Dispara a rota do ProPresenter usando UUID para garantir troca precisa
+    await apiRequest(`/v1/stage/screen/${encodeURIComponent(screenId)}/layout/${encodeURIComponent(layoutTarget)}`);
   } catch (err) {
     console.error('Erro ao trocar layout de palco:', err);
   }
 };
 
-// Troca o layout de TODAS as telas sequencialmente (evita sobrecarga no ProPresenter)
-window.handleSetAllStageLayouts = async function(layoutId, layoutName) {
+// Troca o layout de TODAS as telas sequencialmente usando UUID garantido
+window.handleSetAllStageLayouts = async function(layoutTarget, layoutName) {
   try {
     // 1. Atualiza imediatamente o visual de todas as telas na interface
     stageScreensCache.forEach(s => {
@@ -2491,24 +2504,21 @@ window.handleSetAllStageLayouts = async function(layoutId, layoutName) {
       if (card) {
         card.querySelectorAll('.stage-layout-chip').forEach(c => {
           const cId = c.getAttribute('data-layout-id');
-          c.classList.toggle('active', cId == layoutId);
+          const cName = c.getAttribute('data-layout-name') || c.textContent.trim();
+          const match = (cId === String(layoutTarget)) || (cName.toLowerCase() === layoutName.toLowerCase());
+          c.classList.toggle('active', match);
         });
         const lbl = card.querySelector('.lbl-cur-layout');
         if (lbl && layoutName) lbl.textContent = layoutName;
       }
     });
 
-    // 2. Envia para cada tela sequencialmente com pequeno intervalo
-    // O ProPresenter 7 descarta requisições simultâneas em paralelo, portanto o envio sequencial é obrigatório!
+    // 2. Envia para cada tela sequencialmente com pequeno intervalo passando o UUID do layout
     for (const screen of stageScreensCache) {
       const sId = (screen.index !== undefined) ? screen.index : (screen.id?.index ?? 0);
-      await apiRequest(`/v1/stage/screen/${sId}/layout/${layoutId}`);
+      await apiRequest(`/v1/stage/screen/${encodeURIComponent(sId)}/layout/${encodeURIComponent(layoutTarget)}`);
       await new Promise(r => setTimeout(r, 70));
     }
-
-    // 3. Aguarda e recarrega os dados para confirmar a sincronização total
-    await new Promise(r => setTimeout(r, 150));
-    await loadStageData();
   } catch (err) {
     console.error('Erro ao trocar layouts de todos os retornos:', err);
   }
@@ -2597,21 +2607,25 @@ async function loadTimersData() {
             <div class="timer-display-time">${escapeHtml(timeStr)}</div>
           </div>
           <div class="timer-controls-row">
-            <button class="btn-timer-action btn-timer-start" onclick="handleTimerControl(${id}, 'start')">
-              ▶ Iniciar
-            </button>
-            <button class="btn-timer-action btn-timer-stop" onclick="handleTimerControl(${id}, 'stop')">
-              ⏸ Pausar
-            </button>
-            <button class="btn-timer-action btn-timer-reset" onclick="handleTimerControl(${id}, 'reset')">
-              ↺ Reiniciar
-            </button>
-            <button class="btn-timer-action btn-timer-inc" onclick="handleTimerIncrement(${id}, 60)">
-              +1 min
-            </button>
-            <button class="btn-timer-action btn-timer-inc" onclick="handleTimerIncrement(${id}, 300)">
-              +5 min
-            </button>
+            <div class="timer-main-btns">
+              <button class="btn-timer-action btn-timer-start" onclick="handleTimerControl(${id}, 'start')">
+                ▶ Iniciar
+              </button>
+              <button class="btn-timer-action btn-timer-stop" onclick="handleTimerControl(${id}, 'stop')">
+                ⏸ Pausar
+              </button>
+              <button class="btn-timer-action btn-timer-reset" onclick="handleTimerControl(${id}, 'reset')">
+                ↺ Reiniciar
+              </button>
+            </div>
+            <div class="timer-inc-btns">
+              <button class="btn-timer-action btn-timer-inc" onclick="handleTimerIncrement(${id}, 60)">
+                +1 min
+              </button>
+              <button class="btn-timer-action btn-timer-inc" onclick="handleTimerIncrement(${id}, 300)">
+                +5 min
+              </button>
+            </div>
           </div>
         </div>
       `;
@@ -2677,7 +2691,7 @@ async function loadVideoInputsData() {
     }
 
     let html = `
-      <div style="margin-bottom: 12px; font-size: 13px; color: #9ca3af;">
+      <div class="video-inputs-hint" style="margin-bottom: 10px; font-size: 12.5px; color: #9ca3af;">
         Selecione uma entrada de vídeo ao vivo para colocar no ar imediatamente:
       </div>
       <div class="video-inputs-grid">
@@ -2691,21 +2705,21 @@ async function loadVideoInputsData() {
         <div class="video-input-card">
           <div class="video-input-header">
             <div class="video-input-icon">
-              <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
                 <polygon points="23 7 16 12 23 17 23 7"></polygon>
                 <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
               </svg>
             </div>
-            <div>
+            <div class="video-input-info">
               <div class="video-input-name">${escapeHtml(name)}</div>
               <div class="video-input-index">Canal / Input #${id}</div>
             </div>
           </div>
           <button class="btn-trigger-input" onclick="handleTriggerVideoInput(${id})">
-            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+            <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none">
               <polygon points="5 3 19 12 5 21 5 3"></polygon>
             </svg>
-            Disparar no Telão
+            <span>Disparar no Telão</span>
           </button>
         </div>
       `;
@@ -2714,7 +2728,7 @@ async function loadVideoInputsData() {
     html += `
       </div>
       <button class="btn-clear-video-input" onclick="handleClearVideoInput()">
-        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+        <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none">
           <line x1="18" y1="6" x2="6" y2="18"></line>
           <line x1="6" y1="6" x2="18" y2="18"></line>
         </svg>
@@ -2800,11 +2814,11 @@ async function loadPropsData() {
             </svg>
             ${escapeHtml(name)}
           </div>
-          <div style="display: flex; gap: 8px;">
-            <button class="btn-trigger-prop" style="flex: 1;" onclick="handleTriggerProp(${id})">
+          <div class="prop-actions">
+            <button class="btn-trigger-prop" onclick="handleTriggerProp(${id})">
               Ativar
             </button>
-            <button class="btn-pro-clear" style="padding: 8px 12px; font-size: 12px;" onclick="handleClearProp(${id})">
+            <button class="btn-pro-clear" onclick="handleClearProp(${id})">
               Desativar
             </button>
           </div>
