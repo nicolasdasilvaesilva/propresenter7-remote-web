@@ -1,6 +1,6 @@
 ---
 name: propresenter-expert
-description: Especialista em automação, integração e controle remoto do ProPresenter 7 via OpenAPI v1 REST API. Guia completo de endpoints (Looks, Mídia/ProContent, Playlists de Culto, Slides, Miniaturas, Triggers, Clear), arquitetura web remota responsiva para iPad/celular, inicialização automática em segundo plano no Windows e PWA.
+description: Especialista em automação, integração e controle remoto do ProPresenter 7 via OpenAPI v1 REST API. Guia completo de endpoints (Looks, Mídia/ProContent, Playlists de Culto, Slides, Miniaturas, Triggers, Clear), arquitetura web remota responsiva para iPad/celular, PWA e as armadilhas já comprovadas no ProPresenter real. Instalação/atualização/início automático ficam na skill `propresenter-remote-install`.
 ---
 
 # ProPresenter 7 Expert Skill
@@ -15,7 +15,7 @@ Esta skill fornece conhecimento avançado sobre a integração, automação, des
 * **Documentação Swagger Local:** `http://<IP_DO_PROPRESENTER>:50820/v1/doc/index.html#/`
 * **Especificação Swagger JSON:** `http://<IP_DO_PROPRESENTER>:50820/v1/doc/swagger.json` (atribuído como `var openapi_spec = {...}`).
 * **Protocolo de Rede:** HTTP simples local (não requer SSL/HTTPS internamente).
-* **Regra de CORS:** Navegadores móveis (Safari no iPad, Chrome) bloqueiam requisições diretas de portas diferentes (`Cross-Origin Request Blocked`). Por isso, **sempre utilize um servidor intermediário (Node.js) como Proxy Reverso** para expor a interface web e redirecionar `/api/v1/...` ao ProPresenter com os headers `Access-Control-Allow-Origin: *`.
+* **Servidor intermediário (Node.js):** o app web é servido pelo **próprio** servidor Node (mesma origem) e ele repassa `/api/v1/...` ao ProPresenter (proxy reverso). Assim o navegador nunca fala direto com a porta 50820. **Não use CORS aberto (`Access-Control-Allow-Origin: *`)**: o servidor atual não envia esses cabeçalhos, bloqueia escritas de outra origem (403) e só aceita IP da rede local em `set-pro-host`.
 
 ---
 
@@ -46,7 +46,7 @@ Esta skill fornece conhecimento avançado sobre a integração, automação, des
 * `GET /v1/presentation/{uuid}/{index}/trigger`: Dispara diretamente o slide `{index}` da apresentação.
 
 ### E. Status em Tempo Real & Navegação
-* `GET /v1/presentation/slide_index`: Retorna o slide atualmente no ar (`index`, `presentation_id`, `total_cues`).
+* `GET /v1/presentation/slide_index`: Retorna o slide no ar: `{ presentation_index: { index, presentation_id } }` — **não traz o total de slides** (o total vem em `GET /v1/presentation/{uuid}` → `presentation.total_cues`, ou da contagem da grade carregada). Sem nada no ar devolve `{ "presentation_index": null }`.
 * `GET /v1/status/slide`: Retorna o texto do slide atual e do próximo slide.
 * `GET /v1/trigger/next`: Avança para o próximo slide da apresentação ativa.
 * `GET /v1/trigger/previous`: Volta para o slide anterior da apresentação ativa.
@@ -79,135 +79,31 @@ Esta skill fornece conhecimento avançado sobre a integração, automação, des
 
 ---
 
-## 4. Inicialização Automática com o Windows em Segundo Plano (Backend / Silencioso)
+## 4. Inicialização Automática com o Windows
 
-Quando o usuário solicitar para a aplicação **iniciar junto com o Windows em segundo plano**, você deve configurar um inicializador **VBScript silencioso** (sem janela preta aberta):
-
-1. **Localização da pasta Inicializar do Windows:**
-   `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`
-2. **Criação do Script de Inicialização Silenciosa:**
-   Criar um arquivo `ProPresenter-Remote-AutoStart.vbs` dentro da pasta `Startup`:
-   ```vbscript
-   Set WshShell = CreateObject("WScript.Shell")
-   WshShell.CurrentDirectory = "C:\caminho\para\propresenter-remote"
-   WshShell.Run "node server.js", 0, False
-   ```
-   *Nota: O parâmetro `0` faz com que o Node.js rode 100% invisível em segundo plano, sem janela de CMD atrapalhando os operadores da igreja.*
-3. **Controle Manual:**
-   * Iniciar em segundo plano manualmente: `Iniciar-Segundo-Plano.vbs`.
-   * Parar o servidor: `taskkill /f /im node.exe` (ou via `Parar-Controle-Remoto.bat`).
+**Isto agora é responsabilidade da skill `propresenter-remote-install`.** Resumo do que ela faz (não refaça à mão):
+* Tarefa agendada `ProPresenter-Remote` (não a pasta *Inicializar*, que só roda depois do login e não reinicia se cair).
+* Como **Administrador**: roda como `SYSTEM` **ao ligar o Windows** (sem login), para todos os usuários, sem janela, reiniciando se falhar; libera a porta no firewall.
+* IP/porta do ProPresenter ficam em `config.json` (fora do Git). O app **não** volta ao IP padrão depois de reiniciar.
+* Nunca use `taskkill /f /im node.exe` (mata todos os Node); use `scripts\Parar-Servidor.ps1`.
 
 ---
 
-## 5. Atualização via Git (Substituição Completa + Limpeza de Cache)
+## 5. Atualização (sem cache antigo)
 
-Quando uma nova versão do controle remoto for publicada no GitHub, o procedimento de atualização **deve seguir rigorosamente esta ordem** para garantir que a aplicação antiga (cache PWA) nunca seja carregada:
+**Use a skill `propresenter-remote-install`** (`scripts\Atualizar.ps1`, ou `Atualizar-Controle-Remoto.bat`). Ela faz backup, para só o nosso servidor, atualiza pelo GitHub (`--ff-only`), reaplica o início automático, reinicia, **confere** e volta atrás sozinha se falhar.
 
-### Passo 1 — Parar o servidor antigo
-```powershell
-taskkill /f /im node.exe
-```
-Isso encerra todas as instâncias do Node.js, incluindo o servidor do controle remoto rodando em segundo plano.
-
-### Passo 2 — Baixar a versão mais recente do GitHub
-```powershell
-cd "C:\caminho\para\ProPresenter-Remote-Deploy"
-git pull origin main
-```
-> **Se for a primeira vez na máquina:**
-> ```powershell
-> git clone https://github.com/nicolasdasilvaesilva/propresenter7-remote-web.git ProPresenter-Remote-Deploy
-> ```
-
-### Passo 3 — Incrementar a versão do Service Worker (Cache Bust)
-O Service Worker (`public/service-worker.js`) utiliza um `CACHE_NAME` versionado (ex.: `propresenter-remote-v2.5`). **Sempre que os arquivos forem atualizados**, o agente Antigravity deve:
-1. Abrir `public/service-worker.js`.
-2. Incrementar o número da versão no `CACHE_NAME` (ex.: `v2.5` → `v2.6`).
-3. Isso faz com que o Service Worker:
-   - Detecte que há uma nova versão ao ser reinstalado.
-   - Delete automaticamente os caches antigos no evento `activate`.
-   - Baixe todos os arquivos estáticos atualizados (`index.html`, `style.css`, `app.js`).
-
-**Exemplo:**
-```javascript
-// ANTES:
-const CACHE_NAME = 'propresenter-remote-v2.5';
-// DEPOIS:
-const CACHE_NAME = 'propresenter-remote-v2.6';
-```
-
-### Passo 4 — Atualizar os cache busters no index.html
-Os imports de CSS e JS no `index.html` possuem query strings de versionamento (`?v=4.0`). Após uma atualização, incrementar para o próximo número:
-```html
-<!-- ANTES: -->
-<link rel="stylesheet" href="/css/style.css?v=4.0">
-<script src="/js/app.js?v=4.0"></script>
-<!-- DEPOIS: -->
-<link rel="stylesheet" href="/css/style.css?v=4.1">
-<script src="/js/app.js?v=4.1"></script>
-```
-
-### Passo 5 — Reconfigurar a inicialização automática com o Windows
-Executar novamente o script de configuração para que o VBScript de autostart aponte para o caminho correto:
-```powershell
-& "C:\caminho\para\ProPresenter-Remote-Deploy\Configurar-Inicio-Automatico.bat"
-```
-Ou criar/atualizar manualmente o VBS na pasta Startup:
-```powershell
-$startupDir = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
-$projectDir = "C:\caminho\para\ProPresenter-Remote-Deploy"
-@"
-Set WshShell = CreateObject("WScript.Shell")
-WshShell.CurrentDirectory = "$projectDir"
-WshShell.Run "node server.js", 0, False
-"@ | Set-Content "$startupDir\ProPresenter-Remote-AutoStart.vbs"
-```
-
-### Passo 6 — Reiniciar o servidor atualizado
-```powershell
-cd "C:\caminho\para\ProPresenter-Remote-Deploy"
-node server.js
-```
-Ou para modo silencioso:
-```powershell
-cscript //nologo "Iniciar-Segundo-Plano.vbs"
-```
-
-### Passo 7 — Limpar o cache nos dispositivos móveis (iPad / Android / Celular)
-Após a atualização, o Service Worker nos navegadores dos dispositivos móveis pode manter o cache antigo. O procedimento correto:
-
-**Para PWA já instalada (iPad / Android):**
-1. O Service Worker detecta a mudança no `CACHE_NAME` automaticamente e atualiza na próxima visita.
-2. Se a atualização não refletir imediatamente: feche completamente o app e abra novamente.
-3. **Forçar limpeza manual (último recurso):** Remova o ícone da Tela de Início, limpe os dados do site no navegador e instale novamente pelo endereço IP.
-
-**Para acessos via navegador:**
-1. Pressione `Ctrl + Shift + R` (ou `Cmd + Shift + R` no Mac) para forçar reload sem cache.
-2. Ou limpe o cache do site específico nas configurações do navegador.
-
-> **IMPORTANTE:** O `service-worker.js` já implementa a estratégia **Network First** — ou seja, se houver internet, SEMPRE carrega o arquivo mais recente do servidor e só usa o cache se estiver offline. A limpeza manual é necessária apenas em casos extremos.
+Como o cache é tratado (não faça nada à mão):
+* O servidor calcula a **versão dos arquivos (hash)** e a coloca no `?v=` do `index.html` e no nome do cache do `service-worker.js` **a cada requisição**. Não existe mais "incrementar `CACHE_NAME`" nem "`?v=4.x`" no código: qualquer mudança nos arquivos muda a versão sozinha.
+* Versão nova ⇒ o navegador baixa `app.js`/`style.css` de novo e o service worker apaga os caches antigos no `activate`.
+* A verificação (`Verificar.ps1`) **falha** se a página servida não trouxer a versão atual.
+* Em HTTP puro (rede local, `http://IP:3000`) o service worker **nem registra** (só existe em HTTPS/localhost); no iPad/celular vale o `?v=` novo. Se um aparelho insistir na versão antiga: fechar e abrir o app, recarregar 2 vezes; último recurso: remover o ícone da Tela de Início, limpar os dados do site e adicionar de novo.
 
 ---
 
-## 6. Como o Antigravity Deve Configurar uma Nova Máquina
+## 6. Configurar uma máquina nova
 
-Ao ser acionado em um computador novo onde roda o ProPresenter 7, o agente Antigravity deve executar o seguinte fluxo de forma autônoma:
-
-1. **Instalar Node.js se ausente:**
-   ```powershell
-   winget install --id OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements --silent
-   ```
-2. **Clonar o repositório do GitHub:**
-   ```powershell
-   cd "C:\Users\$env:USERNAME\Desktop"
-   git clone https://github.com/nicolasdasilvaesilva/propresenter7-remote-web.git ProPresenter-Remote-Deploy
-   ```
-3. **Instalar esta Skill globalmente:**
-   Copiar este arquivo `SKILL.md` para `%USERPROFILE%\.gemini\config\skills\propresenter-expert\SKILL.md`.
-4. **Configurar inicialização automática com o Windows:**
-   Executar `Configurar-Inicio-Automatico.bat` ou injetar o VBS na pasta Startup do usuário.
-5. **Iniciar o serviço e fornecer o link de rede:**
-   Executar `node server.js` ou `Iniciar-Segundo-Plano.vbs` e exibir o endereço IP local (ex.: `http://10.0.21.145:3000`) para o operador abrir no iPad ou smartphone.
+Use a skill `propresenter-remote-install` (seção "Instalação nova"): clonar em `C:\ProPresenter-Remote` e rodar `scripts\Instalar-Servico.ps1` **como Administrador**. A produção é o computador do ProPresenter (`10.0.21.145`); o outro computador é só desenvolvimento.
 
 ---
 
@@ -256,7 +152,7 @@ No iPadOS / iOS com Safari, existem peculiaridades específicas do motor WebKit 
    * **Coluna Direita (Grid de Thumbnails):** A função `highlightActiveMediaCard()` sincroniza o grid de mídia da coluna direita, com badge pulsante "AO VIVO" e rolagem automática suave até o item ativo.
 4. **Seletor de Playlist ao Adicionar Música da Biblioteca:**
    * Ao clicar "Add à Playlist" nos resultados de busca, um modal overlay lista todas as playlists de culto disponíveis (incluindo dentro de pastas/grupos) via endpoint `GET /api/list-culto-playlists`.
-   * O backend achata recursivamente a árvore de playlists (`flattenPl()`) para encontrar playlists em subpastas.
+   * O backend e o cliente achatam a árvore de playlists (`flattenPlaylistTree()`), aceitando `type` **ou** `field_type` e os filhos em `playlists` **ou** `children`, e **nunca** listam a pasta como se fosse playlist. A adição só grava na playlist **escolhida** (se não achar, devolve 404 e nada é alterado — nunca "adivinha" outra).
    * A adição usa `POST /api/add-song-to-playlist` com `playlistId` e `playlistName` específicos.
    * A música é adicionada silenciosamente sem disparar ao vivo nem alterar o preview.
 5. **Exibição de Letras Limpas (Sem Imagem Borrada):**
@@ -277,4 +173,25 @@ No iPadOS / iOS com Safari, existem peculiaridades específicas do motor WebKit 
   - ✅ Pesquisa global instantânea com 4.500+ apresentações indexadas.
   - ✅ Deploy no GitHub: `https://github.com/nicolasdasilvaesilva/propresenter7-remote-web.git`.
   - ✅ ZIP de deploy em `C:\Users\nicol\Desktop\ProPresenter-Remote-Deploy.zip`.
+  - ✅ Stage Display, pulo ao trocar slide, playlists em pastas, captura, áudio, segurança e toque corrigidos (v1.1.0).
+  - ✅ Início automático com o Windows (tarefa agendada, SYSTEM ao ligar), atualização com backup/verificação/volta atrás e versão automática dos arquivos (v1.1.0).
 
+---
+
+## 10. Armadilhas CONFIRMADAS no ProPresenter real (21.4.2) — leia antes de mexer
+
+O spec oficial (`swagger.json`) e o programa real divergem em vários pontos. Tudo abaixo foi medido no ProPresenter de produção.
+
+1. **Leitura de layout do Stage por ÍNDICE troca as telas 1 e 2.** `GET /v1/stage/screen/1/layout` devolve o layout da tela de índice 2 e vice-versa (a tela 0 é certa). A **escrita** (`.../layout/{layout}`) e a leitura por **UUID ou nome** estão corretas. **Regra: enderece as telas sempre pelo UUID** (`stageScreenId()`), nunca pelo índice.
+2. **Trocas de layout coladas são ignoradas em silêncio.** Duas trocas de layout com menos de ~100 ms de intervalo: a segunda responde `204` mas **não é aplicada**. Regra: fila com **≥400 ms** entre trocas, **ler de volta** o layout da tela e **repetir** (até 3x); avisar qual tela falhou. (`stageSetLayoutSafe()`.)
+3. **Playlists:** `GET /v1/playlists` traz `field_type:"playlist"` (sem `type`) e filhos em `children`; o spec diz `type` e `playlists`. Áudio e mídia usam `type` e `children`. Trate os dois.
+4. **Bibliotecas:** `/v1/libraries` é plano (`{uuid,name,index}`); `/v1/library/{id}` traz `update_type` e `items`.
+5. **Apresentação:** `GET /v1/presentation/{uuid}` vem embrulhado em `{ presentation: {...} }` e traz `total_cues` ali dentro.
+6. **Nada no ar:** muitos GET devolvem `404` ou `null` (ex.: `slide_index → {"presentation_index": null}`). Isso é **normal**: só `502/503` ou falha de rede é "offline".
+7. **Captura:** `GET /v1/capture/start` e `/stop` (não POST); status com `capture_time` e estados `active|inactive|caution|error`.
+8. **Áudio:** respeite `is_playing` em `/v1/transport/audio/current` (pausado ainda traz `name`).
+9. **Polling ao vivo (1 s) vs toque do usuário:** logo após o toque o ProPresenter ainda devolve o slide/música ANTIGOS. Ignore o polling por ~2,5 s após o toque, descarte respostas iniciadas antes do toque e nunca rode duas consultas juntas (senão o destaque "pula" para o slide antigo e volta).
+10. **Media playlist ativa:** `/v1/media/playlist/active` pode apontar outra playlist que a aberta na tela; só destaque o item se `playlist.uuid` for a playlist aberta.
+11. **Mensagens:** ao reenviar (`PUT`/`trigger`), preserve tokens de timer e relógio como vieram; só os de texto recebem o valor digitado.
+12. **Clique na música já a coloca no ar** (decisão do dono, não é bug).
+13. **Cabeçalhos/placeholders** de playlist (`type: header|placeholder`) não têm slides; itens `media/audio/livevideo` não são apresentações.

@@ -1,28 +1,37 @@
 @echo off
-title Instalador da Skill ProPresenter Expert para Antigravity
+title Instalador das Skills do ProPresenter Remote (Antigravity)
 color 0a
 echo ================================================================
-echo   INSTALADOR DA SKILL PROPRESENTER EXPERT (ANTIGRAVITY)
+echo   INSTALADOR DAS SKILLS DO PROPRESENTER REMOTE (ANTIGRAVITY)
 echo ================================================================
 echo.
-
-set "TARGET_DIR=%USERPROFILE%\.gemini\config\skills\propresenter-expert"
-echo Criando pasta da skill em:
-echo   -> "%TARGET_DIR%"
+echo Skills que serao instaladas (a antiga e substituida pela nova):
+echo   - propresenter-expert         (API, interface, armadilhas)
+echo   - propresenter-remote-install (instalar, atualizar, reparar)
 echo.
 
-if not exist "%TARGET_DIR%" (
-    mkdir "%TARGET_DIR%"
+set "DEST=%USERPROFILE%\.gemini\config\skills"
+set "ERRO=0"
+
+for /d %%S in ("%~dp0skills\*") do (
+    if exist "%%S\SKILL.md" (
+        if not exist "%DEST%\%%~nxS" mkdir "%DEST%\%%~nxS"
+        copy /Y "%%S\SKILL.md" "%DEST%\%%~nxS\SKILL.md" >nul
+        if errorlevel 1 (
+            echo [ERRO] Nao foi possivel instalar: %%~nxS
+            set "ERRO=1"
+        ) else (
+            echo [OK] %%~nxS
+        )
+    )
 )
 
-copy /Y "%~dp0skills\propresenter-expert\SKILL.md" "%TARGET_DIR%\SKILL.md" >nul
-
-if %errorlevel% equ 0 (
-    echo [SUCESSO] A Skill 'propresenter-expert' foi instalada com sucesso!
-    echo O seu Antigravity nesta maquina agora e especialista em ProPresenter 7.
+echo.
+if "%ERRO%"=="0" (
+    echo [SUCESSO] Skills instaladas em: %DEST%
+    echo Feche e abra o Antigravity para ele reconhecer as skills.
 ) else (
-    echo [ERRO] Nao foi possivel copiar a skill. Verifique as permissoes.
+    echo [ATENCAO] Alguma skill nao foi copiada. Verifique as permissoes.
 )
-
 echo.
 pause

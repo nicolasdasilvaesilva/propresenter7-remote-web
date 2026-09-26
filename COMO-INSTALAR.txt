@@ -1,32 +1,66 @@
 ======================================================================================
-               GUIA RÁPIDO: INSTALAÇÃO NO COMPUTADOR DO PROPRESENTER 7
+   GUIA RAPIDO: INSTALAR E ATUALIZAR O CONTROLE REMOTO NO COMPUTADOR DO PROPRESENTER 7
 ======================================================================================
 
-Você tem 2 formas muito fáceis de usar no outro computador:
+Objetivo: o computador do ProPresenter (10.0.21.145) LIGA, o servidor do controle
+remoto SOBE SOZINHO, e o operador so abre o endereco no iPad/celular:
+
+        http://10.0.21.145:3000
+
+Precisa de: Windows 10/11, Git e Node.js 18+ (o instalador tenta instalar o Node;
+para o Git: winget install --id Git.Git).
 
 --------------------------------------------------------------------------------------
-OPÇÃO 1: DE FORMA MANUAL (SUPER RÁPIDA - 2 CLIQUES)
+1) INSTALACAO NOVA  (PowerShell como ADMINISTRADOR)
 --------------------------------------------------------------------------------------
-1. Copie esta pasta inteira ("ProPresenter-Remote-Deploy") para o computador onde roda
-   o ProPresenter (via Pendrive, Google Drive, Rede Local, etc.).
+   git clone https://github.com/nicolasdasilvaesilva/propresenter7-remote-web.git C:\ProPresenter-Remote
+   powershell -ExecutionPolicy Bypass -File C:\ProPresenter-Remote\scripts\Instalar-Servico.ps1
 
-2. Instale a Skill no Antigravity:
-   - Dê 2 cliques no arquivo "Instalar-Skill.bat".
-   - Pronto! O Antigravity desse computador já reconhecerá a skill automaticamente.
+   O que acontece: acha o ProPresenter neste computador, guarda a configuracao,
+   cria a tarefa "ProPresenter-Remote" (sobe ao LIGAR o Windows, sem janela, para todos
+   os usuarios, reinicia se cair), libera a porta 3000 no firewall, inicia e confere.
 
-3. Inicie o Controle Remoto:
-   - Certifique-se de que o ProPresenter 7 está aberto.
-   - Dê 2 cliques no arquivo "Iniciar-Controle-Remoto.bat".
-   - Uma janela preta vai abrir mostrando o IP local (exemplo: http://192.168.1.50:3000).
-
-4. No Tablet ou Celular (conectado no mesmo Wi-Fi):
-   - Abra o navegador (Safari ou Chrome) e digite o endereço mostrado na tela!
+   Sem Administrador funciona, mas so sobe depois que um usuario entra no Windows.
 
 --------------------------------------------------------------------------------------
-OPÇÃO 2: PEDIR AO ANTIGRAVITY FAZER TUDO SOZINHO
+2) JA TENHO A VERSAO ANTIGA (pasta ProPresenter-Remote-Deploy)  (PowerShell como ADMINISTRADOR)
 --------------------------------------------------------------------------------------
-1. Copie esta pasta para o computador do ProPresenter.
-2. Abra o Antigravity nessa pasta.
-3. Abra o arquivo "PROMPT-PARA-ANTIGRAVITY.txt", copie o texto e cole no chat do Antigravity.
-4. O Antigravity vai instalar a skill, verificar o ProPresenter e iniciar o servidor para você!
+   cd "C:\caminho\da\pasta\ProPresenter-Remote-Deploy"
+   git pull origin main
+   powershell -ExecutionPolicy Bypass -File .\scripts\Instalar-Servico.ps1
+
+   Isso troca o inicializador antigo (pasta "Inicializar") pela tarefa nova.
+   Depois de instalar, de 2 cliques em Instalar-Skill.bat (instala as skills no Antigravity).
+
+--------------------------------------------------------------------------------------
+3) ATUALIZAR PARA UMA VERSAO NOVA  (2 cliques, como Administrador)
+--------------------------------------------------------------------------------------
+   Atualizar-Controle-Remoto.bat  (botao direito > Executar como administrador)
+
+   Faz: backup, baixa do GitHub, atualiza, reinicia, CONFERE. Se algo falhar, volta
+   sozinho para a versao anterior. A versao dos arquivos muda sozinha, entao os
+   aparelhos nao ficam com a versao antiga (feche e abra o app no iPad).
+   Na 1a vez depois da migracao rode antes:  git pull origin main
+
+--------------------------------------------------------------------------------------
+4) CONFERIR / PARAR / REMOVER
+--------------------------------------------------------------------------------------
+   Verificar-Controle-Remoto.bat          confere tudo e mostra os enderecos
+   Parar-Controle-Remoto.bat              para SO o controle remoto
+   Desinstalar-Inicio-Automatico.bat      remove o inicio automatico (mantem arquivos)
+   Iniciar-Controle-Remoto.bat            roda em primeiro plano (teste)
+
+--------------------------------------------------------------------------------------
+5) PEDIR AO ANTIGRAVITY FAZER TUDO SOZINHO
+--------------------------------------------------------------------------------------
+   Abra o Antigravity, cole o texto de PROMPT-PARA-ANTIGRAVITY.txt e ele instala,
+   atualiza e confere usando as skills (propresenter-remote-install).
+
+--------------------------------------------------------------------------------------
+6) SE ALGO NAO FUNCIONAR
+--------------------------------------------------------------------------------------
+   - Rode Verificar-Controle-Remoto.bat: ele diz o que esta errado.
+   - iPad nao abre: firewall / rede do Windows como "Publica" (mude para "Privada").
+   - "Versao antiga" no iPad: feche e abra o app; ou recarregue 2 vezes.
+   - Logs: pasta logs\  (server.log e server-erro.log)
 ======================================================================================

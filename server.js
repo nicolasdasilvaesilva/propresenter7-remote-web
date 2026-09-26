@@ -3,11 +3,45 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const PORT = process.env.PORT || 3000;
-let PROPRESENTER_HOST = process.env.PRO_HOST || '10.0.21.145';
-let PROPRESENTER_PORT = process.env.PRO_PORT || 50820;
+// Configuração em config.json (fica FORA do Git): sobrevive a reinícios do PC e a atualizações.
+// Ordem de prioridade: variável de ambiente > config.json > padrão.
+const CONFIG_FILE = path.join(__dirname, 'config.json');
+function loadConfig() {
+  try { return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8').replace(/^﻿/, '')) || {}; } catch (e) { return {}; }
+}
+function saveConfig(patch) {
+  try {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(Object.assign(loadConfig(), patch), null, 2));
+  } catch (e) {
+    console.error('Não foi possível gravar config.json:', e.message);
+  }
+}
+const CONFIG = loadConfig();
+
+const PORT = Number(process.env.PORT || CONFIG.port || 3000);
+let PROPRESENTER_HOST = process.env.PRO_HOST || CONFIG.proHost || '10.0.21.145';
+let PROPRESENTER_PORT = Number(process.env.PRO_PORT || CONFIG.proPort || 50820);
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
+
+// Versão dos arquivos do app = hash do conteúdo. Vai no "?v=" do index.html e no nome do cache do
+// service worker, então TODA atualização invalida o cache antigo dos aparelhos automaticamente.
+let appVersion = '';
+let appVersionAt = 0;
+function getAppVersion() {
+  if (appVersion && Date.now() - appVersionAt < 2000) return appVersion;
+  const h = require('crypto').createHash('sha1');
+  for (const f of ['index.html', 'css/style.css', 'js/app.js', 'service-worker.js', 'manifest.json']) {
+    try { h.update(fs.readFileSync(path.join(PUBLIC_DIR, f))); } catch (e) { /* arquivo ausente */ }
+  }
+  appVersion = h.digest('hex').slice(0, 8);
+  appVersionAt = Date.now();
+  return appVersion;
+}
+const SERVER_STARTED_AT = new Date().toISOString();
+
+process.on('unhandledRejection', (err) => console.error('[erro não tratado]', err && err.message ? err.message : err));
+process.on('uncaughtException', (err) => console.error('[exceção não tratada]', err && err.message ? err.message : err));
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -174,8 +208,16 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify({
       proHost: PROPRESENTER_HOST,
       proPort: PROPRESENTER_PORT,
+      port: PORT,
+      version: getAppVersion(),
       ips: getLocalIPAddresses()
     }));
+    return;
+  }
+
+  if (pathname === '/api/version') {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ version: getAppVersion(), startedAt: SERVER_STARTED_AT, pid: process.pid, node: process.version }));
     return;
   }
 
@@ -194,6 +236,7 @@ const server = http.createServer(async (req, res) => {
           if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Porta inválida.');
           PROPRESENTER_PORT = port;
         }
+        saveConfig({ proHost: PROPRESENTER_HOST, proPort: PROPRESENTER_PORT });
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, host: PROPRESENTER_HOST, port: PROPRESENTER_PORT }));
       } catch (err) {
@@ -416,23 +459,36 @@ const server = http.createServer(async (req, res) => {
 
   const filePath = path.join(PUBLIC_DIR, safePath);
 
+  // index.html e service-worker.js saem com a versão atual (hash) já colocada
+  function sendVersioned(file, contentType) {
+    fs.readFile(file, 'utf8', (readErr, text) => {
+      if (readErr) {
+        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Página não encontrada');
+        return;
+      }
+      const v = getAppVersion();
+      const body = path.basename(file) === 'service-worker.js'
+        ? text.replace(/(CACHE_NAME\s*=\s*['"])[^'"]*(['"])/, `$1propresenter-remote-${v}$2`)
+        : text.replace(/(\.(?:css|js)\?v=)[0-9A-Za-z.\-]+/g, `$1${v}`);
+      res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'no-cache', 'X-App-Version': v });
+      res.end(body);
+    });
+  }
+
   fs.stat(filePath, (err, stats) => {
     if (err || !stats.isFile()) {
-      const indexPath = path.join(PUBLIC_DIR, 'index.html');
-      fs.readFile(indexPath, (readErr, content) => {
-        if (readErr) {
-          res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-          res.end('Página não encontrada');
-        } else {
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-          res.end(content);
-        }
-      });
+      sendVersioned(path.join(PUBLIC_DIR, 'index.html'), 'text/html; charset=utf-8');
       return;
     }
 
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    const base = path.basename(filePath);
+    if (path.dirname(filePath) === PUBLIC_DIR && (base === 'index.html' || base === 'service-worker.js')) {
+      sendVersioned(filePath, contentType);
+      return;
+    }
 
     res.writeHead(200, {
       'Content-Type': contentType,
@@ -440,6 +496,15 @@ const server = http.createServer(async (req, res) => {
     });
     fs.createReadStream(filePath).pipe(res);
   });
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`\n[ERRO] A porta ${PORT} já está em uso (o controle remoto provavelmente já está rodando). Encerrando esta cópia.`);
+    process.exit(3);
+  }
+  console.error('[ERRO] Falha ao iniciar o servidor:', err.message);
+  process.exit(1);
 });
 
 server.listen(PORT, '0.0.0.0', () => {
@@ -456,8 +521,9 @@ server.listen(PORT, '0.0.0.0', () => {
       console.log('  -> http://' + net.ip + ':' + PORT + '  (' + net.name + ')');
     });
   } else {
-    console.log('  -> http://10.0.21.145:' + PORT);
+    console.log('  -> (nenhum IP de rede encontrado: confira o cabo/Wi-Fi)');
   }
+  console.log('Versão dos arquivos: ' + getAppVersion() + '  |  Configuração: ' + (fs.existsSync(CONFIG_FILE) ? 'config.json' : 'padrão'));
   console.log('======================================================\n');
   refreshLibraryCache().catch(() => {});
 });

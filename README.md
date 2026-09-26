@@ -69,12 +69,14 @@ Acompanha a **Skill Especialista em ProPresenter 7** para o assistente de IA **G
 * **Sincronismo Bidirecional:** Tanto a coluna esquerda (lista vertical) quanto a coluna direita (grade visual) acompanham mudanças em tempo real, mantendo todos os operadores sincronizados.
 
 ### 11. ⚡ Inicialização Silenciosa em Segundo Plano no Windows
-* **Serviço 100% Invisível:** Script VBScript (`Iniciar-Segundo-Plano.vbs`) que roda o servidor Node.js em background sem manter janelas pretas do prompt abertas.
-* **Inicialização com o Windows:** Script para registrar o início automático do controle remoto junto com o boot do computador.
+* **Sobe sozinho quando o Windows liga:** tarefa agendada (`ProPresenter-Remote`) que inicia o servidor **sem janela**, **para todos os usuários** e **antes do login** (quando instalada como Administrador), reiniciando se cair. O operador só abre `http://IP:3000` no iPad.
+* **Atualização segura:** `Atualizar-Controle-Remoto.bat` faz backup, baixa do GitHub, reinicia, **confere** e **volta sozinho** para a versão anterior se algo falhar.
+* **Sem cache antigo:** a versão dos arquivos é calculada pelo servidor (hash) e vai no `?v=` do `index.html` e no cache do service worker — toda atualização invalida o cache dos aparelhos automaticamente.
+* **Configuração que não se perde:** IP/porta do ProPresenter ficam em `config.json` (fora do Git), sobrevivem a reinícios e atualizações.
 
 ### 12. 🛡️ Zero Dependências Externas (Pure Node.js)
 * **Sem `npm install`:** Funciona usando apenas as bibliotecas nativas do Node.js (`http`, `fs`, `path`, `os`).
-* **Proxy Reverso Embutido:** Redireciona chamadas `/api/v1/...` diretamente para o ProPresenter com cabeçalhos CORS liberados, garantindo funcionamento estável no Safari do iPad e no Chrome sem bloqueios de segurança.
+* **Proxy Reverso Embutido:** O app é servido pelo próprio servidor e ele repassa `/api/v1/...` ao ProPresenter (mesma origem, sem CORS aberto), com funcionamento estável no Safari do iPad e no Chrome. Escritas vindas de outra origem são bloqueadas.
 
 ---
 
@@ -82,12 +84,17 @@ Acompanha a **Skill Especialista em ProPresenter 7** para o assistente de IA **G
 
 ```text
 ├── server.js                        # Servidor HTTP e proxy reverso local (porta 3000)
-├── Iniciar-Segundo-Plano.vbs        # Inicia o servidor invisível em background (Recomendado)
-├── Iniciar-Controle-Remoto.bat      # Inicia exibindo o console e endereço IP
-├── Configurar-Inicio-Automatico.bat # Configura o início automático com o Windows
-├── Parar-Controle-Remoto.bat        # Encerra o processo do servidor Node.js
+├── config.json                      # (gerado) IP/porta do ProPresenter — fora do Git
+├── Configurar-Inicio-Automatico.bat # Instala/reaplica o início automático (Executar como Administrador)
+├── Atualizar-Controle-Remoto.bat    # Atualiza pelo GitHub, reinicia, confere e volta atrás se falhar
+├── Verificar-Controle-Remoto.bat    # Confere servidor, versão, ProPresenter, firewall e início automático
+├── Parar-Controle-Remoto.bat        # Encerra SÓ o servidor do controle remoto
+├── Desinstalar-Inicio-Automatico.bat# Remove o início automático (mantém os arquivos)
+├── Iniciar-Controle-Remoto.bat      # Inicia exibindo o console (teste manual)
+├── Iniciar-Segundo-Plano.vbs        # Inicia o servidor invisível (usado pela tarefa agendada)
+├── scripts/                         # Instalar-Servico, Atualizar, Verificar, Parar, Firewall (PowerShell)
 ├── 1-Instalar-NodeJS.bat            # Instalador automático do Node.js LTS
-├── Instalar-Skill.bat               # Instala a Skill no Antigravity automaticamente
+├── Instalar-Skill.bat               # Instala as skills no Antigravity automaticamente
 ├── PROMPT-PARA-ANTIGRAVITY.txt      # Prompt para carregar no Antigravity
 ├── COMO-INSTALAR.txt                # Manual rápido de instrução
 ├── MEMORIA_PROJETO.md               # Registro técnico e memória do projeto
@@ -102,8 +109,10 @@ Acompanha a **Skill Especialista em ProPresenter 7** para o assistente de IA **G
 │   ├── sw.js                        # Service Worker de cache e estabilidade
 │   └── icons/                       # Ícones oficiais do ProPresenter em alta resolução
 └── skills/
-    └── propresenter-expert/
-        └── SKILL.md                 # Skill especialista para o Antigravity
+    ├── propresenter-expert/
+    │   └── SKILL.md                 # Skill especialista (API, interface, armadilhas do ProPresenter real)
+    └── propresenter-remote-install/
+        └── SKILL.md                 # Skill de instalação, atualização e reparo
 ```
 
 ---
@@ -111,12 +120,11 @@ Acompanha a **Skill Especialista em ProPresenter 7** para o assistente de IA **G
 ## 🚀 Como Usar no Dia a Dia
 
 ### 1. No Computador do ProPresenter:
-* Para iniciar o controle remoto sem janelas abertas:
-  * Dê dois cliques em **`Iniciar-Segundo-Plano.vbs`**.
-* Para iniciar com a janela de logs (exibe o IP local da igreja):
-  * Dê dois cliques em **`Iniciar-Controle-Remoto.bat`**.
-* Para configurar para ligar automaticamente junto com o computador da igreja:
-  * Dê dois cliques em **`Configurar-Inicio-Automatico.bat`**.
+* **Instalação (uma vez, como Administrador):** `git clone https://github.com/nicolasdasilvaesilva/propresenter7-remote-web.git C:\ProPresenter-Remote` e depois, no PowerShell como Administrador: `powershell -ExecutionPolicy Bypass -File C:\ProPresenter-Remote\scripts\Instalar-Servico.ps1`. A partir daí o servidor **sobe sozinho quando o Windows liga**.
+* **Atualizar:** botão direito em **`Atualizar-Controle-Remoto.bat`** → *Executar como administrador*.
+* **Conferir:** **`Verificar-Controle-Remoto.bat`** (mostra também os endereços para o iPad).
+* Para testar com a janela de logs: **`Iniciar-Controle-Remoto.bat`**.
+* Guia completo: `COMO-INSTALAR.txt`.
 
 ### 2. No iPad, Tablet ou Smartphone:
 1. Conecte o dispositivo na mesma rede Wi-Fi do computador do ProPresenter.
@@ -135,7 +143,7 @@ Acompanha a **Skill Especialista em ProPresenter 7** para o assistente de IA **G
 * `GET /v1/timers/current` & `GET /v1/timer/{id}/{start|stop|reset|increment}` — Cronômetros de culto em tempo real com controle e acréscimo de tempo.
 * `GET /v1/video_inputs` & `GET /v1/video_inputs/{id}/trigger` — Disparo de entradas de vídeo ao vivo (Bíblia Holyrics, iPad, câmeras).
 * `GET /v1/props` & `GET /v1/prop/{id}/trigger` — Overlays e adereços de culto (Dízimos, Ofertas, Campanhas).
-* `GET /v1/capture/status` & `POST /v1/capture/{start|stop}` — Monitoramento e controle de gravação e transmissão ao vivo.
+* `GET /v1/capture/status` & `GET /v1/capture/{start|stop}` — Monitoramento e controle de gravação e transmissão ao vivo.
 * `GET /v1/messages` — Lista os templates de mensagens configurados (ex.: CARROS, KIDS).
 * `PUT /v1/message/{id}` — Atualiza os tokens e salva os dados no ProPresenter.
 * `POST /v1/message/{id}/trigger` — Dispara a mensagem com os tokens preenchidos para os telões.
@@ -154,8 +162,8 @@ Acompanha a **Skill Especialista em ProPresenter 7** para o assistente de IA **G
 
 ## 🧠 Antigravity Skill
 Para carregar esta skill no assistente **Google Antigravity**:
-* Execute `Instalar-Skill.bat`, ou
-* Copie o arquivo `skills/propresenter-expert/SKILL.md` para `%USERPROFILE%\.gemini\config\skills\propresenter-expert\SKILL.md`.
+* Execute `Instalar-Skill.bat` (instala as duas skills: `propresenter-expert` e `propresenter-remote-install`), ou
+* Copie cada `skills/<nome>/SKILL.md` para `%USERPROFILE%\.gemini\config\skills\<nome>\SKILL.md`.
 
 ---
 

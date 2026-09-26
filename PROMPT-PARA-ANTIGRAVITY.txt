@@ -1,27 +1,18 @@
-Copie e cole a mensagem abaixo no chat do Antigravity no computador onde está o ProPresenter:
+Copie e cole a mensagem abaixo no chat do Antigravity NO COMPUTADOR DO PROPRESENTER (10.0.21.145), com o Antigravity/PowerShell aberto como Administrador:
 
 ======================================================================================
-Olá! Preciso instalar e rodar o controle remoto web do ProPresenter 7 neste computador a partir do repositório:
-https://github.com/nicolasdasilvaesilva/propresenter7-remote-web.git
+Use a skill "propresenter-remote-install" para cuidar do controle remoto web do ProPresenter 7 neste computador.
+Repositório: https://github.com/nicolasdasilvaesilva/propresenter7-remote-web.git
 
-Por favor, faça tudo para mim de forma 100% autônoma seguindo estes passos:
+Objetivo: quando o Windows ligar, o servidor do controle remoto deve subir SOZINHO (sem ninguém logar e sem janela), para todos os usuários, para o operador leigo só abrir http://10.0.21.145:3000 no iPad/celular.
 
-1. CLONAR O PROJETO:
-   - Clone o repositório acima em uma pasta local do workspace (ex: propresenter7-remote-web).
+Faça de forma autônoma, na ordem:
+1. Se ainda não existe, clone o repositório em C:\ProPresenter-Remote (se já existe uma pasta antiga "ProPresenter-Remote-Deploy", use-a: git pull origin main).
+2. Rode scripts\Instalar-Servico.ps1 como Administrador (Node.js, configuração, tarefa agendada ao ligar o Windows, firewall, iniciar e conferir). NUNCA use taskkill no node.exe.
+3. Instale as skills novas (Instalar-Skill.bat).
+4. Rode scripts\Verificar.ps1 e me mostre o resultado. Só diga que terminou se aparecer "tudo certo".
+5. Me diga o endereço para o iPad e o que fazer nos aparelhos (fechar e abrir o app).
+NÃO reinicie o Windows sem minha autorização.
 
-2. VERIFICAR / INSTALAR NODE.JS:
-   - Verifique se o Node.js está instalado executando "node -v".
-   - Se o Node.js NÃO estiver instalado (máquina limpa), instale-o automaticamente executando no terminal:
-     winget install --id OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements --silent
-     (ou baixando o MSI oficial do Node.js v22 LTS caso o winget não esteja disponível).
-
-3. INSTALAR A SKILL NO ANTIGRAVITY:
-   - Copie o arquivo "skills/propresenter-expert/SKILL.md" deste projeto para a pasta global de skills do Antigravity:
-     %USERPROFILE%\.gemini\config\skills\propresenter-expert\SKILL.md
-   - Assim você se tornará especialista em ProPresenter 7 nesta máquina também.
-
-4. INICIAR O CONTROLE REMOTO:
-   - Certifique-se de que o ProPresenter 7 está aberto.
-   - Inicie o servidor executando: node server.js
-   - Descubra qual é o IP local desta máquina e me forneça o link exato para eu abrir no Safari/Chrome do meu iPad ou Celular!
+Para ATUALIZAR no futuro, diga apenas: "atualize o controle remoto" — use scripts\Atualizar.ps1 (backup, atualiza, reinicia, confere e volta atrás sozinho se falhar).
 ======================================================================================
