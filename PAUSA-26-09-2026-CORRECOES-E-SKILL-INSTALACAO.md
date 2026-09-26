@@ -226,3 +226,10 @@ Relato do dono: adicionar letra pelo modal funciona em DOMINGO, nas outras playl
 **Levantamento (so leitura, 14 playlists, todas GET 200):** TERCA DA ESPERANCA mistura `destination` `announcements`/`presentation`; Nomes Pastores 2024 e so `announcements`; REGRESSIVA tem itens `media`; VIGILIA tem 32 itens; o resto e igual ao DOMINGO. O item novo montado pelo app NAO traz `destination` nem `presentation_info` (o ProPresenter aceitou na playlist de teste).
 **Hipoteses:** (1) `PUT` da lista inteira rejeita itens `announcements`/`media` reenviados; (2) campo faltando no item novo (`destination`/`presentation_info`); (3) tamanho/tempo limite; (4) cliente/tela nao recarrega; (5) playlist nao encontrada pelo identificador.
 **Amanha:** pegar o texto do erro; mostrar status+detalhes no app e no log; testar `PUT` so em "Teste API Remoto"; backup da lista antes do `PUT` + restaurar se falhar + reler depois; montar o item igual aos do ProPresenter.
+
+### 10.3 CAUSA RAIZ da issue #5 (adicionar musica so na DOMINGO) — provada 27/09/2026
+Comentario completo na issue #5. Resumo: o `PUT /v1/playlist/{id}` regrava a lista inteira e o `GET` nao usa o mesmo formato do `PUT`.
+1. `id.uuid` != `target_uuid` na maioria das playlists (so DOMINGO e Nomes Pastores tem iguais) -> `PUT` da **404**. **Correcao: `id.uuid := target_uuid`** antes do PUT (13 das 14 playlists regravam com 204 e a musica entrava no fim, ordem/nomes preservados; testado gravando SO na playlist de teste).
+2. VIGILIA tem 1 item "sem vinculo" (`presentation_uuid` vazio, sem `target_uuid`): PUT falha 400/404; gravar como `type:"placeholder"` + `target_uuid:""` da 204 (nome mantido). Decisao a confirmar com o operador (converter e avisar x recusar).
+3. REGRESSIVA tem midia cujo arquivo nao existe em nenhuma playlist de midia: PUT 404 sempre -> recusar com mensagem clara, sem alterar nada.
+**Codigo da correcao:** funcao `normalizarItens()` validada em `propresenter-remote\tools-rascunho\put-playlist-lab.rascunho.js` (mais backup em `logs\backups`, reler depois, erros claros). Se nao deu tempo de aplicar no `server.js`, e a primeira tarefa de amanha.
