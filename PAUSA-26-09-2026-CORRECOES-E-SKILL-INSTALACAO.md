@@ -208,3 +208,13 @@ Teste real final (app v4.4, nada mexendo): Mudar tudo -> NDI 4: R e L mudaram, i
 **Ordem sugerida:** #3 (mock no repo) -> #1 (i18n pt-BR/en/es) -> #2 (seletor + padrao do servidor) -> release v1.2.0 -> atualizar a producao com `Atualizar-Controle-Remoto.bat`.
 
 **Producao (10.0.21.145) em 26/09 ~11:45:** ja responde `/api/version` (versao cee312e1, porta 3000, ProPresenter em 127.0.0.1:50820, pagina e service worker com a versao atual). NAO conferido: tarefa agendada, firewall e "ligou o PC e subiu sozinho" (rodar `Verificar-Controle-Remoto.bat` la e, com autorizacao, reiniciar o Windows uma vez).
+
+### 10.1 Issue #4 — Android nao instala o app (registrada 26/09/2026)
+
+Captura do dono (Chrome Android, `http://10.0.21.208:3000`): "Instalar e criar atalho" -> **Instalar: "Nao e possivel instalar o app."** / Criar atalho. Captura salva em `propresenter-remote\tools-rascunho\captura-android-nao-instala-pwa.jpg`.
+
+**Causa:** acesso por **HTTP** (triangulo "nao seguro"). O Chrome so oferece instalar PWA em HTTPS/localhost e o service worker nem registra em HTTP. Manifest e icones ja atendem; falta HTTPS. iOS/iPad funciona (Adicionar a Tela de Inicio).
+
+**Opcoes (na issue #4):** A) flag `chrome://flags/#unsafely-treat-insecure-origin-as-secure` com `http://10.0.21.145:3000` por aparelho; B) "Criar atalho" (ja existe); C) HTTPS com CA local (mkcert) — instalar a CA em cada aparelho; **D) HTTPS com dominio real + Let's Encrypt DNS-01 (recomendada)** — confiavel em todos os aparelhos sem configurar nada; E) Tailscale/Cloudflare Tunnel.
+**Trabalho:** HTTPS opcional no `server.js` (`config.json` -> `https`), scripts de certificado + renovacao automatica + firewall, `Instalar-Servico.ps1 -Dominio/-HttpsPorta`, `Verificar.ps1` mostra validade, icone `maskable` separado, modal explicando o motivo em HTTP, docs/skills.
+**Ordem sugerida amanha:** #3 mock -> #1 i18n -> #2 seletor -> #4 HTTPS (precisa decidir dominio) -> release v1.2.0.
