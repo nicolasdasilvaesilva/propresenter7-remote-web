@@ -218,3 +218,11 @@ Captura do dono (Chrome Android, `http://10.0.21.208:3000`): "Instalar e criar a
 **Opcoes (na issue #4):** A) flag `chrome://flags/#unsafely-treat-insecure-origin-as-secure` com `http://10.0.21.145:3000` por aparelho; B) "Criar atalho" (ja existe); C) HTTPS com CA local (mkcert) — instalar a CA em cada aparelho; **D) HTTPS com dominio real + Let's Encrypt DNS-01 (recomendada)** — confiavel em todos os aparelhos sem configurar nada; E) Tailscale/Cloudflare Tunnel.
 **Trabalho:** HTTPS opcional no `server.js` (`config.json` -> `https`), scripts de certificado + renovacao automatica + firewall, `Instalar-Servico.ps1 -Dominio/-HttpsPorta`, `Verificar.ps1` mostra validade, icone `maskable` separado, modal explicando o motivo em HTTP, docs/skills.
 **Ordem sugerida amanha:** #3 mock -> #1 i18n -> #2 seletor -> #4 HTTPS (precisa decidir dominio) -> release v1.2.0.
+
+### 10.2 Issue #5 — Adicionar musica so funciona na playlist DOMINGO (registrada 26/09/2026)
+
+Relato do dono: adicionar letra pelo modal funciona em DOMINGO, nas outras playlists nao. Falta o texto exato do erro e quais playlists falham.
+**Ja sabido:** em 26/09 o fluxo funcionou na playlist de teste "Teste API Remoto" (item entrou no fim, originais intactos, lista restaurada) — nao esta quebrado em geral.
+**Levantamento (so leitura, 14 playlists, todas GET 200):** TERCA DA ESPERANCA mistura `destination` `announcements`/`presentation`; Nomes Pastores 2024 e so `announcements`; REGRESSIVA tem itens `media`; VIGILIA tem 32 itens; o resto e igual ao DOMINGO. O item novo montado pelo app NAO traz `destination` nem `presentation_info` (o ProPresenter aceitou na playlist de teste).
+**Hipoteses:** (1) `PUT` da lista inteira rejeita itens `announcements`/`media` reenviados; (2) campo faltando no item novo (`destination`/`presentation_info`); (3) tamanho/tempo limite; (4) cliente/tela nao recarrega; (5) playlist nao encontrada pelo identificador.
+**Amanha:** pegar o texto do erro; mostrar status+detalhes no app e no log; testar `PUT` so em "Teste API Remoto"; backup da lista antes do `PUT` + restaurar se falhar + reler depois; montar o item igual aos do ProPresenter.
