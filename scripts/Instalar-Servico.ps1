@@ -8,9 +8,51 @@ param(
     [int]$ProPorta = 0,
     [string]$NomeTarefa = 'ProPresenter-Remote',
     [switch]$SemFirewall,
-    [switch]$SemIniciar
+    [switch]$SemIniciar,
+    [string]$Destino = 'C:\ProPresenter-Remote',   # local padrao da instalacao
+    [switch]$NaoMover                                # instala onde esta, sem mover para $Destino
 )
 . "$PSScriptRoot\_comum.ps1"
+
+# 0. Local padrao: C:\ProPresenter-Remote. Se estiver em outra pasta, MOVE a instalacao para la
+#    (clona do mesmo GitHub, leva o config.json) e continua a instalacao a partir do destino.
+$dirCompleto  = [IO.Path]::GetFullPath($Dir).TrimEnd('\')
+$destCompleto = [IO.Path]::GetFullPath($Destino).TrimEnd('\')
+if (-not $NaoMover -and $dirCompleto -ine $destCompleto) {
+    Write-Passo "Movendo a instalacao para $destCompleto"
+    if (-not (Test-Path (Join-Path $destCompleto 'server.js'))) {
+        $copiou = $false
+        if ((Get-Command git -ErrorAction SilentlyContinue) -and (Test-Path (Join-Path $dirCompleto '.git'))) {
+            $ea = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+            $url = (& git -C $dirCompleto remote get-url origin 2>$null | Select-Object -First 1)
+            if ($url) {
+                & git clone --quiet $url $destCompleto 2>&1 | Out-Null
+                $copiou = ($LASTEXITCODE -eq 0 -and (Test-Path (Join-Path $destCompleto 'server.js')))
+            }
+            $ErrorActionPreference = $ea
+        }
+        if (-not $copiou) {
+            Write-Aviso 'Nao consegui clonar do GitHub; copiando os arquivos desta pasta.'
+            & robocopy $dirCompleto $destCompleto /E /XD logs node_modules /XF *.log /NFL /NDL /NJH /NJS /NP | Out-Null
+            if (-not (Test-Path (Join-Path $destCompleto 'server.js'))) { Write-Falha "Nao consegui criar $destCompleto"; exit 6 }
+        }
+        Write-Ok "Instalacao criada em $destCompleto"
+    } else { Write-Ok "Ja existe uma instalacao em $destCompleto; sera reaproveitada" }
+    $cfgAntigo = Join-Path $dirCompleto 'config.json'; $cfgNovo = Join-Path $destCompleto 'config.json'
+    if ((Test-Path $cfgAntigo) -and -not (Test-Path $cfgNovo)) { Copy-Item $cfgAntigo $cfgNovo; Write-Ok 'config.json copiado da pasta antiga' }
+    Write-Host "  Continuando a instalacao a partir de $destCompleto ..."
+    $args2 = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $destCompleto 'scripts\Instalar-Servico.ps1'),
+               '-Dir', $destCompleto, '-Destino', $destCompleto, '-NaoMover', '-NomeTarefa', $NomeTarefa)
+    if ($Porta -gt 0)     { $args2 += @('-Porta', $Porta) }
+    if ($ProHost -ne '')  { $args2 += @('-ProHost', $ProHost) }
+    if ($ProPorta -gt 0)  { $args2 += @('-ProPorta', $ProPorta) }
+    if ($SemFirewall)     { $args2 += '-SemFirewall' }
+    if ($SemIniciar)      { $args2 += '-SemIniciar' }
+    & powershell.exe @args2
+    $rc = $LASTEXITCODE
+    if ($rc -eq 0) { Write-Host ''; Write-Host "A pasta antiga ($dirCompleto) nao e mais usada e pode ser apagada quando quiser." -ForegroundColor Yellow }
+    exit $rc
+}
 
 Write-Host "Instalando o ProPresenter 7 Remote a partir de: $Dir" -ForegroundColor Cyan
 

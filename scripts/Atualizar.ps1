@@ -87,7 +87,7 @@ function Voltar-Atras([string]$motivo) {
     Write-Falha "$motivo  -> VOLTANDO para a versao anterior ($antes)"
     Stop-Servidor $Dir $Porta $NomeTarefa | Out-Null
     $null = Invoke-Git reset --hard $antes
-    & "$PSScriptRoot\Instalar-Servico.ps1" -Dir $Dir -Porta $Porta -NomeTarefa $NomeTarefa -SemFirewall -SemIniciar | Out-Null
+    & "$PSScriptRoot\Instalar-Servico.ps1" -Dir $Dir -Porta $Porta -NomeTarefa $NomeTarefa -SemFirewall -SemIniciar -NaoMover | Out-Null
     Start-ScheduledTask -TaskName $NomeTarefa -ErrorAction SilentlyContinue
     if (Wait-Servidor $Porta 25) { Write-Aviso "Servidor da versao anterior ($antes) esta no ar de novo." } else { Write-Falha "O servidor anterior tambem nao subiu. Backup em: $destino  |  logs\server-erro.log" }
     exit 1
@@ -109,7 +109,7 @@ Get-ChildItem (Join-Path $Dir 'logs') -Filter *.log -ErrorAction SilentlyContinu
 # ---- 5. Reaplicar inicio automatico (caminho certo, migra o inicializador antigo)
 Write-Passo '6/8  Reaplicando o inicio automatico com o Windows'
 # -SemFirewall: atualizar nunca deve travar esperando permissao de administrador (o Verificar avisa se faltar a regra)
-& "$PSScriptRoot\Instalar-Servico.ps1" -Dir $Dir -Porta $Porta -NomeTarefa $NomeTarefa -SemIniciar -SemFirewall
+& "$PSScriptRoot\Instalar-Servico.ps1" -Dir $Dir -Porta $Porta -NomeTarefa $NomeTarefa -SemIniciar -SemFirewall -NaoMover
 if ($LASTEXITCODE -ne 0) { Voltar-Atras 'Falha ao reaplicar o inicio automatico' }
 
 # ---- 6. Iniciar

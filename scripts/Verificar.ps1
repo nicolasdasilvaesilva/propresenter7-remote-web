@@ -23,6 +23,8 @@ foreach ($f in 'server.js', 'public\index.html', 'public\js\app.js', 'public\ser
     if (-not (Test-Path (Join-Path $Dir $f))) { Falha "Arquivo ausente: $f" }
 }
 if ($falhas -eq 0) { Ok 'Arquivos do app presentes' }
+if ([IO.Path]::GetFullPath($Dir).TrimEnd('\') -ine 'C:\ProPresenter-Remote') { Aviso "Instalado em $Dir (o local padrao e C:\ProPresenter-Remote). Funciona; rode Configurar-Inicio-Automatico.bat como Administrador para mover." }
+else { Ok 'Instalado no local padrao: C:\ProPresenter-Remote' }
 
 # 3. Porta / processo
 $procs = Get-ProcessosServidor $Dir $Porta
