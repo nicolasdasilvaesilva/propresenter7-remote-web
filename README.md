@@ -38,7 +38,7 @@ Acompanha a **Skill Especialista em ProPresenter 7** para o assistente de IA **G
 * **Letras Limpas em Alta Legibilidade:** Para slides de músicas que contêm texto, a aplicação renderiza o texto em HTML puro com tipografia grande, nítida e centralizada em fundo preto absoluto, eliminando imagens rasterizadas borradas.
 
 ### 5. 🎬 Mídia / ProContent (Área Inferior do ProPresenter)
-* **Navegação Completa de Pastas de Mídia:** Acesso direto a todas as playlists de mídia (Pregações, Fundos, Vídeos, Entradas ao Vivo como EasyWorship/Captura).
+* **Navegação Completa de Pastas de Mídia:** Acesso direto a todas as playlists de mídia (Pregações, Fundos, Vídeos, Entradas ao Vivo).
 * **Grade Visual Limpa:** Miniaturas de mídias e artes gráficas sem textos sobrepostos, mantendo a legibilidade total das artes de sermões e versículos.
 
 ### 6. 🎨 Seletor de Looks / Telas
@@ -59,11 +59,20 @@ Acompanha a **Skill Especialista em ProPresenter 7** para o assistente de IA **G
 * **Índice Local Ultrarrápido:** Busca instantânea entre mais de 4.500 apresentações e músicas indexadas localmente.
 * **Digitação Livre:** A barra de espaço e as setas funcionam normalmente durante a digitação na busca, sem passar slides acidentalmente.
 
-### 9. ⚡ Inicialização Silenciosa em Segundo Plano no Windows
+### 9. 🎯 Seletor de Playlist ao Adicionar Música da Biblioteca
+* **Escolha Livre de Playlist:** Ao encontrar uma música na busca global, o botão **"+ Add à Playlist"** abre um modal elegante listando **todas** as playlists de culto disponíveis no ProPresenter (incluindo playlists dentro de pastas e grupos).
+* **Adição Sem Interferência:** A música é adicionada silenciosamente à playlist escolhida, sem disparar a letra ao vivo nem alterar o preview atual.
+* **Toast de Confirmação:** Exibe notificação visual confirmando *"Adicionada à playlist [Nome] com sucesso!"*.
+
+### 10. 🔄 Sincronismo Multi-Dispositivo de Mídia (Grid de Thumbnails)
+* **Coluna Direita Sincronizada:** Quando qualquer dispositivo (tablet, celular, ou o próprio ProPresenter) altera a mídia ativa, o grid de thumbnails na coluna direita destaca automaticamente o item ao vivo com badge pulsante **"AO VIVO"** e rolagem suave.
+* **Sincronismo Bidirecional:** Tanto a coluna esquerda (lista vertical) quanto a coluna direita (grade visual) acompanham mudanças em tempo real, mantendo todos os operadores sincronizados.
+
+### 11. ⚡ Inicialização Silenciosa em Segundo Plano no Windows
 * **Serviço 100% Invisível:** Script VBScript (`Iniciar-Segundo-Plano.vbs`) que roda o servidor Node.js em background sem manter janelas pretas do prompt abertas.
 * **Inicialização com o Windows:** Script para registrar o início automático do controle remoto junto com o boot do computador.
 
-### 10. 🛡️ Zero Dependências Externas (Pure Node.js)
+### 12. 🛡️ Zero Dependências Externas (Pure Node.js)
 * **Sem `npm install`:** Funciona usando apenas as bibliotecas nativas do Node.js (`http`, `fs`, `path`, `os`).
 * **Proxy Reverso Embutido:** Redireciona chamadas `/api/v1/...` diretamente para o ProPresenter com cabeçalhos CORS liberados, garantindo funcionamento estável no Safari do iPad e no Chrome sem bloqueios de segurança.
 
@@ -124,7 +133,7 @@ Acompanha a **Skill Especialista em ProPresenter 7** para o assistente de IA **G
 * `GET /v1/stage/screens` & `GET /v1/stage/screen/{id}/layout/{layout_id}` — Gerenciamento e troca de layout das telas de retorno de palco (individual e em massa).
 * `GET /v1/stage/message`, `PUT /v1/stage/message`, `DELETE /v1/stage/message` — Mensagens e avisos exclusivos para os retornos de palco.
 * `GET /v1/timers/current` & `GET /v1/timer/{id}/{start|stop|reset|increment}` — Cronômetros de culto em tempo real com controle e acréscimo de tempo.
-* `GET /v1/video_inputs` & `GET /v1/video_inputs/{id}/trigger` — Disparo de entradas de vídeo ao vivo (EasyWorship, Bíblia Holyrics, iPad, câmeras).
+* `GET /v1/video_inputs` & `GET /v1/video_inputs/{id}/trigger` — Disparo de entradas de vídeo ao vivo (Bíblia Holyrics, iPad, câmeras).
 * `GET /v1/props` & `GET /v1/prop/{id}/trigger` — Overlays e adereços de culto (Dízimos, Ofertas, Campanhas).
 * `GET /v1/capture/status` & `POST /v1/capture/{start|stop}` — Monitoramento e controle de gravação e transmissão ao vivo.
 * `GET /v1/messages` — Lista os templates de mensagens configurados (ex.: CARROS, KIDS).
