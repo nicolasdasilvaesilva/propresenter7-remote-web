@@ -41,11 +41,12 @@ O script:
 2. cria a tarefa agendada **`ProPresenter-Remote`** — como Administrador roda como `SYSTEM` **ao ligar o Windows, sem precisar de login, para todos os usuários**, sem janela e reiniciando até 5 vezes se cair;
 3. remove o inicializador antigo (pasta *Inicializar*) de todos os usuários;
 4. cria a regra de firewall `ProPresenter Remote (TCP 3000)` (redes Privada e de Domínio);
+   *(o local padrão da instalação é sempre `C:ProPresenter-Remote`: se o script for rodado de outra pasta, ele **move a instalação para lá sozinho** — clona do mesmo GitHub, leva o `config.json` e continua a partir do novo local; a pasta antiga não é apagada)*
 5. assume a porta (encerra uma cópia antiga do servidor), inicia e **confere tudo**, mostrando os endereços para o iPad.
 
-Opções: `-Porta 3000` (porta do servidor) · `-ProHost 10.0.21.145 -ProPorta 50820` (ProPresenter em outro computador) · `-SemFirewall` · `-SemIniciar`.
+Opções: `-Destino C:OutraPasta` (outro local) · `-NaoMover` (instala onde está) · `-Porta 3000` (porta do servidor) · `-ProHost 10.0.21.145 -ProPorta 50820` (ProPresenter em outro computador) · `-SemFirewall` · `-SemIniciar`.
 
-**Já tenho a versão antiga?** Dentro da pasta existente (como Administrador): `git pull origin main` e o mesmo `Instalar-Servico.ps1`. Depois rode `Instalar-Skill.bat`.
+**Já tenho a versão antiga (em outra pasta)?** Dentro dela (como Administrador): `git pull origin main` e `powershell -ExecutionPolicy Bypass -File .scriptsInstalar-Servico.ps1`. O instalador **move para `C:ProPresenter-Remote`**, encerra o servidor antigo e assume a porta; depois a pasta antiga pode ser apagada. Depois rode `Instalar-Skill.bat`.
 
 > Sem Administrador funciona, mas a tarefa só sobe **depois que aquele usuário entra** no Windows (e o firewall pode precisar ser liberado à mão).
 

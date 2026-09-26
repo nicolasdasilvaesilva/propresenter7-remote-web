@@ -7,6 +7,9 @@ Controle remoto web (iPad/celular/PC) para o **ProPresenter 7**. Servidor Node.j
 * `skills/propresenter-expert/SKILL.md` — API, interface e as **armadilhas confirmadas no ProPresenter real**.
 * Para instalar como skills do Claude Code / Antigravity: `Instalar-Skill.bat` (copia para `%USERPROFILE%\.claude\skills` e `%USERPROFILE%\.gemini\config\skills`).
 
+## Local de instalação
+Padrão: **`C:\ProPresenter-Remote`**. O `Instalar-Servico.ps1` move a instalação para lá sozinho quando rodado de outra pasta (`-NaoMover` desativa; `-Destino` troca).
+
 ## Ambientes
 * **Produção:** o próprio computador do ProPresenter (`10.0.21.145`). O servidor roda lá, na porta 3000; os aparelhos abrem `http://10.0.21.145:3000`.
 * **Desenvolvimento:** outro computador. Nunca atualize/instale a produção a partir dele: os scripts rodam **no computador onde o app está instalado**.

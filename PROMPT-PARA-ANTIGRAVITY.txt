@@ -7,7 +7,7 @@ Repositório: https://github.com/nicolasdasilvaesilva/propresenter7-remote-web.g
 Objetivo: quando o Windows ligar, o servidor do controle remoto deve subir SOZINHO (sem ninguém logar e sem janela), para todos os usuários, para o operador leigo só abrir http://10.0.21.145:3000 no iPad/celular (porta padrão 3000).
 
 Faça de forma autônoma, na ordem:
-1. Se ainda não existe, clone o repositório em C:\ProPresenter-Remote (se já existe uma pasta antiga "ProPresenter-Remote-Deploy", use-a: git pull origin main).
+1. O local padrão é C:\ProPresenter-Remote. Se ainda não existe, clone o repositório lá. Se já existe uma pasta antiga (ex.: "ProPresenter-Remote-Deploy"), rode git pull origin main nela e o instalador dela (scripts\Instalar-Servico.ps1): ele MOVE a instalação para C:\ProPresenter-Remote sozinho (a pasta antiga não é apagada).
 2. Rode scripts\Instalar-Servico.ps1 como Administrador (Node.js, configuração, tarefa agendada ao ligar o Windows, firewall, iniciar e conferir). NUNCA use taskkill no node.exe.
 3. Instale as skills novas (Instalar-Skill.bat).
 4. Rode scripts\Verificar.ps1 e me mostre o resultado. Só diga que terminou se aparecer "tudo certo".

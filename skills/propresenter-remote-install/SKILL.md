@@ -50,7 +50,7 @@ No **PowerShell como Administrador**:
 git clone https://github.com/nicolasdasilvaesilva/propresenter7-remote-web.git C:\ProPresenter-Remote
 powershell -ExecutionPolicy Bypass -File C:\ProPresenter-Remote\scripts\Instalar-Servico.ps1
 ```
-O script detecta o ProPresenter neste computador (porta 50820) e grava `127.0.0.1` no `config.json`. Para outro IP/porta: `-ProHost 10.0.21.145 -ProPorta 50820`. Outra porta do servidor: `-Porta 3000`.
+O **local padrão é sempre `C:\ProPresenter-Remote`**: se o script for rodado de outra pasta ele **move a instalação para lá sozinho** (clona do mesmo GitHub, leva o `config.json` e continua a partir do destino; a pasta antiga não é apagada). Opções: `-Destino <pasta>` (outro local) e `-NaoMover` (instala onde está). O script detecta o ProPresenter neste computador (porta 50820) e grava `127.0.0.1` no `config.json`. Para outro IP/porta: `-ProHost 10.0.21.145 -ProPorta 50820`. Outra porta do servidor: `-Porta 3000`.
 Termina rodando a verificação e mostrando os endereços para o iPad.
 
 ### 4.2 Migrar uma instalação ANTIGA (pasta `ProPresenter-Remote-Deploy`, VBS na pasta Inicializar)
@@ -61,7 +61,7 @@ cd "<pasta do projeto>"
 git pull origin main
 powershell -ExecutionPolicy Bypass -File .\scripts\Instalar-Servico.ps1
 ```
-Isso: para o servidor antigo (o `node` da porta 3000), remove o `ProPresenter-Remote-AutoStart.vbs` de todos os usuários, cria a tarefa nova e sobe o servidor. Depois instale as skills novas: `Instalar-Skill.bat`.
+Isso: **move a instalação para `C:\ProPresenter-Remote`**, para o servidor antigo (o `node` da porta 3000), remove o `ProPresenter-Remote-AutoStart.vbs` de todos os usuários, cria a tarefa nova e sobe o servidor. Depois instale as skills novas: `Instalar-Skill.bat`.
 
 ### 4.3 Atualização (o que o dono pede: sem cache antigo, reiniciar e conferir)
 

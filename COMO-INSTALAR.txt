@@ -29,7 +29,10 @@ para o Git: winget install --id Git.Git).
    git pull origin main
    powershell -ExecutionPolicy Bypass -File .\scripts\Instalar-Servico.ps1
 
-   Isso troca o inicializador antigo (pasta "Inicializar") pela tarefa nova.
+   O instalador MOVE a instalacao para C:ProPresenter-Remote (clona do GitHub e leva o
+   config.json), encerra o servidor antigo e troca o inicializador antigo (pasta
+   "Inicializar") pela tarefa nova. A pasta antiga nao e apagada: depois pode apagar.
+   (Para instalar onde esta: adicione -NaoMover.)
    Depois de instalar, de 2 cliques em Instalar-Skill.bat (instala as skills no Antigravity).
 
 --------------------------------------------------------------------------------------
