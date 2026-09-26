@@ -4489,3 +4489,15 @@ html, body {
 
 
 
+
+
+/* Toque em iPad/celular: alvos maiores nos botoes do cabecalho (menu continua rolando na horizontal) */
+@media (pointer: coarse) {
+  .app-header .action-btn {
+    min-height: 40px;
+  }
+  .app-header .icon-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

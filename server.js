@@ -72,6 +72,39 @@ function normalizeText(str) {
     .toLowerCase();
 }
 
+function isAllowedProHost(h) {
+  if (typeof h !== 'string') return false;
+  h = h.trim();
+  if (/^localhost$/i.test(h)) return true;
+  const m = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (m) {
+    const [a, b, c, d] = m.slice(1).map(Number);
+    if ([a, b, c, d].some(n => n > 255)) return false;
+    return a === 10 || a === 127 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31) || (a === 169 && b === 254);
+  }
+  return /^[a-z0-9-]+(\.local)?$/i.test(h);
+}
+
+// O ProPresenter aninha playlists em pastas (grupos). O spec usa "playlists"; a API de áudio usa "children".
+// Devolve só as playlists de verdade (nunca as pastas), com o nome da pasta de origem.
+function flattenPlaylistTree(list, groupName = '') {
+  const out = [];
+  if (!Array.isArray(list)) return out;
+  for (const item of list) {
+    const kids = item.playlists || item.children;
+    const kind = item.type || item.field_type;
+    const hasKids = Array.isArray(kids) && kids.length > 0;
+    if (hasKids) out.push(...flattenPlaylistTree(kids, (item.id && item.id.name) || groupName));
+    if (kind === 'group') continue;
+    if (kind === 'playlist' || (!kind && !hasKids)) out.push(Object.assign({}, item, { groupName }));
+  }
+  return out;
+}
+
+function proFetch(p, opts = {}) {
+  return fetch(`http://${PROPRESENTER_HOST}:${PROPRESENTER_PORT}${p}`, Object.assign({}, opts, { signal: AbortSignal.timeout(8000) }));
+}
+
 async function refreshLibraryCache() {
   if (isIndexing) return libraryCache;
   isIndexing = true;
@@ -84,15 +117,17 @@ async function refreshLibraryCache() {
 
     const allItems = [];
     for (const lib of libs) {
-      const libData = await fetchProJson('/v1/library/' + lib.uuid);
+      const libUuid = lib.uuid || (lib.id && lib.id.uuid);
+      const libName = lib.name || (lib.id && lib.id.name);
+      const libData = await fetchProJson('/v1/library/' + libUuid);
       if (libData && Array.isArray(libData.items)) {
         libData.items.forEach(item => {
           allItems.push({
             uuid: item.uuid,
             name: item.name,
             index: item.index,
-            libraryName: lib.name,
-            libraryUuid: lib.uuid,
+            libraryName: libName,
+            libraryUuid: libUuid,
             searchName: normalizeText(item.name)
           });
         });
@@ -111,10 +146,8 @@ async function refreshLibraryCache() {
 }
 
 const server = http.createServer(async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
+  // Sem CORS: o app é servido pelo próprio servidor (mesma origem). Assim, páginas de
+  // outros sites abertas na rede não conseguem ler nem comandar a API.
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
     res.end();
@@ -124,6 +157,17 @@ const server = http.createServer(async (req, res) => {
   const hostHeader = req.headers.host || ('localhost:' + PORT);
   const parsedUrl = new URL(req.url, 'http://' + hostHeader);
   const pathname = parsedUrl.pathname;
+
+  // Bloqueia requisições que alteram algo vindas de outra origem (ex.: outro site aberto no navegador)
+  if (pathname.startsWith('/api/') && req.method !== 'GET' && req.method !== 'HEAD' && req.headers.origin) {
+    let originHost = '';
+    try { originHost = new URL(req.headers.origin).host; } catch (e) { /* origem inválida */ }
+    if (originHost !== req.headers.host) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Origem não permitida' }));
+      return;
+    }
+  }
 
   if (pathname === '/api/server-info') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -137,12 +181,19 @@ const server = http.createServer(async (req, res) => {
 
   if (pathname === '/api/set-pro-host' && req.method === 'POST') {
     let body = '';
-    req.on('data', chunk => body += chunk);
+    req.on('data', chunk => { if (body.length < 4096) body += chunk; });
     req.on('end', () => {
       try {
         const data = JSON.parse(body);
-        if (data.host) PROPRESENTER_HOST = data.host;
-        if (data.port) PROPRESENTER_PORT = data.port;
+        if (data.host !== undefined && data.host !== '') {
+          if (!isAllowedProHost(data.host)) throw new Error('Endereço do ProPresenter deve ser um IP da rede local ou nome de computador.');
+          PROPRESENTER_HOST = String(data.host).trim();
+        }
+        if (data.port !== undefined && data.port !== '') {
+          const port = Number(data.port);
+          if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Porta inválida.');
+          PROPRESENTER_PORT = port;
+        }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, host: PROPRESENTER_HOST, port: PROPRESENTER_PORT }));
       } catch (err) {
@@ -213,24 +264,13 @@ const server = http.createServer(async (req, res) => {
   // Endpoint para listar todas as playlists de culto (apresentação) disponíveis
   if (pathname === '/api/list-culto-playlists') {
     try {
-      const plRes = await fetch(`http://${PROPRESENTER_HOST}:${PROPRESENTER_PORT}/v1/playlists`);
+      const plRes = await proFetch('/v1/playlists');
+      if (!plRes.ok) throw new Error('ProPresenter respondeu ' + plRes.status);
       const rawPlaylists = await plRes.json();
 
-      function flattenPl(list) {
-        let flat = [];
-        if (!Array.isArray(list)) return flat;
-        for (const item of list) {
-          if (item.id && item.id.name) {
-            flat.push({ uuid: item.id.uuid, name: item.id.name, index: item.id.index });
-          }
-          if (Array.isArray(item.children) && item.children.length > 0) {
-            flat = flat.concat(flattenPl(item.children));
-          }
-        }
-        return flat;
-      }
-
-      const playlists = flattenPl(rawPlaylists);
+      const playlists = flattenPlaylistTree(rawPlaylists)
+        .filter(p => p.id && p.id.name)
+        .map(p => ({ uuid: p.id.uuid, name: p.id.name, index: p.id.index, group: p.groupName || '' }));
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ playlists }));
     } catch (err) {
@@ -257,41 +297,25 @@ const server = http.createServer(async (req, res) => {
         }
 
         // 1. Busca as playlists de apresentação (Culto) disponíveis (com busca recursiva em pastas)
-        const plRes = await fetch(`http://${PROPRESENTER_HOST}:${PROPRESENTER_PORT}/v1/playlists`);
+        const plRes = await proFetch('/v1/playlists');
+        if (!plRes.ok) throw new Error('ProPresenter respondeu ' + plRes.status + ' ao listar playlists');
         const rawPlaylists = await plRes.json();
-        
-        function flattenPlaylists(list) {
-          let flat = [];
-          if (!Array.isArray(list)) return flat;
-          for (const item of list) {
-            if (item.field_type === 'playlist' || item.type === 'playlist' || !item.children || item.children.length === 0) {
-              flat.push(item);
-            }
-            if (Array.isArray(item.children) && item.children.length > 0) {
-              flat = flat.concat(flattenPlaylists(item.children));
-            }
-          }
-          return flat;
-        }
 
-        const presPlaylists = flattenPlaylists(rawPlaylists);
+        const presPlaylists = flattenPlaylistTree(rawPlaylists);
 
+        // Só grava numa playlist escolhida explicitamente: nunca "adivinha" outra
         let targetPl = null;
-        if (playlistId) {
-          targetPl = presPlaylists.find(p => (p.id?.uuid === playlistId || p.id?.index == playlistId || p.id?.name === playlistId));
+        if (playlistId !== undefined && playlistId !== null && playlistId !== '') {
+          targetPl = presPlaylists.find(p => p.id?.uuid === playlistId || p.id?.name === playlistId);
         }
         if (!targetPl && playlistName) {
-          const normPlName = playlistName.trim().toUpperCase();
+          const normPlName = String(playlistName).trim().toUpperCase();
           targetPl = presPlaylists.find(p => p.id?.name && p.id.name.trim().toUpperCase() === normPlName);
-        }
-        if (!targetPl && presPlaylists.length > 0) {
-          // Procura primeiro por playlist com nome DOMINGO ou CULTO, ou usa a primeira
-          targetPl = presPlaylists.find(p => p.id?.name && /domingo|culto/i.test(p.id.name)) || presPlaylists[0];
         }
 
         if (!targetPl || !targetPl.id) {
           res.writeHead(404, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Nenhuma playlist de culto encontrada para receber a música.' }));
+          res.end(JSON.stringify({ error: 'Playlist escolhida não foi encontrada no ProPresenter. Nada foi alterado.' }));
           return;
         }
 
@@ -299,7 +323,8 @@ const server = http.createServer(async (req, res) => {
         const targetPlName = targetPl.id.name || 'Playlist';
 
         // 2. Busca os itens existentes na playlist
-        const curRes = await fetch(`http://${PROPRESENTER_HOST}:${PROPRESENTER_PORT}/v1/playlist/${encodeURIComponent(targetPlUuid)}`);
+        const curRes = await proFetch(`/v1/playlist/${encodeURIComponent(targetPlUuid)}`);
+        if (!curRes.ok) throw new Error('ProPresenter respondeu ' + curRes.status + ' ao ler a playlist');
         const curData = await curRes.json();
         const existingItems = Array.isArray(curData?.items) ? curData.items : [];
 
@@ -320,7 +345,7 @@ const server = http.createServer(async (req, res) => {
         const updatedList = [...existingItems, newItem];
 
         // 4. Envia o PUT com a lista completa para o ProPresenter
-        const putRes = await fetch(`http://${PROPRESENTER_HOST}:${PROPRESENTER_PORT}/v1/playlist/${encodeURIComponent(targetPlUuid)}`, {
+        const putRes = await proFetch(`/v1/playlist/${encodeURIComponent(targetPlUuid)}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updatedList)
@@ -364,10 +389,7 @@ const server = http.createServer(async (req, res) => {
     };
 
     const proxyReq = http.request(options, (proxyRes) => {
-      const headers = Object.assign({}, proxyRes.headers, {
-        'Access-Control-Allow-Origin': '*'
-      });
-      res.writeHead(proxyRes.statusCode, headers);
+      res.writeHead(proxyRes.statusCode, proxyRes.headers);
       proxyRes.pipe(res, { end: true });
     });
 

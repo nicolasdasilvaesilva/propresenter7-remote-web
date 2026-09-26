@@ -1,5 +1,5 @@
 // Service Worker para o ProPresenter 7 Remote PWA
-const CACHE_NAME = 'propresenter-remote-v3.0';
+const CACHE_NAME = 'propresenter-remote-v3.3';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

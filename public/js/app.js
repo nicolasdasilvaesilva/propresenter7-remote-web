@@ -651,18 +651,31 @@ function setupEventListeners() {
       return; // Permite digitação natural de espaço, setas e backspace
     }
 
+    if (e.key === 'Escape') {
+      closeMacroModal();
+      closeAudioModal();
+      closeMessagesModal();
+      closeStageModal();
+      closeTimersModal();
+      closeVideoInputsModal();
+      closePropsModal();
+      closeCaptureModal();
+      closePlaylistPicker();
+      dom.settingsModal?.classList.remove('open');
+      closeDrawer();
+      closeAllDropdowns();
+      return;
+    }
+
+    // Com um pop-up aberto, as teclas de navegacao nao devem passar slide ao vivo por engano
+    if (document.querySelector('.modal-overlay.open, .drawer-overlay.open, #playlist-picker-overlay.open')) return;
+
     if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
       e.preventDefault();
       handleNextItem();
     } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
       e.preventDefault();
       handlePrevItem();
-    } else if (e.key === 'Escape') {
-      closeMacroModal();
-      closeAudioModal();
-      closeMessagesModal();
-      dom.clearDropdownMenu.classList.remove('open');
-      dom.lookDropdownMenu.classList.remove('open');
     }
   });
 
@@ -721,7 +734,8 @@ async function apiRequest(endpoint, method = 'GET', body = null) {
       options.body = JSON.stringify(body);
     }
     const res = await fetch(`/api${endpoint}`, options);
-    updateConnectionStatus(res.ok);
+    // 404 = "nada no ar / não existe" (resposta normal do ProPresenter). Só 502/503 (ou falha de rede) é offline.
+    updateConnectionStatus(res.status !== 502 && res.status !== 503);
     if (!res.ok) {
       return null;
     }
@@ -837,6 +851,22 @@ async function switchDrawerTab(type, render = true) {
   await renderDrawerPlaylists(type);
 }
 
+// O ProPresenter aninha playlists em pastas (grupos): "playlists" (spec) ou "children" (áudio/mídia).
+// Devolve só as playlists de verdade, com o nome da pasta de origem.
+function flattenPlaylistTree(list, groupName = '') {
+  const out = [];
+  if (!Array.isArray(list)) return out;
+  for (const item of list) {
+    const kids = item.playlists || item.children;
+    const kind = item.type || item.field_type;
+    const hasKids = Array.isArray(kids) && kids.length > 0;
+    if (hasKids) out.push(...flattenPlaylistTree(kids, (item.id && item.id.name) || groupName));
+    if (kind === 'group') continue;
+    if (kind === 'playlist' || (!kind && !hasKids)) out.push(Object.assign({}, item, { groupName }));
+  }
+  return out;
+}
+
 async function renderDrawerPlaylists(type) {
   dom.drawerPlaylistsContainer.innerHTML = `
     <div class="loading-spinner-box">
@@ -846,9 +876,10 @@ async function renderDrawerPlaylists(type) {
   `;
 
   const endpoint = type === 'media' ? '/v1/media/playlists' : '/v1/playlists';
-  const playlists = await apiRequest(endpoint);
+  const rawPlaylists = await apiRequest(endpoint);
+  const playlists = flattenPlaylistTree(rawPlaylists);
 
-  if (!playlists || !Array.isArray(playlists) || playlists.length === 0) {
+  if (playlists.length === 0) {
     dom.drawerPlaylistsContainer.innerHTML = `
       <div class="slides-empty-notice">
         <p>Nenhuma playlist encontrada nesta categoria.</p>
@@ -867,7 +898,7 @@ async function renderDrawerPlaylists(type) {
     item.className = `drawer-playlist-item ${isSelected ? 'selected' : ''}`;
     item.innerHTML = `
       <div class="drawer-item-title">${escapeHtml(plName)}</div>
-      <span class="drawer-item-badge">${type === 'media' ? 'Mídia / ProContent' : 'Apresentação'}</span>
+      <span class="drawer-item-badge">${pl.groupName ? escapeHtml(pl.groupName) : (type === 'media' ? 'Mídia / ProContent' : 'Apresentação')}</span>
     `;
 
     item.addEventListener('click', () => {
@@ -881,8 +912,8 @@ async function renderDrawerPlaylists(type) {
 
 async function selectDefaultPlaylist(type) {
   const endpoint = type === 'media' ? '/v1/media/playlists' : '/v1/playlists';
-  const playlists = await apiRequest(endpoint);
-  if (playlists && playlists.length > 0) {
+  const playlists = flattenPlaylistTree(await apiRequest(endpoint));
+  if (playlists.length > 0) {
     let target = playlists[0];
     if (type === 'media') {
       const pregacao = playlists.find(p => p.id.name.toUpperCase().includes('PREGAÇÃO') || p.id.name.toUpperCase().includes('PREGACAO'));
@@ -1001,6 +1032,7 @@ async function loadPlaylistItems(type, id) {
 // SELEÇÃO E DISPARO DE ITENS
 // ==========================================================================
 async function handleItemClick(item, idx, cardElement, shouldTrigger = true) {
+  if (shouldTrigger) lastUserActionTime = Date.now();
   state.selectedItemIndex = idx;
   state.selectedItem = item;
 
@@ -1023,7 +1055,12 @@ async function handleItemClick(item, idx, cardElement, shouldTrigger = true) {
 
   // 2. CASO DE PLAYLIST DE CULTO (Apresentação tradicional):
   state.lastActionSource = 'presentation';
-  const presUuid = item.presentation_info?.presentation_uuid || item.id?.uuid;
+  const itemKind = (item.type || 'presentation').toLowerCase();
+  // Cabeçalhos e espaços reservados não têm slides nem disparo
+  if (itemKind === 'header' || itemKind === 'placeholder') return;
+  const presUuid = itemKind === 'presentation'
+    ? (item.presentation_info?.presentation_uuid || item.id?.uuid)
+    : null;
   if (presUuid) {
     await loadPresentationSlides(presUuid, itemName, idx, shouldTrigger);
   } else {
@@ -1144,6 +1181,8 @@ function highlightActiveMediaCard(activeIdx) {
 // ==========================================================================
 // CARREGAR E RENDERIZAR SLIDES (COLUNA DA DIREITA NO TABLET PARA CULTO)
 // ==========================================================================
+let slidesLoadSeq = 0;
+
 async function loadPresentationSlides(presUuid, presName, itemIndex, shouldTriggerFirst = false) {
   dom.slidesGridContainer.innerHTML = `
     <div class="loading-spinner-box">
@@ -1152,8 +1191,12 @@ async function loadPresentationSlides(presUuid, presName, itemIndex, shouldTrigg
     </div>
   `;
 
-  const presData = await apiRequest(`/v1/presentation/${presUuid}`);
-  if (!presData || !presData.presentation) {
+  const loadSeq = ++slidesLoadSeq;
+  const presRaw = await apiRequest(`/v1/presentation/${presUuid}`);
+  // Uma carga mais nova (outro toque) já começou: descarta esta para não sobrescrever a grade
+  if (loadSeq !== slidesLoadSeq) return;
+  const presData = presRaw && (presRaw.presentation ? presRaw : (presRaw.groups ? { presentation: presRaw } : null));
+  if (!presData) {
     dom.slidesGridContainer.innerHTML = `
       <div class="slides-empty-notice">
         <p>Não foi possível carregar os slides desta apresentação.</p>
@@ -1163,6 +1206,7 @@ async function loadPresentationSlides(presUuid, presName, itemIndex, shouldTrigg
   }
 
   const pres = presData.presentation;
+  state.currentPresentationUuid = presUuid;
   const groups = pres.groups || [];
   let allSlides = [];
   let globalCueIndex = 0;
@@ -1245,6 +1289,7 @@ async function triggerSlideCue(presUuid, cueIndex, presName, slideText = '', tot
   state.currentSlideIndex = cueIndex;
   state.liveSlideIndex = cueIndex;
   state.livePresentationUuid = presUuid;
+  state.currentPresentationUuid = presUuid;
 
   highlightActiveSlide(cueIndex);
 
@@ -1492,8 +1537,9 @@ function closeAudioModal() {
 async function loadAudioPlaylists() {
   try {
     if (dom.audioBadgeCount) dom.audioBadgeCount.textContent = 'Carregando...';
-    const playlists = await apiRequest('/v1/audio/playlists');
-    if (!playlists || !Array.isArray(playlists)) {
+    const rawAudioPlaylists = await apiRequest('/v1/audio/playlists');
+    const playlists = flattenPlaylistTree(rawAudioPlaylists);
+    if (!Array.isArray(rawAudioPlaylists)) {
       if (dom.audioBadgeCount) dom.audioBadgeCount.textContent = '0 playlists';
       return;
     }
@@ -1727,10 +1773,12 @@ async function checkAudioTransportStatus() {
     if (current && (current.name || current.id?.name)) {
       const name = current.name || current.id?.name;
       const artist = current.artist || 'ProPresenter';
-      state.audio.isPlaying = true;
+      const playing = current.is_playing !== false;
+      state.audio.isPlaying = playing;
       state.audio.currentTrackName = name;
-      if (current.id?.uuid) state.audio.currentTrackUuid = current.id.uuid;
-      updateAudioUIPlayingState(name, `${state.audio.activePlaylistName || 'Playlist'} • ${artist}`, true);
+      const curUuid = current.uuid || current.id?.uuid;
+      if (curUuid) state.audio.currentTrackUuid = curUuid;
+      updateAudioUIPlayingState(name, playing ? `${state.audio.activePlaylistName || 'Playlist'} • ${artist}` : 'Pausado', playing);
     }
   } catch (e) {
     // Silencioso
@@ -1952,12 +2000,16 @@ async function triggerSendMessage() {
     btnShow.textContent = 'Enviando...';
   }
 
-  const cleanTokens = tokens.map(tok => ({
-    name: tok.name,
-    text: {
-      text: state.messages.tokenValues[tok.name] !== undefined ? String(state.messages.tokenValues[tok.name]) : (tok.text?.text || '')
-    }
-  }));
+  // Tokens de timer e relógio voltam como vieram; só os de texto recebem o valor digitado
+  const cleanTokens = tokens.map(tok => {
+    if (tok.timer || tok.clock) return tok;
+    return {
+      name: tok.name,
+      text: {
+        text: state.messages.tokenValues[tok.name] !== undefined ? String(state.messages.tokenValues[tok.name]) : (tok.text?.text || '')
+      }
+    };
+  });
 
   try {
     // 1. Atualiza e salva o modelo no ProPresenter via PUT
@@ -2322,6 +2374,7 @@ async function openPlaylistPicker(songItem) {
   try {
     const res = await fetch('/api/list-culto-playlists');
     const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Falha ao listar playlists');
     const playlists = data.playlists || [];
 
     if (playlists.length === 0) {
@@ -2341,7 +2394,7 @@ async function openPlaylistPicker(songItem) {
             <circle cx="18" cy="16" r="3"></circle>
           </svg>
         </div>
-        <span class="picker-pl-name">${escapeHtml(pl.name)}</span>
+        <span class="picker-pl-name">${pl.group ? escapeHtml(pl.group) + ' › ' : ''}${escapeHtml(pl.name)}</span>
       `;
       item.addEventListener('click', () => {
         closePlaylistPicker();
@@ -2409,16 +2462,37 @@ function startStatusPolling() {
 }
 
 let audioPollCounter = 0;
+let pollInFlight = false;
+const POLL_QUIET_AFTER_CLICK_MS = 2500;
+
 async function fetchLiveSlideStatus() {
   if (++audioPollCounter % 3 === 0) {
     checkAudioTransportStatus();
   }
 
+  // Nunca deixa duas consultas rodando juntas, e fica quieto logo após um toque do usuário:
+  // o ProPresenter ainda pode devolver o slide/música ANTIGOS e o app "voltaria" o destaque.
+  if (pollInFlight) return;
+  if (Date.now() - lastUserActionTime < POLL_QUIET_AFTER_CLICK_MS) return;
+  pollInFlight = true;
+  const startedAt = Date.now();
+  try {
+    await pollLiveStatusOnce(startedAt);
+  } finally {
+    pollInFlight = false;
+  }
+}
+
+async function pollLiveStatusOnce(startedAt) {
+  // Descarta a resposta se o usuário tocou em algo depois que esta consulta começou
+  const isStale = () => lastUserActionTime > startedAt;
+
   // 1. SINCRONISMO AO VIVO DE MÍDIA / PROCONTENT (Acompanha automaticamente entre Tablets, Celular e ProPresenter)
   if (state.activePlaylistType === 'media') {
     try {
       const activeMediaData = await apiRequest('/v1/media/playlist/active');
-      if (activeMediaData && activeMediaData.item) {
+      const samePlaylist = !activeMediaData?.playlist?.uuid || String(activeMediaData.playlist.uuid) === String(state.activePlaylistId);
+      if (!isStale() && samePlaylist && activeMediaData && activeMediaData.item) {
         const mItem = activeMediaData.item;
         const mIdx = (mItem.index !== undefined) ? mItem.index : 0;
         const mUuid = mItem.uuid;
@@ -2454,12 +2528,15 @@ async function fetchLiveSlideStatus() {
   if (state.activePlaylistType === 'presentation') {
     try {
       const slideIndexData = await apiRequest('/v1/presentation/slide_index');
-      if (slideIndexData && slideIndexData.presentation_index) {
+      if (!isStale() && slideIndexData && slideIndexData.presentation_index) {
         const pIndex = slideIndexData.presentation_index;
         const curIdx = pIndex.index;
         const presUuid = pIndex.presentation_id?.uuid;
         const presName = pIndex.presentation_id?.name;
-        const totalCues = pIndex.total_cues || 1;
+        // A API não informa o total de slides: só usa a contagem quando a grade carregada é desta apresentação
+        const knownTotal = (state.currentPresentationUuid === presUuid) ? state.currentPresentationSlides.length : 0;
+        const totalCues = knownTotal || pIndex.total_cues || 0;
+        const slideLabel = totalCues ? `Slide ${curIdx + 1} de ${totalCues}` : `Slide ${curIdx + 1}`;
 
         if (curIdx !== state.liveSlideIndex || presUuid !== state.livePresentationUuid) {
           state.liveSlideIndex = curIdx;
@@ -2467,7 +2544,7 @@ async function fetchLiveSlideStatus() {
           state.livePresentationUuid = presUuid;
 
           dom.liveItemTitle.textContent = presName || 'Apresentação';
-          dom.liveCueSubtitle.textContent = `Slide ${curIdx + 1} de ${totalCues}`;
+          dom.liveCueSubtitle.textContent = slideLabel;
 
           dom.previewPlaceholder.classList.add('hidden');
 
@@ -2562,6 +2639,110 @@ function escapeHtml(str) {
 // ==========================================================================
 // 1. STAGE DISPLAY (MONITORES DE PALCO E MENSAGENS)
 // ==========================================================================
+// ATENCAO: o ProPresenter devolve TROCADAS as telas 1 e 2 quando a LEITURA do layout e por indice
+// (GET /v1/stage/screen/{indice}/layout). Por UUID (ou nome) a leitura e correta; por isso as telas
+// sao SEMPRE enderecadas pelo UUID. O indice so serve para a preferencia antiga e para exibir.
+function stageScreenIndex(s) { return (s.index !== undefined) ? s.index : (s.id?.index ?? 0); }
+function stageScreenId(s) { return s.uuid || s.id?.uuid || stageScreenIndex(s); }
+function stageScreenName(s) { return s.name || s.id?.name || ''; }
+function stageSyncKey(s) { return `${stageScreenName(s).toLowerCase()}#${stageScreenIndex(s)}`; }
+function readStageSyncMap() {
+  try { return JSON.parse(localStorage.getItem('propresenter_stage_sync_map') || '{}') || {}; } catch (e) { return {}; }
+}
+function jsArgs(...args) { return escapeHtml(args.map(a => JSON.stringify(a)).join(',')); }
+
+// Regra UNICA de "esta tela muda junto com o botao Plataforma?"
+function isStageScreenSynced(screen) {
+  const map = readStageSyncMap();
+  const name = stageScreenName(screen).toLowerCase();
+  const key = stageSyncKey(screen);
+  if (map[key] !== undefined) return Boolean(map[key]);
+  if (map[name] !== undefined) return Boolean(map[name]);
+  if (map[stageScreenIndex(screen)] !== undefined) return Boolean(map[stageScreenIndex(screen)]);
+  // Padrao: iPad ou NDI e sempre independente; retornos de plataforma mudam em conjunto
+  return !(name.includes('ipad') || name.includes('ndi'));
+}
+
+function buildStageAllSectionHtml() {
+  if (stageLayoutsCache.length === 0 || stageScreensCache.length === 0) return '';
+  const synced = stageScreensCache.filter(isStageScreenSynced);
+  const names = synced.map(s => stageScreenName(s) || 'Retorno').join(' e ');
+  let html = `
+    <div class="stage-all-screens-card">
+      <div class="stage-all-screens-header">
+        <span class="stage-all-title">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+          Mudar Retornos Plataforma (${synced.length} Telas)
+        </span>
+        <span class="stage-all-hint">${synced.length ? 'Aplica em ' + escapeHtml(names) + ' (as telas desmarcadas ficam independentes)' : 'Nenhuma tela marcada em "Mudar em conjunto".'}</span>
+      </div>
+      <div class="stage-all-grid">`;
+  stageLayoutsCache.forEach((layout, lIdx) => {
+    const layoutName = layout.id?.name || layout.name || `Layout ${lIdx + 1}`;
+    const layoutUuid = layout.id?.uuid || layout.uuid || (layout.id?.index !== undefined ? layout.id.index : lIdx);
+    html += `
+        <button class="stage-layout-chip stage-layout-chip-all" ${synced.length ? '' : 'disabled style="opacity:.5"'}
+                onclick="handleSetAllStageLayouts(${jsArgs(String(layoutUuid), layoutName)})">
+          <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+          <span class="chip-text">Plataforma: ${escapeHtml(layoutName)}</span>
+        </button>`;
+  });
+  html += `
+      </div>
+    </div>`;
+  return html;
+}
+
+// O ProPresenter IGNORA em silêncio (respondendo 204) uma troca de layout que chega menos de ~100 ms
+// depois de outra. Por isso as trocas entram numa fila, com intervalo entre elas, e cada uma é
+// conferida lendo o layout da tela de volta (com nova tentativa se o ProPresenter ignorou).
+const STAGE_SET_GAP_MS = 400;
+let stageSetChain = Promise.resolve();
+
+function stageSetLayoutSafe(screenId, layoutTarget) {
+  const enc = encodeURIComponent;
+  const target = String(layoutTarget);
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(target);
+  const job = stageSetChain.then(async () => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const res = await apiRequest(`/v1/stage/screen/${enc(screenId)}/layout/${enc(target)}`);
+      await new Promise(r => setTimeout(r, STAGE_SET_GAP_MS));
+      if (!res) continue;
+      if (!isUuid) return true;
+      const cur = await apiRequest(`/v1/stage/screen/${enc(screenId)}/layout`);
+      const curUuid = cur && typeof cur === 'object' ? (cur.uuid || cur.id?.uuid) : null;
+      if (!curUuid || curUuid.toLowerCase() === target.toLowerCase()) return true;
+    }
+    return false;
+  });
+  stageSetChain = job.catch(() => {});
+  return job;
+}
+
+async function refreshStageCurrentLayouts(onlyIds) {
+  const wanted = onlyIds ? onlyIds.map(String) : null;
+  const screens = stageScreensCache.filter(s => !wanted || wanted.includes(String(stageScreenId(s))));
+  await Promise.all(screens.map(async (s) => {
+    const id = stageScreenId(s);
+    const cur = await apiRequest(`/v1/stage/screen/${encodeURIComponent(id)}/layout`);
+    const card = document.getElementById(`stage-card-screen-${id}`);
+    if (!card || !cur || typeof cur !== 'object') return;
+    const curName = (cur.name || cur.id?.name || '').toLowerCase();
+    const curUuid = cur.id?.uuid || cur.uuid;
+    card.querySelectorAll('.stage-layout-chip').forEach(c => {
+      const match = (curUuid && c.dataset.layoutId === String(curUuid)) ||
+                    (curName && (c.dataset.layoutName || '').toLowerCase() === curName);
+      c.classList.toggle('active', Boolean(match));
+    });
+    const lbl = card.querySelector('.lbl-cur-layout');
+    if (lbl && (cur.name || cur.id?.name)) lbl.textContent = cur.name || cur.id.name;
+  }));
+}
+
 let stageScreensCache = [];
 let stageLayoutsCache = [];
 
@@ -2596,59 +2777,34 @@ async function loadStageData() {
 
     // Busca o layout atual de cada tela individualmente
     const screenLayoutPromises = stageScreensCache.map(s => {
-      const screenId = (s.index !== undefined) ? s.index : (s.id?.index ?? 0);
-      return apiRequest(`/v1/stage/screen/${screenId}/layout`);
+      return apiRequest(`/v1/stage/screen/${encodeURIComponent(stageScreenId(s))}/layout`);
     });
     const currentLayouts = await Promise.all(screenLayoutPromises);
 
-    // Helper para verificar se a tela participa da troca coletiva dos retornos de plataforma
-    function isScreenIncludedInSync(screen) {
-      const name = (screen.name || screen.id?.name || '').toLowerCase();
-      const screenId = (screen.index !== undefined) ? screen.index : (screen.id?.index ?? 0);
-      
-      const storedConfig = localStorage.getItem('propresenter_stage_sync_map');
-      if (storedConfig) {
-        try {
-          const map = JSON.parse(storedConfig);
-          if (map[name] !== undefined) return Boolean(map[name]);
-          if (map[screenId] !== undefined) return Boolean(map[screenId]);
-        } catch (e) {}
-      }
-
-      // Regra padrão solicitada: iPad ou NDI é SEMPRE independente (marcado com X vermelho)
-      if (name.includes('ipad') || name.includes('ndi')) {
-        return false;
-      }
-      // Retornos de plataforma (R / L) mudam em conjunto
-      return true;
-    }
-
     window.toggleScreenSyncPreference = function(screenId, screenName, checked) {
+      const screen = stageScreensCache.find(s => String(stageScreenId(s)) === String(screenId) && stageScreenName(s) === screenName)
+                  || stageScreensCache.find(s => String(stageScreenId(s)) === String(screenId));
+      if (!screen) return;
       try {
-        let map = {};
-        const storedConfig = localStorage.getItem('propresenter_stage_sync_map');
-        if (storedConfig) {
-          try { map = JSON.parse(storedConfig); } catch (e) {}
-        }
-        const key = (screenName || '').toLowerCase();
-        map[key] = checked;
-        map[screenId] = checked;
+        const map = readStageSyncMap();
+        map[stageSyncKey(screen)] = checked;
         localStorage.setItem('propresenter_stage_sync_map', JSON.stringify(map));
-
-        const card = document.getElementById(`stage-card-screen-${screenId}`);
-        if (card) {
-          card.classList.toggle('is-independent', !checked);
-          const badgeContainer = card.querySelector('.stage-badge-container');
-          if (badgeContainer) {
-            badgeContainer.innerHTML = checked
-              ? '<span class="stage-sync-badge" title="Muda junto ao clicar nos botões da Plataforma">⚡ Plataforma</span>'
-              : '<span class="stage-independent-badge" title="Tela 100% independente: não altera ao clicar nos botões da Plataforma">🔒 Independente</span>';
-          }
-        }
-        showToast(checked ? `"${screenName}" agora muda junto com a Plataforma.` : `"${screenName}" agora é 100% independente!`, 'info');
       } catch (err) {
-        console.error('Erro ao salvar preferência de sincronização de palco:', err);
+        console.error('Erro ao salvar preferencia de sincronizacao de palco:', err);
       }
+      const card = document.getElementById(`stage-card-screen-${screenId}`);
+      if (card) {
+        card.classList.toggle('is-independent', !checked);
+        const badgeContainer = card.querySelector('.stage-badge-container');
+        if (badgeContainer) {
+          badgeContainer.innerHTML = checked
+            ? '<span class="stage-sync-badge" title="Muda junto ao clicar nos botões da Plataforma">⚡ Plataforma</span>'
+            : '<span class="stage-independent-badge" title="Tela 100% independente: não altera ao clicar nos botões da Plataforma">🔒 Independente</span>';
+        }
+      }
+      const section = document.getElementById('stage-all-section');
+      if (section) section.innerHTML = buildStageAllSectionHtml();
+      showToast(checked ? `"${screenName}" agora muda junto com a Plataforma.` : `"${screenName}" agora é 100% independente!`, 'info');
     };
 
     let html = '';
@@ -2656,43 +2812,7 @@ async function loadStageData() {
     // =========================================================================
     // SEÇÃO 1: MUDAR RETORNOS DA PLATAFORMA (R & L) - EXCLUI IPAD/NDI
     // =========================================================================
-    const syncedScreens = stageScreensCache.filter(isScreenIncludedInSync);
-    const syncedNames = syncedScreens.map(s => s.name || s.id?.name || 'Retorno').join(' e ');
-
-    if (syncedScreens.length > 0 && stageLayoutsCache.length > 0) {
-      html += `
-        <div class="stage-all-screens-card">
-          <div class="stage-all-screens-header">
-            <span class="stage-all-title">
-              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-              </svg>
-              Mudar Retornos Plataforma (${syncedScreens.length} Telas)
-            </span>
-            <span class="stage-all-hint">Aplica em ${escapeHtml(syncedNames)} (iPad-PCA permanece 100% independente)</span>
-          </div>
-          <div class="stage-all-grid">
-      `;
-
-      stageLayoutsCache.forEach((layout, lIdx) => {
-        const layoutName = layout.id?.name || layout.name || `Layout ${lIdx + 1}`;
-        const layoutUuid = layout.id?.uuid || layout.uuid || (layout.id?.index !== undefined ? layout.id.index : lIdx);
-        html += `
-          <button class="stage-layout-chip stage-layout-chip-all" 
-                  onclick="handleSetAllStageLayouts('${layoutUuid}', '${escapeHtml(layoutName)}')">
-            <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-            </svg>
-            <span class="chip-text">Plataforma: ${escapeHtml(layoutName)}</span>
-          </button>
-        `;
-      });
-
-      html += `
-          </div>
-        </div>
-      `;
-    }
+    html += `<div id="stage-all-section">${buildStageAllSectionHtml()}</div>`;
 
     // =========================================================================
     // SEÇÃO 2: CONTROLE INDEPENDENTE DE CADA TELA
@@ -2713,12 +2833,12 @@ async function loadStageData() {
     } else {
       stageScreensCache.forEach((screen, sIdx) => {
         const screenName = screen.name || screen.id?.name || `Retorno ${sIdx + 1}`;
-        const screenId = (screen.index !== undefined) ? screen.index : (screen.id?.index ?? sIdx);
+        const screenId = stageScreenId(screen);
         const curLayoutObj = currentLayouts[sIdx];
         const curLayoutName = curLayoutObj?.name || curLayoutObj?.id?.name || 'Padrão';
         const curLayoutIdx = (curLayoutObj?.index !== undefined) ? curLayoutObj.index : curLayoutObj?.id?.index;
         const curLayoutUuid = curLayoutObj?.id?.uuid || curLayoutObj?.uuid;
-        const isSync = isScreenIncludedInSync(screen);
+        const isSync = isStageScreenSynced(screen);
 
         html += `
           <div class="stage-screen-card ${isSync ? '' : 'is-independent'}" id="stage-card-screen-${screenId}" data-screen-id="${screenId}">
@@ -2733,7 +2853,7 @@ async function loadStageData() {
               </div>
               <div style="display: flex; align-items: center; gap: 10px;">
                 <label class="stage-sync-toggle-label" title="Marque para incluir ou desmarque para deixar independente">
-                  <input type="checkbox" ${isSync ? 'checked' : ''} onchange="toggleScreenSyncPreference('${screenId}', '${escapeHtml(screenName)}', this.checked)">
+                  <input type="checkbox" ${isSync ? 'checked' : ''} onchange="toggleScreenSyncPreference(${jsArgs(String(screenId), screenName)}, this.checked)">
                   <span>Mudar em conjunto</span>
                 </label>
                 <span class="stage-screen-current-layout">Layout Atual: <strong class="lbl-cur-layout">${escapeHtml(curLayoutName)}</strong></span>
@@ -2754,7 +2874,7 @@ async function loadStageData() {
             <button class="stage-layout-chip ${isActive ? 'active' : ''}" 
                     data-layout-id="${layoutUuid}"
                     data-layout-name="${escapeHtml(layoutName)}"
-                    onclick="handleSetStageLayout('${screenId}', '${layoutUuid}', '${escapeHtml(layoutName)}', this)">
+                    onclick="handleSetStageLayout(${jsArgs(String(screenId), String(layoutUuid), layoutName)}, this)">
               ${escapeHtml(layoutName)}
             </button>
           `;
@@ -2803,68 +2923,36 @@ async function loadStageData() {
   }
 }
 
-// Troca o layout de UMA ÚNICA tela de forma 100% independente usando UUID
+// Troca o layout de UMA tela; depois confere no ProPresenter o que realmente ficou
 window.handleSetStageLayout = async function(screenId, layoutTarget, layoutName, btnEl) {
-  try {
-    const parentCard = document.getElementById(`stage-card-screen-${screenId}`) || btnEl?.closest('.stage-screen-card');
-    if (parentCard) {
-      parentCard.querySelectorAll('.stage-layout-chip').forEach(c => c.classList.remove('active'));
-      if (btnEl) btnEl.classList.add('active');
-      const lbl = parentCard.querySelector('.lbl-cur-layout');
-      if (lbl && layoutName) lbl.textContent = layoutName;
-    }
-    // Dispara a rota do ProPresenter usando UUID para garantir troca precisa
-    await apiRequest(`/v1/stage/screen/${encodeURIComponent(screenId)}/layout/${encodeURIComponent(layoutTarget)}`);
-  } catch (err) {
-    console.error('Erro ao trocar layout de palco:', err);
+  const parentCard = document.getElementById(`stage-card-screen-${screenId}`) || btnEl?.closest('.stage-screen-card');
+  if (parentCard && btnEl) {
+    parentCard.querySelectorAll('.stage-layout-chip').forEach(c => c.classList.remove('active'));
+    btnEl.classList.add('active');
   }
+  const ok = await stageSetLayoutSafe(screenId, layoutTarget);
+  if (!ok) showToast('O ProPresenter não aplicou o layout nesta tela.', 'info');
+  await refreshStageCurrentLayouts([screenId]);
 };
 
-// Troca o layout APENAS dos retornos de plataforma sincronizados (iPad-PCA permanece 100% independente!)
+// Troca o layout so das telas marcadas em "Mudar em conjunto"; avisa quais falharam
 window.handleSetAllStageLayouts = async function(layoutTarget, layoutName) {
-  try {
-    function isIncluded(s) {
-      const name = (s.name || s.id?.name || '').toLowerCase();
-      const sId = (s.index !== undefined) ? s.index : (s.id?.index ?? 0);
-      const stored = localStorage.getItem('propresenter_stage_sync_map');
-      if (stored) {
-        try {
-          const map = JSON.parse(stored);
-          if (map[name] !== undefined) return Boolean(map[name]);
-          if (map[sId] !== undefined) return Boolean(map[sId]);
-        } catch (e) {}
-      }
-      return !name.includes('ipad') && !name.includes('ndi');
-    }
-
-    const targetScreens = stageScreensCache.filter(isIncluded);
-
-    // 1. Atualiza visual APENAS das telas da plataforma
-    targetScreens.forEach(s => {
-      const sId = (s.index !== undefined) ? s.index : (s.id?.index ?? 0);
-      const card = document.getElementById(`stage-card-screen-${sId}`);
-      if (card) {
-        card.querySelectorAll('.stage-layout-chip').forEach(c => {
-          const cId = c.getAttribute('data-layout-id');
-          const cName = c.getAttribute('data-layout-name') || c.textContent.trim();
-          const match = (cId === String(layoutTarget)) || (cName.toLowerCase() === layoutName.toLowerCase());
-          c.classList.toggle('active', match);
-        });
-        const lbl = card.querySelector('.lbl-cur-layout');
-        if (lbl && layoutName) lbl.textContent = layoutName;
-      }
-    });
-
-    // 2. Envia comandos para a API do ProPresenter APENAS para as telas sincronizadas (iPad-PCA NUNCA é chamado)
-    for (const screen of targetScreens) {
-      const sId = (screen.index !== undefined) ? screen.index : (screen.id?.index ?? 0);
-      await apiRequest(`/v1/stage/screen/${encodeURIComponent(sId)}/layout/${encodeURIComponent(layoutTarget)}`);
-      await new Promise(r => setTimeout(r, 70));
-    }
-
-    showToast(`✓ Retornos Plataforma alterados para "${layoutName}"! (iPad-PCA inalterado)`, 'info');
-  } catch (err) {
-    console.error('Erro ao trocar layouts dos retornos da plataforma:', err);
+  const targets = stageScreensCache.filter(isStageScreenSynced);
+  if (targets.length === 0) {
+    showToast('Nenhuma tela está marcada em "Mudar em conjunto".', 'info');
+    return;
+  }
+  const failed = [];
+  for (const screen of targets) {
+    const id = stageScreenId(screen);
+    const ok = await stageSetLayoutSafe(id, layoutTarget);
+    if (!ok) failed.push(stageScreenName(screen) || `tela ${id}`);
+  }
+  await refreshStageCurrentLayouts(targets.map(stageScreenId));
+  if (failed.length) {
+    showToast(`Falhou em: ${failed.join(', ')}`, 'info');
+  } else {
+    showToast(`✓ Retornos alterados para "${layoutName}"`, 'info');
   }
 };
 
@@ -2873,24 +2961,33 @@ window.handleSendStageMessage = async function() {
   if (!input) return;
   const msg = input.value.trim();
   try {
-    await fetch(`/api/v1/stage/message`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(msg)
-    });
-    alert('Mensagem enviada com sucesso para os retornos de palco!');
+    const res = msg
+      ? await fetch('/api/v1/stage/message', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(msg) })
+      : await fetch('/api/v1/stage/message', { method: 'DELETE' });
+    if (res.ok) {
+      showToast(msg ? 'Mensagem enviada aos retornos de palco.' : 'Mensagem de palco limpa.', 'success');
+    } else {
+      showToast(`Erro ${res.status} ao enviar a mensagem de palco.`, 'info');
+    }
   } catch (err) {
     console.error('Erro ao enviar mensagem de palco:', err);
+    showToast('Sem conexão com o servidor.', 'info');
   }
 };
 
 window.handleClearStageMessage = async function() {
   const input = document.getElementById('stage-msg-input');
   try {
-    await fetch(`/api/v1/stage/message`, { method: 'DELETE' });
-    if (input) input.value = '';
+    const res = await fetch('/api/v1/stage/message', { method: 'DELETE' });
+    if (res.ok) {
+      if (input) input.value = '';
+      showToast('Mensagem de palco limpa.', 'success');
+    } else {
+      showToast(`Erro ${res.status} ao limpar a mensagem de palco.`, 'info');
+    }
   } catch (err) {
     console.error('Erro ao limpar mensagem de palco:', err);
+    showToast('Sem conexão com o servidor.', 'info');
   }
 };
 
@@ -2938,13 +3035,15 @@ async function loadTimersData() {
       const timeStr = t.time || '00:00';
       const stateStr = (t.state || 'stopped').toLowerCase();
       const isRunning = stateStr === 'running';
+      const isOver = stateStr === 'overrunning' || stateStr === 'overran';
+      const statusLabel = isRunning ? '● Rodando' : (isOver ? '● Estourado' : '○ Parado');
 
       html += `
         <div class="timer-card" data-timer-id="${id}">
           <div class="timer-card-header">
             <span class="timer-card-title">⏱️ ${escapeHtml(name)}</span>
-            <span class="timer-card-status ${isRunning ? 'running' : ''}">
-              ${isRunning ? '● Rodando' : '○ Parado'}
+            <span class="timer-card-status ${isRunning || isOver ? 'running' : ''}">
+              ${statusLabel}
             </span>
           </div>
           <div class="timer-display-box">
@@ -2952,21 +3051,21 @@ async function loadTimersData() {
           </div>
           <div class="timer-controls-row">
             <div class="timer-main-btns">
-              <button class="btn-timer-action btn-timer-start" onclick="handleTimerControl(${id}, 'start')">
+              <button class="btn-timer-action btn-timer-start" onclick="handleTimerControl(${jsArgs(id, 'start')})">
                 ▶ Iniciar
               </button>
-              <button class="btn-timer-action btn-timer-stop" onclick="handleTimerControl(${id}, 'stop')">
+              <button class="btn-timer-action btn-timer-stop" onclick="handleTimerControl(${jsArgs(id, 'stop')})">
                 ⏸ Pausar
               </button>
-              <button class="btn-timer-action btn-timer-reset" onclick="handleTimerControl(${id}, 'reset')">
+              <button class="btn-timer-action btn-timer-reset" onclick="handleTimerControl(${jsArgs(id, 'reset')})">
                 ↺ Reiniciar
               </button>
             </div>
             <div class="timer-inc-btns">
-              <button class="btn-timer-action btn-timer-inc" onclick="handleTimerIncrement(${id}, 60)">
+              <button class="btn-timer-action btn-timer-inc" onclick="handleTimerIncrement(${jsArgs(id, 60)})">
                 +1 min
               </button>
-              <button class="btn-timer-action btn-timer-inc" onclick="handleTimerIncrement(${id}, 300)">
+              <button class="btn-timer-action btn-timer-inc" onclick="handleTimerIncrement(${jsArgs(id, 300)})">
                 +5 min
               </button>
             </div>
@@ -2975,7 +3074,24 @@ async function loadTimersData() {
       `;
     });
 
-    dom.timersBodyContainer.innerHTML = html;
+    // Se os cronometros sao os mesmos, so atualiza hora/estado (recriar os botoes a cada segundo perde toques)
+    const existing = dom.timersBodyContainer.querySelectorAll('.timer-card');
+    const sameSet = existing.length === timers.length &&
+      [...existing].every((el, i) => el.dataset.timerId === String(timers[i].id?.index ?? timers[i].id?.uuid ?? 0));
+    if (sameSet) {
+      timers.forEach((t, i) => {
+        const el = existing[i];
+        const st = (t.state || 'stopped').toLowerCase();
+        const running = st === 'running';
+        const over = st === 'overrunning' || st === 'overran';
+        el.querySelector('.timer-display-time').textContent = t.time || '00:00';
+        const stEl = el.querySelector('.timer-card-status');
+        stEl.textContent = running ? '● Rodando' : (over ? '● Estourado' : '○ Parado');
+        stEl.classList.toggle('running', running || over);
+      });
+    } else {
+      dom.timersBodyContainer.innerHTML = html;
+    }
   } catch (err) {
     console.error('Erro ao atualizar cronômetros:', err);
   }
@@ -3042,8 +3158,9 @@ async function loadVideoInputsData() {
     `;
 
     inputList.forEach((item, idx) => {
-      const name = item.id?.name || item.name || `Entrada ${idx + 1}`;
-      const id = item.id?.index ?? item.id?.uuid ?? idx;
+      const name = item.name || item.id?.name || `Entrada ${idx + 1}`;
+      const id = item.uuid ?? item.id?.uuid ?? item.index ?? item.id?.index ?? idx;
+      const displayIndex = item.index ?? item.id?.index ?? idx;
 
       html += `
         <div class="video-input-card">
@@ -3056,10 +3173,10 @@ async function loadVideoInputsData() {
             </div>
             <div class="video-input-info">
               <div class="video-input-name">${escapeHtml(name)}</div>
-              <div class="video-input-index">Canal / Input #${id}</div>
+              <div class="video-input-index">Canal / Input #${displayIndex}</div>
             </div>
           </div>
-          <button class="btn-trigger-input" onclick="handleTriggerVideoInput(${id})">
+          <button class="btn-trigger-input" onclick="handleTriggerVideoInput(${jsArgs(id)})">
             <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none">
               <polygon points="5 3 19 12 5 21 5 3"></polygon>
             </svg>
@@ -3147,6 +3264,7 @@ async function loadPropsData() {
     propList.forEach((prop, idx) => {
       const name = prop.id?.name || prop.name || `Prop ${idx + 1}`;
       const id = prop.id?.index ?? prop.id?.uuid ?? idx;
+      const activeTag = prop.is_active ? ' <span style="color:#22c55e;font-size:11px;font-weight:700;">● ATIVO</span>' : '';
 
       html += `
         <div class="prop-card">
@@ -3156,13 +3274,13 @@ async function loadPropsData() {
               <polyline points="2 17 12 22 22 17"></polyline>
               <polyline points="2 12 12 17 22 12"></polyline>
             </svg>
-            ${escapeHtml(name)}
+            ${escapeHtml(name)}${activeTag}
           </div>
           <div class="prop-actions">
-            <button class="btn-trigger-prop" onclick="handleTriggerProp(${id})">
+            <button class="btn-trigger-prop" onclick="handleTriggerProp(${jsArgs(id)})">
               Ativar
             </button>
-            <button class="btn-pro-clear" onclick="handleClearProp(${id})">
+            <button class="btn-pro-clear" onclick="handleClearProp(${jsArgs(id)})">
               Desativar
             </button>
           </div>
@@ -3238,8 +3356,11 @@ async function loadCaptureData() {
   try {
     const data = await apiRequest('/v1/capture/status');
     const statusStr = (data?.status || 'inactive').toLowerCase();
-    const isActive = statusStr === 'active';
-    const timeStr = data?.time || '00:00:00';
+    const isActive = statusStr === 'active' || statusStr === 'caution';
+    const timeStr = data?.capture_time || data?.time || '00:00:00';
+    const statusText = statusStr === 'error' ? 'Erro na captura'
+      : statusStr === 'caution' ? 'Gravando / Transmitindo (atenção)'
+      : isActive ? 'Gravando / Transmitindo' : 'Captura Inativa';
 
     if (dom.captureBadgeCount) {
       dom.captureBadgeCount.textContent = isActive ? 'AO VIVO' : 'PARADO';
@@ -3249,7 +3370,7 @@ async function loadCaptureData() {
     dom.captureBodyContainer.innerHTML = `
       <div class="capture-status-panel">
         <div class="capture-status-indicator ${isActive ? 'active' : ''}">
-          <span style="font-size: 16px;">●</span> ${isActive ? 'Gravando / Transmitindo' : 'Captura Inativa'}
+          <span style="font-size: 16px;">●</span> ${statusText}
         </div>
         <div class="capture-time-display">${escapeHtml(timeStr)}</div>
       </div>
@@ -3276,7 +3397,8 @@ async function loadCaptureData() {
 
 window.handleStartCapture = async function() {
   try {
-    await fetch('/api/v1/capture/start', { method: 'POST' });
+    const res = await fetch('/api/v1/capture/start');
+    if (!res.ok) showToast('Não foi possível iniciar a gravação.', 'info');
     await loadCaptureData();
   } catch (err) {
     console.error('Erro ao iniciar captura:', err);
@@ -3285,7 +3407,8 @@ window.handleStartCapture = async function() {
 
 window.handleStopCapture = async function() {
   try {
-    await fetch('/api/v1/capture/stop', { method: 'POST' });
+    const res = await fetch('/api/v1/capture/stop');
+    if (!res.ok) showToast('Não foi possível parar a gravação.', 'info');
     await loadCaptureData();
   } catch (err) {
     console.error('Erro ao parar captura:', err);

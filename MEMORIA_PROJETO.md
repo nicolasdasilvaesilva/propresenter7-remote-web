@@ -60,3 +60,8 @@
      git commit -m "feat: native message modal and universal PWA installation"
      git push origin main
      ```
+
+
+---
+## Retomada 27/09/2026
+Ler primeiro: `PAUSA-26-09-2026-CORRECOES-E-SKILL-INSTALACAO.md` (correcoes feitas, teste no servidor real e skill de instalacao a criar).
