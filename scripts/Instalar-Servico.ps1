@@ -105,10 +105,11 @@ else {
 # 6. Iniciar e conferir
 Write-Passo '6/6  Iniciar e conferir'
 if ($SemIniciar) { Write-Host '  (pulado por -SemIniciar)'; exit 0 }
-if (-not (Get-ProcessosServidor $Dir $Porta)) {
-    if (Get-NetTCPConnection -LocalPort $Porta -State Listen -ErrorAction SilentlyContinue) { Write-Falha "A porta $Porta esta ocupada por outro programa."; exit 3 }
-    Start-ScheduledTask -TaskName $NomeTarefa
-}
+# Assume a porta: para uma copia ANTIGA do servidor (de qualquer pasta, ex.: a versao anterior iniciada pelo
+# inicializador antigo) para que o servidor NOVO, desta pasta, seja o que fica no ar.
+if (Stop-Servidor $Dir $Porta $NomeTarefa) { Write-Ok 'Servidor anterior encerrado para assumir a porta' }
+if (Get-NetTCPConnection -LocalPort $Porta -State Listen -ErrorAction SilentlyContinue) { Write-Falha "A porta $Porta esta ocupada por outro programa (nao e o controle remoto) ou sem permissao para encerrar. Rode como Administrador."; exit 3 }
+Start-ScheduledTask -TaskName $NomeTarefa
 $v = Wait-Servidor $Porta 25
 if (-not $v) { Write-Falha 'O servidor nao respondeu a tempo. Veja logs\server-erro.log'; exit 4 }
 Write-Ok "Servidor no ar (versao dos arquivos $($v.version))"
