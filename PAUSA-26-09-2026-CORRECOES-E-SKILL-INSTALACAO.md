@@ -190,3 +190,21 @@ Havia DOIS problemas no ProPresenter 21.4.2, ambos provados na API real sem ning
    - Regra para o futuro (skill): nunca ler layout de stage por indice; usar UUID.
 
 Teste real final (app v4.4, nada mexendo): Mudar tudo -> NDI 4: R e L mudaram, iPad intacta, aviso de sucesso e cartoes corretos; idem -> LOUVOR; trocas individuais quase juntas (iPad e L) corretas; tudo restaurado a LITURGIA/LITURGIA/LITURGIA.
+
+---
+
+## 10. PARA AMANHA — idioma da interface e mock (anotado 26/09/2026)
+
+**Pergunta do dono:** o app pode pegar o idioma nativo do ProPresenter?
+**Resposta (provada):** NAO. O spec oficial nao tem campo/endpoint de idioma; `GET /version` so traz `name`, `platform`, `os_version`, `host_description`, `api_version`; `/v1/preferences`, `/v1/settings`, `/v1/status`, `/v1/version` dao 404 (ProPresenter 21.4.2). O idioma tem que ser decidido pelo proprio app (navegador do aparelho, escolha do usuario e padrao do servidor).
+
+**Issues abertas no GitHub (repo propresenter7-remote-web):**
+* #1 Internacionalizacao: idioma da interface (pt-BR, ingles, espanhol) — dicionarios, `t('chave')`, `lang` do `<html>`, nao traduzir nomes vindos do ProPresenter.
+* #2 Seletor de idioma no app + idioma padrao do servidor (`config.json` -> `language`, `/api/server-info`, `Instalar-Servico.ps1 -Idioma`).
+* #3 Mock do ProPresenter (`tools/mock-propresenter.js`) para desenvolver/testar sem o programa aberto.
+
+**"Da para fazer sem o ProPresenter?" — SIM.** A internacionalizacao e 100% do lado do navegador; da para desenvolver e testar com o mock (rascunho ja guardado em `propresenter-remote\tools-rascunho\mock-propresenter.rascunho.js`, que reproduz playlists em `children`, Stage com leitura por indice trocada, trocas coladas ignoradas, atraso do "pulo", captura, timers etc.) e com o app vazio. A conferencia visual no ProPresenter real e opcional.
+
+**Ordem sugerida:** #3 (mock no repo) -> #1 (i18n pt-BR/en/es) -> #2 (seletor + padrao do servidor) -> release v1.2.0 -> atualizar a producao com `Atualizar-Controle-Remoto.bat`.
+
+**Producao (10.0.21.145) em 26/09 ~11:45:** ja responde `/api/version` (versao cee312e1, porta 3000, ProPresenter em 127.0.0.1:50820, pagina e service worker com a versao atual). NAO conferido: tarefa agendada, firewall e "ligou o PC e subiu sozinho" (rodar `Verificar-Controle-Remoto.bat` la e, com autorizacao, reiniciar o Windows uma vez).
