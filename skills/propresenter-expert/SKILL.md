@@ -1,9 +1,11 @@
 ---
 name: propresenter-expert
-description: Especialista em automação, integração e controle remoto do ProPresenter 7 via OpenAPI v1 REST API. Guia completo de endpoints (Looks, Mídia/ProContent, Playlists de Culto, Slides, Miniaturas, Triggers, Clear), arquitetura web remota responsiva para iPad/celular, PWA e as armadilhas já comprovadas no ProPresenter real. Instalação/atualização/início automático ficam na skill `propresenter-remote-install`.
+description: Especialista em automação, integração e controle remoto do ProPresenter 7 via OpenAPI v1 REST API. Guia completo de endpoints (Looks, Mídia/ProContent, Playlists de Culto, Slides, Miniaturas, Triggers, Clear), arquitetura web remota responsiva para iPad/celular, PWA e as armadilhas já comprovadas no ProPresenter real. Funciona no Claude Code e no Google Antigravity. Instalação/atualização/início automático ficam na skill `propresenter-remote-install`.
 ---
 
 # ProPresenter 7 Expert Skill
+
+> **Compatível com Claude Code e Antigravity** (instale com `Instalar-Skill.bat`).
 
 Esta skill fornece conhecimento avançado sobre a integração, automação, desenvolvimento e implantação de controladores remotos para o **ProPresenter 7** através da **OpenAPI v1 REST API** oficial.
 

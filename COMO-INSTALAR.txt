@@ -51,10 +51,12 @@ para o Git: winget install --id Git.Git).
    Iniciar-Controle-Remoto.bat            roda em primeiro plano (teste)
 
 --------------------------------------------------------------------------------------
-5) PEDIR AO ANTIGRAVITY FAZER TUDO SOZINHO
+5) PEDIR AO CLAUDE CODE OU AO ANTIGRAVITY FAZER TUDO SOZINHO
 --------------------------------------------------------------------------------------
-   Abra o Antigravity, cole o texto de PROMPT-PARA-ANTIGRAVITY.txt e ele instala,
-   atualiza e confere usando as skills (propresenter-remote-install).
+   Rode Instalar-Skill.bat (instala as skills no Claude Code e no Antigravity), abra o
+   assistente (como Administrador), cole o texto de PROMPT-PARA-ANTIGRAVITY.txt e ele
+   instala, atualiza e confere usando as skills (propresenter-remote-install).
+   Porta padrao do servidor: 3000.
 
 --------------------------------------------------------------------------------------
 6) SE ALGO NAO FUNCIONAR

@@ -1,10 +1,10 @@
-Copie e cole a mensagem abaixo no chat do Antigravity NO COMPUTADOR DO PROPRESENTER (10.0.21.145), com o Antigravity/PowerShell aberto como Administrador:
+Copie e cole a mensagem abaixo no chat do Claude Code ou do Antigravity NO COMPUTADOR DO PROPRESENTER (10.0.21.145), com o assistente/PowerShell aberto como Administrador:
 
 ======================================================================================
 Use a skill "propresenter-remote-install" para cuidar do controle remoto web do ProPresenter 7 neste computador.
 Repositório: https://github.com/nicolasdasilvaesilva/propresenter7-remote-web.git
 
-Objetivo: quando o Windows ligar, o servidor do controle remoto deve subir SOZINHO (sem ninguém logar e sem janela), para todos os usuários, para o operador leigo só abrir http://10.0.21.145:3000 no iPad/celular.
+Objetivo: quando o Windows ligar, o servidor do controle remoto deve subir SOZINHO (sem ninguém logar e sem janela), para todos os usuários, para o operador leigo só abrir http://10.0.21.145:3000 no iPad/celular (porta padrão 3000).
 
 Faça de forma autônoma, na ordem:
 1. Se ainda não existe, clone o repositório em C:\ProPresenter-Remote (se já existe uma pasta antiga "ProPresenter-Remote-Deploy", use-a: git pull origin main).

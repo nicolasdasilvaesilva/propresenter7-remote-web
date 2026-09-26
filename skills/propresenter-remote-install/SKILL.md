@@ -1,22 +1,24 @@
 ---
 name: propresenter-remote-install
-description: Instala, atualiza, confere, repara e desinstala o controle remoto web do ProPresenter 7 no computador do ProPresenter (Windows). Faz o app iniciar sozinho quando o Windows liga (para o operador leigo so abrir no iPad/celular), atualiza pelo GitHub sem deixar cache antigo, reinicia e confere no fim, e volta atras sozinho se algo falhar. Use quando pedirem para instalar, atualizar, subir versao nova, "o servidor nao iniciou", "o iPad nao abre", "ainda aparece a versao antiga" ou configurar inicio automatico.
+description: Instala, atualiza, confere, repara e desinstala o controle remoto web do ProPresenter 7 no computador do ProPresenter (Windows). Faz o app iniciar sozinho quando o Windows liga (para o operador leigo so abrir no iPad/celular), atualiza pelo GitHub sem deixar cache antigo, reinicia e confere no fim, e volta atras sozinho se algo falhar. Funciona no Claude Code e no Google Antigravity. Use quando pedirem para instalar, atualizar, subir versao nova, "o servidor nao iniciou", "o iPad nao abre", "ainda aparece a versao antiga" ou configurar inicio automatico.
 ---
 
 # ProPresenter Remote — Instalação, Atualização e Reparo
+
+> **Compatível com Claude Code e Antigravity** (mesmo formato `SKILL.md`; instale com `Instalar-Skill.bat`). Nos dois, para instalar para todos os usuários / subir ao ligar o Windows, abra o terminal (ou o próprio Claude Code/Antigravity) **como Administrador**.
 
 Esta skill cuida do **servidor Node.js** do controle remoto (repositório `nicolasdasilvaesilva/propresenter7-remote-web`). O conhecimento da API e da interface está na skill `propresenter-expert`.
 
 ## 1. Onde as coisas rodam (importante)
 
-* **Produção:** o computador do próprio ProPresenter, IP `10.0.21.145` (ProPresenter em `127.0.0.1:50820`). O servidor do controle remoto roda **nesse mesmo computador**, porta `3000`. Os iPads/celulares abrem `http://10.0.21.145:3000`.
+* **Produção:** o computador do próprio ProPresenter, IP `10.0.21.145` (ProPresenter em `127.0.0.1:50820`). O servidor do controle remoto roda **nesse mesmo computador**, na porta **`3000` (padrão; troque com `-Porta` na instalação)**. Os iPads/celulares abrem `http://10.0.21.145:3000`.
 * **Desenvolvimento:** outro computador (`10.0.21.208`). Lá só se desenvolve e testa; **nunca atualize a produção pela máquina de desenvolvimento** — os scripts rodam NO computador onde o app está instalado.
 * O objetivo é o **operador leigo não precisar fazer nada**: ligou o Windows, o servidor sobe sozinho, o iPad abre.
 
 ## 2. Regras de ouro (leia antes de agir)
 
 1. **Sempre use os scripts** da pasta `scripts\` (ou os `.bat` da raiz). Não improvise `taskkill`, não rode `node server.js` em primeiro plano, não edite arquivos versionados no computador de produção.
-2. **NUNCA** `taskkill /f /im node.exe`: isso mata **todos** os programas Node da máquina (inclusive ferramentas do Antigravity). Use `scripts\Parar-Servidor.ps1` (encerra só este servidor).
+2. **NUNCA** `taskkill /f /im node.exe`: isso mata **todos** os programas Node da máquina (inclusive as ferramentas do Claude Code / Antigravity). Use `scripts\Parar-Servidor.ps1` (encerra só este servidor).
 3. **Para todos os usuários e subir ao ligar o PC, rode o PowerShell como Administrador.** Sem administrador a tarefa só sobe depois do login de UM usuário.
 4. Não há cache para "limpar à mão": a **versão dos arquivos é calculada pelo servidor** (hash) e vai no `?v=` do `index.html` e no nome do cache do service worker. Toda atualização muda a versão sozinha. Não incremente números em arquivos.
 5. Nunca reinicie o Windows sem pedir autorização do dono (pode ter culto/ensaio).
