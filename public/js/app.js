@@ -2200,36 +2200,119 @@ function renderSearchResults(items, resultsEl) {
 }
 
 async function handleAddSongToCultoPlaylist(item, resultsEl) {
+  // Abre o seletor de playlist para o usuário escolher onde adicionar
+  openPlaylistPicker(item);
+}
+
+// ==========================================================================
+// MODAL SELETOR DE PLAYLIST (PICKER)
+// ==========================================================================
+function getOrCreatePickerOverlay() {
+  let overlay = document.getElementById('playlist-picker-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'playlist-picker-overlay';
+    overlay.className = 'playlist-picker-overlay';
+    overlay.innerHTML = `
+      <div class="playlist-picker-modal">
+        <div class="playlist-picker-header">
+          <div>
+            <h3>Escolha a Playlist</h3>
+            <div class="picker-song-name" id="picker-song-name"></div>
+          </div>
+          <button class="playlist-picker-close" id="picker-close-btn">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="playlist-picker-list" id="picker-list"></div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // Fechar ao clicar fora ou no X
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closePlaylistPicker();
+    });
+    document.getElementById('picker-close-btn').addEventListener('click', () => closePlaylistPicker());
+  }
+  return overlay;
+}
+
+function closePlaylistPicker() {
+  const overlay = document.getElementById('playlist-picker-overlay');
+  if (overlay) overlay.classList.remove('open');
+}
+
+async function openPlaylistPicker(songItem) {
+  const overlay = getOrCreatePickerOverlay();
+  const listEl = document.getElementById('picker-list');
+  const songNameEl = document.getElementById('picker-song-name');
+
+  songNameEl.textContent = `♪ ${songItem.name}`;
+  listEl.innerHTML = `<div class="playlist-picker-loading"><div class="spinner"></div> Buscando playlists...</div>`;
+  overlay.classList.add('open');
+
   try {
-    const activePlId = (state.activePlaylistType === 'presentation' && state.activePlaylistId)
-      ? state.activePlaylistId
-      : (localStorage.getItem('propresenter_last_culto_pl_id') || null);
-    const activePlName = (state.activePlaylistType === 'presentation' && state.activePlaylistName)
-      ? state.activePlaylistName
-      : (localStorage.getItem('propresenter_last_culto_pl_name') || null);
+    const res = await fetch('/api/list-culto-playlists');
+    const data = await res.json();
+    const playlists = data.playlists || [];
 
-    showToast(`Adicionando "${item.name}" à playlist de culto...`, 'info');
+    if (playlists.length === 0) {
+      listEl.innerHTML = `<div class="playlist-picker-empty">Nenhuma playlist de culto encontrada no ProPresenter.</div>`;
+      return;
+    }
 
+    listEl.innerHTML = '';
+    playlists.forEach(pl => {
+      const item = document.createElement('div');
+      item.className = 'playlist-picker-item';
+      item.innerHTML = `
+        <div class="picker-pl-icon">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+            <path d="M9 18V5l12-2v13"></path>
+            <circle cx="6" cy="18" r="3"></circle>
+            <circle cx="18" cy="16" r="3"></circle>
+          </svg>
+        </div>
+        <span class="picker-pl-name">${escapeHtml(pl.name)}</span>
+      `;
+      item.addEventListener('click', () => {
+        closePlaylistPicker();
+        confirmAddToPlaylist(songItem, pl);
+      });
+      listEl.appendChild(item);
+    });
+  } catch (err) {
+    listEl.innerHTML = `<div class="playlist-picker-empty">Erro ao buscar playlists: ${err.message}</div>`;
+  }
+}
+
+async function confirmAddToPlaylist(songItem, playlist) {
+  showToast(`Adicionando "${songItem.name}" à ${playlist.name}...`, 'info');
+
+  try {
     const res = await fetch('/api/add-song-to-playlist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        songUuid: item.uuid,
-        songName: item.name,
-        playlistId: activePlId,
-        playlistName: activePlName
+        songUuid: songItem.uuid,
+        songName: songItem.name,
+        playlistId: playlist.uuid || playlist.name,
+        playlistName: playlist.name
       })
     });
 
     const data = await res.json();
     if (res.ok && data.success) {
-      showToast(`✓ "${item.name}" adicionada à playlist ${data.playlistName}! (Não iniciada ao vivo)`, 'success');
-      
+      showToast(`✓ "${songItem.name}" adicionada à ${data.playlistName}!`, 'success');
+
       // Se o usuário já estiver na tela de apresentações com essa playlist aberta, atualiza a lista
       if (state.activePlaylistType === 'presentation' && state.activePlaylistId === data.playlistId) {
         await loadPlaylistItems('presentation', data.playlistId);
       }
-      // Se estiver em Mídia (vídeos/avisos), permanece 100% nela sem alterar preview ou playback!
     } else {
       showToast(`Erro ao adicionar: ${data.error || 'Falha na API'}`, 'info');
     }
@@ -2281,8 +2364,11 @@ async function fetchLiveSlideStatus() {
           state.liveMediaIndex = mIdx;
           state.selectedItemIndex = mIdx;
 
-          // Destaca o card na lista vertical e rola até ele
+          // Destaca o card na lista vertical (coluna esquerda) e rola até ele
           highlightPlaylistItem(mIdx);
+
+          // Destaca o card no grid de thumbnails (coluna direita - imagem 1) e rola até ele
+          highlightActiveMediaCard(mIdx);
 
           // Atualiza o player de preview ao vivo
           dom.liveItemTitle.textContent = mItem.name || 'Mídia';

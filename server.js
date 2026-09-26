@@ -210,6 +210,36 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Endpoint para listar todas as playlists de culto (apresentação) disponíveis
+  if (pathname === '/api/list-culto-playlists') {
+    try {
+      const plRes = await fetch(`http://${PROPRESENTER_HOST}:${PROPRESENTER_PORT}/v1/playlists`);
+      const rawPlaylists = await plRes.json();
+
+      function flattenPl(list) {
+        let flat = [];
+        if (!Array.isArray(list)) return flat;
+        for (const item of list) {
+          if (item.id && item.id.name) {
+            flat.push({ uuid: item.id.uuid, name: item.id.name, index: item.id.index });
+          }
+          if (Array.isArray(item.children) && item.children.length > 0) {
+            flat = flat.concat(flattenPl(item.children));
+          }
+        }
+        return flat;
+      }
+
+      const playlists = flattenPl(rawPlaylists);
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ playlists }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message, playlists: [] }));
+    }
+    return;
+  }
+
   // Endpoint para adicionar música à playlist de culto sem tocar e sem sair da tela atual
   if (pathname === '/api/add-song-to-playlist' && req.method === 'POST') {
     let body = '';
