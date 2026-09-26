@@ -220,22 +220,63 @@ window.addEventListener('DOMContentLoaded', () => {
   setupPwaInstall();
 });
 
-// Registro do Service Worker para PWA
+// Registro do Service Worker para PWA com detecção de atualização
 function registerServiceWorker() {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/service-worker.js')
-      .then(reg => console.log('ProPresenter PWA Service Worker registrado:', reg.scope))
-      .catch(err => console.log('Aviso ao registrar Service Worker:', err));
-  }
+  if (!('serviceWorker' in navigator)) return;
+
+  navigator.serviceWorker.register('/service-worker.js')
+    .then(reg => {
+      console.log('ProPresenter PWA Service Worker registrado:', reg.scope);
+
+      // Verifica atualizações periodicamente (a cada 60 minutos)
+      setInterval(() => reg.update(), 60 * 60 * 1000);
+
+      // Detecta quando um novo Service Worker está pronto
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        if (!newWorker) return;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            // Nova versão disponível - força ativação imediata
+            console.log('Nova versão do PWA detectada, ativando...');
+            newWorker.postMessage({ type: 'SKIP_WAITING' });
+          }
+        });
+      });
+    })
+    .catch(err => console.warn('Aviso ao registrar Service Worker:', err));
+
+  // Quando o Service Worker muda (nova versão ativada), recarrega a página
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return;
+    refreshing = true;
+    console.log('Service Worker atualizado, recarregando...');
+    window.location.reload();
+  });
 }
 
-// Suporte para prompt de instalação PWA multiplataforma
-let deferredPrompt;
+// ============================================================
+// SUPORTE PARA INSTALAÇÃO PWA MULTIPLATAFORMA
+// ============================================================
+let deferredPrompt = null;
+
+// Chrome/Edge/Samsung Internet no Android disparam este evento
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
+  console.log('beforeinstallprompt capturado - PWA instalável!');
+  // Mostra os botões de instalação
   if (dom.btnInstallPwa) dom.btnInstallPwa.classList.remove('hidden');
   if (dom.btnMobileInstall) dom.btnMobileInstall.classList.remove('hidden');
+});
+
+// Detecta quando o app já foi instalado
+window.addEventListener('appinstalled', () => {
+  console.log('PWA instalado com sucesso!');
+  deferredPrompt = null;
+  dom.btnInstallPwa?.classList.add('hidden');
+  dom.btnMobileInstall?.classList.add('hidden');
 });
 
 function detectPlatform() {
@@ -265,16 +306,36 @@ function switchPwaTab(targetTab) {
 
 function setupPwaInstall() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  const platform = detectPlatform();
+
+  // Se já está instalado como PWA standalone, esconde os botões
   if (isStandalone) {
     dom.btnInstallPwa?.classList.add('hidden');
     dom.btnMobileInstall?.classList.add('hidden');
-  } else {
+    return; // Não precisa configurar nada mais
+  }
+
+  // iOS/iPadOS: NUNCA recebe beforeinstallprompt, sempre mostra botão manual
+  if (platform === 'ios') {
     dom.btnInstallPwa?.classList.remove('hidden');
     dom.btnMobileInstall?.classList.remove('hidden');
   }
 
+  // Android: o botão fica visível, no clique tentamos o prompt nativo primeiro
+  if (platform === 'android') {
+    dom.btnInstallPwa?.classList.remove('hidden');
+    dom.btnMobileInstall?.classList.remove('hidden');
+  }
+
+  // Desktop: fica visível também (o beforeinstallprompt mostrará se disponível)
+  if (platform === 'desktop') {
+    dom.btnInstallPwa?.classList.remove('hidden');
+  }
+
+  // Handler unificado de clique para instalação
   const handleInstallClick = async () => {
     if (deferredPrompt) {
+      // Android/Desktop: usa o prompt nativo do navegador
       try {
         deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
@@ -284,9 +345,11 @@ function setupPwaInstall() {
         }
         deferredPrompt = null;
       } catch (err) {
+        console.warn('Erro no prompt PWA:', err);
         openIosInstallModal();
       }
     } else {
+      // iOS ou Android sem prompt: abre o modal com instruções manuais
       openIosInstallModal();
     }
   };
@@ -298,12 +361,12 @@ function setupPwaInstall() {
     dom.btnMobileInstall.addEventListener('click', handleInstallClick);
   }
 
-  // Abas de plataforma
+  // Abas de plataforma dentro do modal
   document.getElementById('tab-pwa-ios')?.addEventListener('click', () => switchPwaTab('ios'));
   document.getElementById('tab-pwa-android')?.addEventListener('click', () => switchPwaTab('android'));
   document.getElementById('tab-pwa-desktop')?.addEventListener('click', () => switchPwaTab('desktop'));
 
-  // Botão direto no desktop
+  // Botão direto de instalação no Desktop
   document.getElementById('btn-trigger-desktop-install')?.addEventListener('click', async () => {
     if (deferredPrompt) {
       deferredPrompt.prompt();
@@ -315,10 +378,11 @@ function setupPwaInstall() {
       }
       deferredPrompt = null;
     } else {
-      alert('Para instalar no computador, você também pode clicar no ícone de instalação (⊕) ao lado da barra de endereços do Chrome ou Edge.');
+      alert('Para instalar no computador, clique no ícone de instalação (⊕) ao lado da barra de endereços do Chrome ou Edge.');
     }
   });
 
+  // Botões de fechar o modal
   if (dom.btnCloseIosInstall) {
     dom.btnCloseIosInstall.addEventListener('click', closeIosInstallModal);
   }

@@ -99,7 +99,97 @@ Quando o usuário solicitar para a aplicação **iniciar junto com o Windows em 
 
 ---
 
-## 5. Como o Antigravity Deve Configurar uma Nova Máquina
+## 5. Atualização via Git (Substituição Completa + Limpeza de Cache)
+
+Quando uma nova versão do controle remoto for publicada no GitHub, o procedimento de atualização **deve seguir rigorosamente esta ordem** para garantir que a aplicação antiga (cache PWA) nunca seja carregada:
+
+### Passo 1 — Parar o servidor antigo
+```powershell
+taskkill /f /im node.exe
+```
+Isso encerra todas as instâncias do Node.js, incluindo o servidor do controle remoto rodando em segundo plano.
+
+### Passo 2 — Baixar a versão mais recente do GitHub
+```powershell
+cd "C:\caminho\para\ProPresenter-Remote-Deploy"
+git pull origin main
+```
+> **Se for a primeira vez na máquina:**
+> ```powershell
+> git clone https://github.com/nicolasdasilvaesilva/propresenter7-remote-web.git ProPresenter-Remote-Deploy
+> ```
+
+### Passo 3 — Incrementar a versão do Service Worker (Cache Bust)
+O Service Worker (`public/service-worker.js`) utiliza um `CACHE_NAME` versionado (ex.: `propresenter-remote-v2.5`). **Sempre que os arquivos forem atualizados**, o agente Antigravity deve:
+1. Abrir `public/service-worker.js`.
+2. Incrementar o número da versão no `CACHE_NAME` (ex.: `v2.5` → `v2.6`).
+3. Isso faz com que o Service Worker:
+   - Detecte que há uma nova versão ao ser reinstalado.
+   - Delete automaticamente os caches antigos no evento `activate`.
+   - Baixe todos os arquivos estáticos atualizados (`index.html`, `style.css`, `app.js`).
+
+**Exemplo:**
+```javascript
+// ANTES:
+const CACHE_NAME = 'propresenter-remote-v2.5';
+// DEPOIS:
+const CACHE_NAME = 'propresenter-remote-v2.6';
+```
+
+### Passo 4 — Atualizar os cache busters no index.html
+Os imports de CSS e JS no `index.html` possuem query strings de versionamento (`?v=4.0`). Após uma atualização, incrementar para o próximo número:
+```html
+<!-- ANTES: -->
+<link rel="stylesheet" href="/css/style.css?v=4.0">
+<script src="/js/app.js?v=4.0"></script>
+<!-- DEPOIS: -->
+<link rel="stylesheet" href="/css/style.css?v=4.1">
+<script src="/js/app.js?v=4.1"></script>
+```
+
+### Passo 5 — Reconfigurar a inicialização automática com o Windows
+Executar novamente o script de configuração para que o VBScript de autostart aponte para o caminho correto:
+```powershell
+& "C:\caminho\para\ProPresenter-Remote-Deploy\Configurar-Inicio-Automatico.bat"
+```
+Ou criar/atualizar manualmente o VBS na pasta Startup:
+```powershell
+$startupDir = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
+$projectDir = "C:\caminho\para\ProPresenter-Remote-Deploy"
+@"
+Set WshShell = CreateObject("WScript.Shell")
+WshShell.CurrentDirectory = "$projectDir"
+WshShell.Run "node server.js", 0, False
+"@ | Set-Content "$startupDir\ProPresenter-Remote-AutoStart.vbs"
+```
+
+### Passo 6 — Reiniciar o servidor atualizado
+```powershell
+cd "C:\caminho\para\ProPresenter-Remote-Deploy"
+node server.js
+```
+Ou para modo silencioso:
+```powershell
+cscript //nologo "Iniciar-Segundo-Plano.vbs"
+```
+
+### Passo 7 — Limpar o cache nos dispositivos móveis (iPad / Android / Celular)
+Após a atualização, o Service Worker nos navegadores dos dispositivos móveis pode manter o cache antigo. O procedimento correto:
+
+**Para PWA já instalada (iPad / Android):**
+1. O Service Worker detecta a mudança no `CACHE_NAME` automaticamente e atualiza na próxima visita.
+2. Se a atualização não refletir imediatamente: feche completamente o app e abra novamente.
+3. **Forçar limpeza manual (último recurso):** Remova o ícone da Tela de Início, limpe os dados do site no navegador e instale novamente pelo endereço IP.
+
+**Para acessos via navegador:**
+1. Pressione `Ctrl + Shift + R` (ou `Cmd + Shift + R` no Mac) para forçar reload sem cache.
+2. Ou limpe o cache do site específico nas configurações do navegador.
+
+> **IMPORTANTE:** O `service-worker.js` já implementa a estratégia **Network First** — ou seja, se houver internet, SEMPRE carrega o arquivo mais recente do servidor e só usa o cache se estiver offline. A limpeza manual é necessária apenas em casos extremos.
+
+---
+
+## 6. Como o Antigravity Deve Configurar uma Nova Máquina
 
 Ao ser acionado em um computador novo onde roda o ProPresenter 7, o agente Antigravity deve executar o seguinte fluxo de forma autônoma:
 
@@ -107,16 +197,21 @@ Ao ser acionado em um computador novo onde roda o ProPresenter 7, o agente Antig
    ```powershell
    winget install --id OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements --silent
    ```
-2. **Instalar esta Skill globalmente:**
+2. **Clonar o repositório do GitHub:**
+   ```powershell
+   cd "C:\Users\$env:USERNAME\Desktop"
+   git clone https://github.com/nicolasdasilvaesilva/propresenter7-remote-web.git ProPresenter-Remote-Deploy
+   ```
+3. **Instalar esta Skill globalmente:**
    Copiar este arquivo `SKILL.md` para `%USERPROFILE%\.gemini\config\skills\propresenter-expert\SKILL.md`.
-3. **Configurar inicialização automática com o Windows:**
+4. **Configurar inicialização automática com o Windows:**
    Executar `Configurar-Inicio-Automatico.bat` ou injetar o VBS na pasta Startup do usuário.
-4. **Iniciar o serviço e fornecer o link de rede:**
+5. **Iniciar o serviço e fornecer o link de rede:**
    Executar `node server.js` ou `Iniciar-Segundo-Plano.vbs` e exibir o endereço IP local (ex.: `http://10.0.21.145:3000`) para o operador abrir no iPad ou smartphone.
 
 ---
 
-## 6. Arquitetura para iPad / iOS Safari (Portals e Prevenção de Recorte)
+## 7. Arquitetura para iPad / iOS Safari (Portals e Prevenção de Recorte)
 
 No iPadOS / iOS com Safari, existem peculiaridades específicas do motor WebKit que devem ser rigorosamente seguidas na interface web:
 
@@ -133,7 +228,7 @@ No iPadOS / iOS com Safari, existem peculiaridades específicas do motor WebKit 
 
 ---
 
-## 7. Módulos Avançados de Operação do ProPresenter
+## 8. Módulos Avançados de Operação do ProPresenter
 
 1. **Módulo de Mensagens no Telão (Design 100% Nativo ProPresenter 7):**
    * **Interface e Layout:** Replicar exatamente o painel oficial do ProPresenter (`/v1/control`):
@@ -158,21 +253,28 @@ No iPadOS / iOS com Safari, existem peculiaridades específicas do motor WebKit 
 3. **Sincronismo Bidirecional de Mídia e Culto:**
    * O polling periódico de 1 segundo deve verificar simultaneamente `/v1/media/playlist/active` (para quando o operador passar mídias no computador ProPresenter) e `/v1/presentation/slide_index` (para cultos/músicas).
    * Dessa forma, quando qualquer slide for disparado diretamente no PC do ProPresenter, o tablet acompanha em tempo real, atualizando o preview e destacando o item ativo com a tag `AO VIVO`.
-4. **Exibição de Letras Limpas (Sem Imagem Borrada):**
+   * **Coluna Direita (Grid de Thumbnails):** A função `highlightActiveMediaCard()` sincroniza o grid de mídia da coluna direita, com badge pulsante "AO VIVO" e rolagem automática suave até o item ativo.
+4. **Seletor de Playlist ao Adicionar Música da Biblioteca:**
+   * Ao clicar "Add à Playlist" nos resultados de busca, um modal overlay lista todas as playlists de culto disponíveis (incluindo dentro de pastas/grupos) via endpoint `GET /api/list-culto-playlists`.
+   * O backend achata recursivamente a árvore de playlists (`flattenPl()`) para encontrar playlists em subpastas.
+   * A adição usa `POST /api/add-song-to-playlist` com `playlistId` e `playlistName` específicos.
+   * A música é adicionada silenciosamente sem disparar ao vivo nem alterar o preview.
+5. **Exibição de Letras Limpas (Sem Imagem Borrada):**
    * Para slides de músicas que contêm texto, renderizar diretamente o texto em HTML (`.slide-lyrics-display`) com tipografia nítida, grande e centralizada em fundo preto puro, omitindo o thumbnail rasterizado em baixa resolução gerado pelo ProPresenter.
 
 ---
 
-## 8. Status do Projeto & Próxima Sessão (Checklist)
+## 9. Status do Projeto (Atualizado)
 
-* **O que foi feito:**
-  - Módulo de Mensagens oficial com pop-up nativo e disparo direto via API.
-  - PWA Universal com modal de instruções para iPad/iPhone, Android e Desktop.
-  - Correção de atalho da barra de espaço na busca e z-index dos menus no iPad.
-  - Deploy preparado e compactado em `C:\Users\nicol\Desktop\ProPresenter-Remote-Deploy.zip`.
-* **Próximos passos (Amanhã):**
-  1. Testar o fluxo de "Adicionar à Tela de Início" no iPad real (`http://10.0.21.208:3000`).
-  2. Testar o envio de mensagem para o telão (Resolume NDI 1 e 2).
-  3. Fazer o `git push` para o repositório remoto no GitHub.
-
+* **Funcionalidades Completas:**
+  - ✅ Módulo de Mensagens oficial com pop-up nativo e disparo direto via API.
+  - ✅ PWA Universal com modal de instruções para iPad/iPhone, Android e Desktop.
+  - ✅ Correção de atalho da barra de espaço na busca e z-index dos menus no iPad.
+  - ✅ Seletor de Playlist: modal para escolher em qual playlist adicionar uma música da busca global.
+  - ✅ Sincronismo Multi-Dispositivo de Mídia no grid de thumbnails (coluna direita) com badge "AO VIVO".
+  - ✅ Módulo de Áudio (Play, Pause, Next, Previous).
+  - ✅ Looks, Clear Layers, Blackout.
+  - ✅ Pesquisa global instantânea com 4.500+ apresentações indexadas.
+  - ✅ Deploy no GitHub: `https://github.com/nicolasdasilvaesilva/propresenter7-remote-web.git`.
+  - ✅ ZIP de deploy em `C:\Users\nicol\Desktop\ProPresenter-Remote-Deploy.zip`.
 
