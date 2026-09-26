@@ -135,6 +135,40 @@ function flattenPlaylistTree(list, groupName = '') {
   return out;
 }
 
+// O GET e o PUT de /v1/playlist/{id} NAO usam o mesmo formato no ProPresenter real:
+//  - no GET o id.uuid do item e o id do ITEM da playlist e o target_uuid e o id da APRESENTACAO; o PUT procura a
+//    apresentacao em id.uuid (senao responde 404) -> usa id.uuid = target_uuid;
+//  - item de apresentacao sem vinculo (sem target_uuid) bloqueia o PUT (400) -> vira "placeholder" (o nome e mantido).
+function normalizarItensPlaylist(items) {
+  let semVinculo = 0;
+  const itens = items.map((it, i) => {
+    const c = JSON.parse(JSON.stringify(it));
+    c.id = c.id || {};
+    if (c.type === 'presentation') {
+      const alvo = c.target_uuid || (c.presentation_info && c.presentation_info.presentation_uuid);
+      if (alvo) { c.id.uuid = alvo; c.target_uuid = alvo; }
+      else { c.type = 'placeholder'; c.target_uuid = ''; semVinculo++; }
+    } else if (!('target_uuid' in c)) {
+      c.target_uuid = c.id.uuid || '';
+    }
+    c.id.index = i;
+    return c;
+  });
+  return { itens, semVinculo };
+}
+
+function guardarBackupPlaylist(nome, items) {
+  try {
+    const dir = path.join(__dirname, 'logs', 'backups');
+    fs.mkdirSync(dir, { recursive: true });
+    const arq = path.join(dir, String(nome).replace(/[^\w.-]+/g, '_') + '-' + new Date().toISOString().replace(/[:.]/g, '-') + '.json');
+    fs.writeFileSync(arq, JSON.stringify(items, null, 2));
+    const todos = fs.readdirSync(dir).filter(f => f.endsWith('.json')).sort();
+    todos.slice(0, Math.max(0, todos.length - 20)).forEach(f => { try { fs.unlinkSync(path.join(dir, f)); } catch (e) { /* ignora */ } });
+    return arq;
+  } catch (e) { console.error('Nao foi possivel gravar o backup da playlist:', e.message); return null; }
+}
+
 function proFetch(p, opts = {}) {
   return fetch(`http://${PROPRESENTER_HOST}:${PROPRESENTER_PORT}${p}`, Object.assign({}, opts, { signal: AbortSignal.timeout(8000) }));
 }
@@ -371,23 +405,21 @@ const server = http.createServer(async (req, res) => {
         const curData = await curRes.json();
         const existingItems = Array.isArray(curData?.items) ? curData.items : [];
 
-        // 3. Monta o novo item com a estrutura 100% validada pelo ProPresenter 7
-        const nextIdx = existingItems.length;
+        // 3. Prepara os itens (formato aceito pelo PUT) e monta o novo item
+        const { itens: itensNormalizados, semVinculo } = normalizarItensPlaylist(existingItems);
         const newItem = {
-          id: {
-            index: nextIdx,
-            name: songName || 'Música',
-            uuid: songUuid
-          },
+          id: { index: itensNormalizados.length, name: songName || 'Música', uuid: songUuid },
           is_hidden: false,
           is_pco: false,
           type: 'presentation',
-          target_uuid: songUuid
+          target_uuid: songUuid,
+          destination: 'presentation',
+          presentation_info: { presentation_uuid: songUuid, arrangement_name: '', arrangement_uuid: '' }
         };
+        const updatedList = [...itensNormalizados, newItem];
 
-        const updatedList = [...existingItems, newItem];
-
-        // 4. Envia o PUT com a lista completa para o ProPresenter
+        // 4. Backup da lista original e PUT da lista completa
+        const arquivoBackup = guardarBackupPlaylist(targetPlName, existingItems);
         const putRes = await proFetch(`/v1/playlist/${encodeURIComponent(targetPlUuid)}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -395,6 +427,17 @@ const server = http.createServer(async (req, res) => {
         });
 
         if (putRes.status === 204 || putRes.ok) {
+          // 5. Confere: mesmos itens, na mesma ordem, e a musica no fim
+          const avisos = [];
+          if (semVinculo > 0) avisos.push(semVinculo + ' item(ns) sem apresentação vinculada foi(ram) mantido(s) como marcador (placeholder).');
+          try {
+            const chk = await proFetch(`/v1/playlist/${encodeURIComponent(targetPlUuid)}`);
+            const depois = chk.ok ? ((await chk.json()).items || []) : [];
+            const confere = depois.length === updatedList.length &&
+              existingItems.every((it, i) => depois[i] && depois[i].id && depois[i].id.name === it.id.name) &&
+              depois[depois.length - 1].id.name === newItem.id.name;
+            if (!confere) avisos.push('Confira a playlist no ProPresenter: o resultado não bateu com o esperado.' + (arquivoBackup ? ' Backup da lista original: ' + arquivoBackup : ''));
+          } catch (e) { /* conferência é só um extra */ }
           res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
           res.end(JSON.stringify({
             success: true,
@@ -402,12 +445,17 @@ const server = http.createServer(async (req, res) => {
             playlistName: targetPlName,
             songName: songName,
             songUuid: songUuid,
-            totalItems: updatedList.length
+            totalItems: updatedList.length,
+            avisos
           }));
         } else {
           const errText = await putRes.text();
+          console.error('PUT da playlist "' + targetPlName + '" recusado pelo ProPresenter: HTTP ' + putRes.status + ' ' + errText);
+          const amigavel = putRes.status === 404
+            ? 'O ProPresenter não encontrou um dos itens desta playlist (provavelmente uma mídia/arquivo indisponível), então ela não pode ser alterada por aqui. Nada foi alterado. Adicione a música direto no ProPresenter.'
+            : 'O ProPresenter recusou a alteração da playlist (HTTP ' + putRes.status + '). Nada foi alterado.';
           res.writeHead(putRes.status, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Erro ao adicionar item na API do ProPresenter', details: errText }));
+          res.end(JSON.stringify({ error: amigavel, details: errText, status: putRes.status }));
         }
       } catch (err) {
         console.error('Erro no /api/add-song-to-playlist:', err);

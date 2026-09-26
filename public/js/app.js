@@ -2424,7 +2424,7 @@ async function confirmAddToPlaylist(songItem, playlist) {
 
     const data = await res.json();
     if (res.ok && data.success) {
-      showToast(`✓ "${songItem.name}" adicionada à ${data.playlistName}!`, 'success');
+      showToast(`✓ "${songItem.name}" adicionada à ${data.playlistName}!` + ((data.avisos && data.avisos.length) ? ' ⚠ ' + data.avisos.join(' ') : ''), 'success');
 
       // Se o usuário já estiver na tela de apresentações com essa playlist aberta, atualiza a lista
       if (state.activePlaylistType === 'presentation' && state.activePlaylistId === data.playlistId) {
@@ -2432,6 +2432,7 @@ async function confirmAddToPlaylist(songItem, playlist) {
       }
     } else {
       showToast(`Erro ao adicionar: ${data.error || 'Falha na API'}`, 'info');
+      if (data.details) console.warn('Detalhe do ProPresenter:', data.status, data.details);
     }
   } catch (err) {
     console.error('Erro ao adicionar música na playlist:', err);
