@@ -23,6 +23,8 @@ let PROPRESENTER_HOST = process.env.PRO_HOST || CONFIG.proHost || '10.0.21.145';
 let PROPRESENTER_PORT = Number(process.env.PRO_PORT || CONFIG.proPort || 50820);
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
+// Pele para desktop (visual do painel oficial do ProPresenter), MESMO backend/API que a pele mobile/iPad.
+const DESKTOP_DIR = path.join(__dirname, 'public-desktop');
 
 // Versão dos arquivos do app = hash do conteúdo. Vai no "?v=" do index.html e no nome do cache do
 // service worker, então TODA atualização invalida o cache antigo dos aparelhos automaticamente.
@@ -31,8 +33,11 @@ let appVersionAt = 0;
 function getAppVersion() {
   if (appVersion && Date.now() - appVersionAt < 2000) return appVersion;
   const h = require('crypto').createHash('sha1');
-  for (const f of ['index.html', 'css/style.css', 'js/app.js', 'service-worker.js', 'manifest.json']) {
+  for (const f of ['index.html', 'css/style.css', 'js/app.js', 'js/i18n.js', 'service-worker.js', 'manifest.json']) {
     try { h.update(fs.readFileSync(path.join(PUBLIC_DIR, f))); } catch (e) { /* arquivo ausente */ }
+  }
+  for (const f of ['index.html', 'css/style.css', 'js/app.js']) {
+    try { h.update(fs.readFileSync(path.join(DESKTOP_DIR, f))); } catch (e) { /* pele desktop pode nao existir ainda */ }
   }
   appVersion = h.digest('hex').slice(0, 8);
   appVersionAt = Date.now();
@@ -244,6 +249,7 @@ const server = http.createServer(async (req, res) => {
       proPort: PROPRESENTER_PORT,
       port: PORT,
       version: getAppVersion(),
+      language: loadConfig().language || '',
       ips: getLocalIPAddresses()
     }));
     return;
@@ -273,6 +279,27 @@ const server = http.createServer(async (req, res) => {
         saveConfig({ proHost: PROPRESENTER_HOST, proPort: PROPRESENTER_PORT });
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, host: PROPRESENTER_HOST, port: PROPRESENTER_PORT }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // Idioma PADRÃO do servidor (vale para quem não escolheu um idioma no próprio aparelho).
+  // A escolha pessoal de cada aparelho fica só no localStorage do navegador — nunca passa por aqui.
+  if (pathname === '/api/set-language' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { if (body.length < 1024) body += chunk; });
+    req.on('end', () => {
+      try {
+        const data = JSON.parse(body);
+        const IDIOMAS_VALIDOS = ['pt-BR', 'en', 'es', ''];
+        if (!IDIOMAS_VALIDOS.includes(data.language)) throw new Error('Idioma inválido.');
+        saveConfig({ language: data.language });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, language: data.language }));
       } catch (err) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
@@ -466,6 +493,69 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Reordena um item dentro de uma playlist de CULTO/Apresentação (a API não permite reordenar
+  // playlists de Mídia/ProContent: /v1/media/playlist/{id} só tem GET). Move uma posição por vez
+  // (para cima ou para baixo), com backup e conferência, igual ao add-song-to-playlist.
+  if (pathname === '/api/reorder-playlist-item' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', async () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        const { playlistId, itemIndex, direction } = payload;
+
+        if (!playlistId) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'playlistId é obrigatório' })); return; }
+        if (!Number.isInteger(itemIndex) || itemIndex < 0) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'itemIndex inválido' })); return; }
+        if (direction !== 'up' && direction !== 'down') { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'direction deve ser "up" ou "down"' })); return; }
+
+        const curRes = await proFetch(`/v1/playlist/${encodeURIComponent(playlistId)}`);
+        if (!curRes.ok) throw new Error('ProPresenter respondeu ' + curRes.status + ' ao ler a playlist');
+        const curData = await curRes.json();
+        const existingItems = Array.isArray(curData?.items) ? curData.items : [];
+
+        const alvo = direction === 'up' ? itemIndex - 1 : itemIndex + 1;
+        if (alvo < 0 || alvo >= existingItems.length || itemIndex >= existingItems.length) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Não há posição para mover (já está na ponta da lista).' }));
+          return;
+        }
+
+        const nomeMovido = existingItems[itemIndex]?.id?.name || 'item';
+        const reordenados = existingItems.slice();
+        [reordenados[itemIndex], reordenados[alvo]] = [reordenados[alvo], reordenados[itemIndex]];
+        const { itens: itensNormalizados } = normalizarItensPlaylist(reordenados);
+
+        const arquivoBackup = guardarBackupPlaylist('reorder-' + playlistId, existingItems);
+        const putRes = await proFetch(`/v1/playlist/${encodeURIComponent(playlistId)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(itensNormalizados)
+        });
+
+        if (putRes.status === 204 || putRes.ok) {
+          let confere = false;
+          try {
+            const chk = await proFetch(`/v1/playlist/${encodeURIComponent(playlistId)}`);
+            const depois = chk.ok ? ((await chk.json()).items || []) : [];
+            confere = depois.length === existingItems.length && depois[alvo] && depois[alvo].id && depois[alvo].id.name === nomeMovido;
+          } catch (e) { /* conferência é só um extra */ }
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ success: true, newIndex: alvo, itemName: nomeMovido, confere, backup: arquivoBackup }));
+        } else {
+          const errText = await putRes.text();
+          console.error('PUT (reorder) da playlist ' + playlistId + ' recusado: HTTP ' + putRes.status + ' ' + errText);
+          res.writeHead(putRes.status, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'O ProPresenter recusou a reordenação (HTTP ' + putRes.status + '). Nada foi alterado.', details: errText }));
+        }
+      } catch (err) {
+        console.error('Erro no /api/reorder-playlist-item:', err);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
   // Proxy reverso transparente para a API do ProPresenter (/api/v1/...)
   if (pathname.startsWith('/api/v1/')) {
     const targetPath = pathname.replace(/^\/api/, '') + (parsedUrl.search || '');
@@ -500,12 +590,21 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  let safePath = path.normalize(pathname).replace(/^(\.\.[\/\\])+/, '');
+  // Pele desktop: /desktop e /desktop/... servem de public-desktop/, com o MESMO proxy /api/v1 de cima.
+  // Sem a barra final, caminhos relativos do HTML resolveriam contra "/" (raiz) em vez de "/desktop/".
+  if (pathname === '/desktop') {
+    res.writeHead(301, { Location: '/desktop/' + (parsedUrl.search || '') });
+    res.end();
+    return;
+  }
+  const ehDesktop = pathname === '/desktop' || pathname.startsWith('/desktop/');
+  const raizAtual = ehDesktop ? DESKTOP_DIR : PUBLIC_DIR;
+  let safePath = path.normalize(ehDesktop ? pathname.slice('/desktop'.length) || '/' : pathname).replace(/^(\.\.[\/\\])+/, '');
   if (safePath === '/' || safePath === '\\') {
     safePath = '/index.html';
   }
 
-  const filePath = path.join(PUBLIC_DIR, safePath);
+  const filePath = path.join(raizAtual, safePath);
 
   // index.html e service-worker.js saem com a versão atual (hash) já colocada
   function sendVersioned(file, contentType) {
@@ -526,14 +625,14 @@ const server = http.createServer(async (req, res) => {
 
   fs.stat(filePath, (err, stats) => {
     if (err || !stats.isFile()) {
-      sendVersioned(path.join(PUBLIC_DIR, 'index.html'), 'text/html; charset=utf-8');
+      sendVersioned(path.join(raizAtual, 'index.html'), 'text/html; charset=utf-8');
       return;
     }
 
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
     const base = path.basename(filePath);
-    if (path.dirname(filePath) === PUBLIC_DIR && (base === 'index.html' || base === 'service-worker.js')) {
+    if (path.dirname(filePath) === raizAtual && (base === 'index.html' || base === 'service-worker.js')) {
       sendVersioned(filePath, contentType);
       return;
     }

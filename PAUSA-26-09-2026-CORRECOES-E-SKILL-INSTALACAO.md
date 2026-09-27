@@ -233,3 +233,172 @@ Comentario completo na issue #5. Resumo: o `PUT /v1/playlist/{id}` regrava a lis
 2. VIGILIA tem 1 item "sem vinculo" (`presentation_uuid` vazio, sem `target_uuid`): PUT falha 400/404; gravar como `type:"placeholder"` + `target_uuid:""` da 204 (nome mantido). Decisao a confirmar com o operador (converter e avisar x recusar).
 3. REGRESSIVA tem midia cujo arquivo nao existe em nenhuma playlist de midia: PUT 404 sempre -> recusar com mensagem clara, sem alterar nada.
 **Codigo da correcao:** funcao `normalizarItens()` validada em `propresenter-remote\tools-rascunho\put-playlist-lab.rascunho.js` (mais backup em `logs\backups`, reler depois, erros claros). Se nao deu tempo de aplicar no `server.js`, e a primeira tarefa de amanha.
+
+---
+
+## 11. FIM DO DIA 26/09 — servidor desta máquina PARADO (a pedido do dono)
+
+Confirmado (27/09, início): nesta máquina de desenvolvimento (10.0.21.208) **nada do controle remoto está rodando**:
+- Portas 3000/3010/3011/3012/50999: todas livres.
+- Nenhuma tarefa agendada `ProPresenter-Remote*`.
+- Nenhum `node.exe` com `server.js`/mock em execução.
+- Sem inicializador antigo na pasta Inicializar.
+
+Ou seja: esta máquina fica limpa; **produção continua só no 10.0.21.145** (o dono já roda `v1.1.4` lá, atualizado via Antigravity/Admin).
+
+## 12. NOVO PEDIDO (27/09/2026) — visual "oficial" para uma versão DESKTOP
+
+O dono quer **duas versões** do app, usando o MESMO backend/API que já temos:
+1. A que já existe (iPad/tablet/celular, responsiva) — **mantida como está**.
+2. **Nova: versão DESKTOP** com visual parecido com o **painel oficial do ProPresenter** (o "Remote" nativo dele), para computador. Mesmas funções, mesmo backend, só a pele/layout muda. Quer manter a mesma estrutura de instalação (server.js, scripts, skills) que já fizemos.
+3. Vai virar **open source** também (novo repo ou pasta dentro do mesmo?), a decidir.
+
+**Referências que o dono deu para ANALISAR (não copiar código):**
+1. `https://openapi.propresenter.com/` — spec já em uso (`swagger.json` salvo em scratchpad das sessões anteriores).
+2. `https://github.com/L2N6H5B3/ProWebRemote` — projeto de terceiro, abandonado, em HTML. **Olhar o visual, não copiar.**
+3. `C:\Users\nicol\Downloads\modelo do painel propresenter` — pasta local com capturas/modelo de referência visual que o dono baixou.
+4. `C:\Program Files\Renewed Vision\ProPresenter` — a instalação REAL do ProPresenter nesta máquina. Ideia do dono: será que dá para "arrancar" o visual/ícones direto da instalação oficial?
+
+**Pedido específico de função:** no menu superior da versão desktop, manter a função de **trocar o layout de vários Stage Displays (monitores) ao mesmo tempo**, igual à função que já existe no app do iPad (o botão "Mudar Retornos Plataforma").
+
+**Status:** análise ainda não iniciada nesta entrada — ver a seção seguinte para o que foi encontrado.
+
+### 12.1 Fase 1 da versão DESKTOP — casca visual estática (27/09/2026, em andamento)
+
+Criada `public-desktop/` (index.html, css/style.css, js/app-desktop.js) — SÓ visual estático, NENHUMA chamada de API ainda. Ícones desenhados do zero (SVG inline), nenhum arquivo copiado da instalação do ProPresenter nem do repositório de terceiro.
+
+**server.js alterado:** rota `/desktop` e `/desktop/...` serve de `public-desktop/` com o MESMO proxy `/api/v1` e o MESMO backend (nada duplicado). `/desktop` (sem barra) redireciona 301 para `/desktop/` (necessário: caminhos relativos do HTML quebravam sem a barra — usei caminhos absolutos `/desktop/css/...` para não depender disso). `getAppVersion()` agora inclui os arquivos de `public-desktop/` no hash, então `Atualizar.ps1`/`Verificar.ps1` continuam cobrindo as DUAS peles sem mudança nenhuma nos scripts — **a implantação é a MESMA que já existe** (mesmo servidor, mesmos scripts, mesmas skills), como o dono pediu.
+
+Testado localmente (porta 3055, mock/placeholder): layout bate com as capturas (barra de ferramentas clara com crachás coloridos, coluna de playlist escura, grade de mídia, coluna direita com preview + faixa de 6 abas: Áudio/Palco/Temporizadores/Mensagens/Props/Macros — Palco já mostra as 3 telas + botão "Mudar Retornos Plataforma juntos" reaproveitando o conceito do app do iPad).
+
+**Decisão de direitos autorais (repetida 3x pelo dono, mantida firme):** NÃO copiar ícones/imagens de `C:\Program Files\Renewed Vision\ProPresenter` (nem os 4 `.ico` da pasta `icons\`, nem o logotipo — marca registrada) nem do repositório `ProWebRemote` (sem licença no GitHub = todos os direitos reservados). Confirmado com o dono: ele concorda com "ícones fiéis ao original, redesenhados por nós".
+
+**Falta (fases seguintes, ver issue #6):** ligar a coluna de playlists/mídia e o preview aos endpoints reais (Fase 2); as 6 abas com dados reais, reaproveitando a lógica de `app.js` da versão mobile (Fase 3); o botão de sincronizar Stage Displays de verdade (reaproveitar `stageSetLayoutSafe`/`isStageScreenSynced`) + multilíngue desde o início (issue #1) (Fase 4). Servidor de teste (porta 3055) PARADO ao fim desta entrada; nesta máquina não fica nada rodando.
+
+### 12.2 Correções de escopo da versão DESKTOP (27/09, durante a revisão visual do dono)
+
+Dono revisou a Fase 1 e pediu para tirar tudo que a API não permite de verdade:
+- **Confirmado na especificação (todos os metodos GET/PUT/POST/DELETE, sem PATCH):** NÃO existe rota para editar letra/conteúdo de slide de uma apresentação. `PUT /v1/theme/{id}/slides/{theme_slide}` só edita o MODELO de tema, não a letra de uma música existente. Por isso: Texto, Tema, Editar, Bíblia, Refluxo, "Mais" — REMOVIDOS da barra de ferramentas desktop (não tem controle remoto via API).
+- Barra de ferramentas desktop revisada para conter SÓ funções reais do mobile: Buscar (com o "+Add à Playlist"), Aparência (Looks), Anterior/Mostrar/Próximo (transporte), Limpar (camadas), Config., status de conexão.
+- Faixa de abas (coluna direita) expandida de 6 para 8, em grade 4x2, incluindo as que faltavam: Vídeo (entradas) e Captura — junto com Áudio, Palco, Temporizadores, Mensagens, Props, Macros. Isso cobre TODAS as ferramentas que o menu "Ferramentas" do mobile já tem.
+- **Reordenar itens de playlist/mídia — CONFIRMADO como possível:** o mesmo `PUT /v1/playlist/{id}` que já usamos grava a lista inteira; reordenar é ler, mudar a posição, gravar de novo, reaproveitando `normalizarItensPlaylist`/backup/conferência já testados (issue #5). Adicionado como setas ▲▼ visuais na lista e na grade (Fase 1, ainda sem função).
+- **Pedido novo do dono:** levar "reordenar" também para o MOBILE (não só desktop) — se for de baixo risco (é: só adiciona botões nos itens existentes, sem mexer no clique que já funciona). Fazer nas duas peles, na Fase 2, com o MESMO endpoint novo do servidor.
+- **Confirmado:** idioma deve ser detectado automaticamente do sistema/navegador (ordem já definida nas issues #1/#2: escolha do usuário > padrão do servidor > idioma do navegador > pt-BR), aplicado nas DUAS peles com o mesmo dicionário.
+
+Servidor de teste (porta 3055) ainda ligado nesta sessão para revisão visual; será parado ao final da revisão (não deixar rodando nesta máquina).
+
+### 12.3 Fase 2 da versao DESKTOP — dados reais LIGADOS e testados (27/09/2026)
+
+Testado de ponta a ponta contra um ProPresenter REAL rodando LOCALMENTE nesta maquina (o dono ligou a API de rede dele para eu simular, ja que a rede da igreja ficou inacessivel neste dev machine — Ethernet caiu para IP 169.254.x, so Wi-Fi de outra rede).
+
+**Funcionando e confirmado contra a API real:**
+- BIBLIOTECA (`/v1/libraries` + `/v1/library/{id}` + trigger por `/v1/library/{lib}/{pres}/trigger`) — nova secao pedida pelo dono, bate com a captura oficial (Default / A Ti eu vou clamar).
+- PLAYLIST (Culto): arvore real, itens reais, clique dispara, ▲▼ reordena via novo endpoint `/api/reorder-playlist-item` (so em playlists de apresentacao — mídia so tem GET na API, confirmado lendo TODAS as rotas do spec).
+- MÍDIA/ProContent: arvore real + grade com thumbnails reais (`/v1/media/{uuid}/thumbnail`), clique dispara (testado: clicar em "image (3)" mudou o `/v1/media/playlist/active` de verdade).
+- Sincronismo ao vivo (preview + subtitulo) acompanhou sozinho a troca de slide feita no proprio ProPresenter (Slide 1 -> Slide 2), com a mesma protecao anti-"pulo" da pele mobile.
+- PALCO: telas/layouts reais, toggle "mudar em conjunto", troca de layout com a mesma fila segura por UUID (`stageSetLayoutSafe`) — reaproveitado literalmente do mobile.
+- Busca de musica (`/api/search-songs`) + modal "Adicionar a Playlist" (`/api/list-culto-playlists` + `/api/add-song-to-playlist`) — testado com a musica que ja estava na playlist: o ProPresenter uniu (dedup) em vez de duplicar, e o CONFERIDOR detectou a contagem diferente e avisou "confira manualmente" (protecao funcionando; nada foi perdido, playlist ficou identica byte-a-byte ao original).
+- 6 divisorias arrastaveis (incluindo as 3 novas pedidas nesta rodada: Biblioteca/Playlist, canvas/grade de midia, preview/abas).
+- Botao vermelho de limpar no canto do preview (igual a captura marcada pelo dono).
+
+**Achado tecnico:** `/api/list-culto-playlists` falhou 4x seguidas quando chamado por JS do navegador enquanto o polling de 1s tambem rodava (curl isolado do Bash sempre funcionou) — parece concorrencia de conexoes locais do ProPresenter sob carga de teste automatizado muito rapido. Adicionada 1 nova tentativa (retry) no modal por seguranca. Nao reproduzido fora de uso automatizado agressivo.
+
+**Ainda NAO ligado (visual/exemplo apenas):** abas Áudio, Temporizadores, Mensagens, Props, Vídeo, Captura, Macros. Idioma: dicionario pronto e aplicado na casca do desktop; falta seletor visivel e aplicar no mobile. Sem commit/push — tudo local nas duas pastas.
+
+### 12.4 Fase 2 CONCLUIDA — as 8 abas todas ligadas a dados reais (27/09/2026)
+
+Todas as abas da coluna direita (Áudio, Palco, Temporizadores, Mensagens, Props, Vídeo, Captura, Macros) agora buscam e escrevem dados reais na API, testado contra o ProPresenter local do dono:
+- **Temporizadores:** 3 cronometros reais aparecem ("Contagem regressiva do segmento", "pré-show", "Cronometro de jogo"); Iniciar/Pausar testado de verdade (00:05:00 -> 00:04:59 rodando -> parado).
+- **Captura:** Start/Stop tentado; o proprio ProPresenter respondeu 500 (sem destino de captura configurado nesta instancia local) — comportamento correto do nosso lado, so nao ha o que capturar aqui.
+- **Áudio, Mensagens, Props, Vídeo, Macros:** renderizam corretamente o estado "vazio" (esta instancia de teste nao tem nada configurado nessas categorias); logica identica a que ja funciona no mobile (mesmos endpoints, mesmo tratamento de is_active/is_playing/estados).
+- Um unico loop de polling (1s) agora atualiza: slide/midia ao vivo, temporizadores e status de captura — sem duplicar chamadas.
+
+**Fase 2 do desktop esta funcionalmente completa.** Falta so: idioma (dicionario pronto, falta seletor visivel + aplicar no mobile), e o polimento fino de icones/i18n em textos que ainda ficaram fixos nas abas novas. Nada commitado/enviado ao GitHub.
+
+
+---
+
+## 13. REGISTRO COMPLETO ANTES DE COMPACTAR A SESSAO (27/09/2026, tarde)
+
+O dono pediu para compactar a sessao — este bloco resume TUDO desde a secao 12 (novo pedido de visual desktop) para nao se perder nada.
+
+### 13.0 Estado dos arquivos (AGORA)
+- **Sincronizado** entre `propresenter-remote` (dev) e `ProPresenter-Remote-Deploy` (repo git): `server.js`, `public/index.html`, `public/js/app.js`, `public/js/i18n.js` (novo), `public-desktop/` inteiro (novo: `index.html`, `css/style.css`, `js/app-desktop.js`).
+- **NADA foi commitado nem enviado ao GitHub** nesta rodada toda (a ultima coisa no GitHub continua sendo a v1.1.4 / main `ad76005`, do dia 26/09).
+- `public/css/style.css` e `public/service-worker.js` tem diferenca de fim-de-linha (CRLF x LF) entre dev e deploy — pre-existente, nao mexi, nao e relacionado a esta sessao.
+- Sem `node_modules`; tudo Node puro. `node --check` e `new Function(...)` confirmam sintaxe valida nos 3 arquivos JS principais (server.js, app.js, app-desktop.js) e no i18n.js.
+
+### 13.1 Por que existe uma versao DESKTOP agora (pedido do dono, 27/09)
+O dono pediu uma segunda pele, alem da atual (iPad/Android/celular = `public/`), com visual igual ao painel oficial do ProPresenter, para uso em computador (Windows/Mac). Pediu para eu analisar 3 referencias:
+1. `openapi.propresenter.com` — mesma API ja usada.
+2. `github.com/L2N6H5B3/ProWebRemote` — projeto de terceiro, abandonado, SEM LICENCA no GitHub (= todos os direitos reservados por padrao), visual de ProPresenter 6/7 no macOS (protocolo antigo, WebSocket, nao a REST API v1 que usamos). Decisao: nao copiar nada dele (nem codigo nem os PNGs em `img/`). So confirmou que as mesmas categorias de funcao (Stage/Timers/Mensagens/Props/Audio/Clear) ja existem nesse tipo de remoto ha anos.
+3. As capturas de tela que o dono mandou (`Downloads\modelo do painel propresenter\*.png`) + o ProPresenter 21.4.2 REAL instalado nesta maquina (`C:\Program Files\Renewed Vision\ProPresenter`) — esta e a referencia principal.
+
+### 13.2 Limite de direitos autorais (o dono insistiu 3-4 vezes de formas diferentes, mantive firme todas as vezes)
+- Pediu para usar os "icones oficiais" do ProWebRemote -> expliquei que sao icones proprios do autor DAQUELE projeto (nomes genericos tipo stage.png), mas mesmo assim sem licenca = nao copiar.
+- Pediu para "extrair o modelo visual" de `C:\Program Files\Renewed Vision\ProPresenter` -> expliquei a diferenca entre OLHAR pra aprender (ok) e COPIAR arquivo (nao). A pasta `icons\` so tem 4 `.ico` de aplicativo (nao os icones da barra de ferramentas, que ficam compilados dentro do .exe/.dll — nao da pra "abrir" mesmo se quisesse, e o logotipo em si e marca registrada, ainda mais sensivel).
+- Pediu de novo "eu discordo mas ja que voce fez um desenho, vamos manter" -> mantive a decisao (redesenhar do zero, mesmas cores/formas/layout, sem copiar arquivos), ele aceitou seguir assim.
+- Fontes seguras usadas: Roboto (Google Fonts, licenca aberta) e as capturas de tela do dono como referencia visual (nao sao arquivos da Renewed Vision, sao FOTOS da tela).
+
+### 13.3 O que foi CONSTRUIDO na versao desktop (public-desktop/)
+**Arquitetura:** MESMO backend (server.js nao mudou de logica, so ganhou rotas novas). Nova pasta public-desktop/ servida pela rota /desktop e /desktop/... (com redirect 301 de /desktop sem barra para /desktop/, porque caminhos relativos quebravam sem a barra — resolvido com caminhos absolutos /desktop/css/... no HTML). getAppVersion() (hash da versao, cache-busting automatico) agora inclui os arquivos do public-desktop/ tambem — a mesma implantacao/scripts/skills ja existentes cobrem as DUAS peles sem nenhuma mudanca nos scripts de instalacao/atualizacao, exatamente como o dono pediu.
+
+**Visual (Fase 1, aprovado pelo dono):**
+- Barra de menu clara (Arquivo/Editar/.../Ajuda) + faixa de ferramentas com "crachas" coloridos, SO com funcoes que existem de verdade no mobile (removi Texto/Tema/Editar/Biblia/Refluxo/Mais — confirmado na especificacao completa que NAO EXISTE nenhuma rota de escrita para editar letra/conteudo de slide — so PUT /v1/theme/{id}/slides/{theme_slide} que edita o MODELO de tema, nao a letra da musica).
+- Barra final: Busca, Aparencia (Looks), Anterior/Mostrar, Limpar, status Conectado, Config.
+- Coluna esquerda: BIBLIOTECA (nova, pedida pelo dono depois de ver a captura oficial) + PLAYLIST + lista de itens + ProContent (midia), cada uma com sua propria arvore.
+- Coluna central: preview/edicao (canvas preto) + grade de midia.
+- Coluna direita: preview ao vivo (com botao vermelho de "Limpar" no canto, do jeito que o dono marcou numa captura) + faixa de 8 abas em grade 4x2: Audio, Palco (ativa por padrao), Temporizadores, Mensagens, Props, Video, Captura, Macros.
+- 6 divisorias arrastaveis (redimensionar), testadas por simulacao de mousedown+mousemove+mouseup (o clique-arrasto automatizado do navegador so manda inicio/fim, sem o meio — um arrasto de mouse de verdade dispara os eventos certos): esquerda/centro, centro/direita, Biblioteca/Playlist, Playlist/ProContent, canvas/grade de midia, preview/abas.
+- Reordenar (up/down) SO aparece nos itens de Playlist de Culto — confirmado lendo TODAS as rotas do spec que /v1/media/playlist/{id} e SO LEITURA (sem PUT/POST/DELETE), entao midia/ProContent nao pode ser reordenada via API; a Biblioteca tambem nao (e so um acervo, sem ordem).
+
+**Fase 2 (dados reais, TUDO testado contra um ProPresenter real):**
+- Rede da igreja ficou inacessivel nesta maquina no meio da sessao (Ethernet caiu pra IP 169.254.x — auto-atribuido, sem DHCP; Wi-Fi ficou em outra rede 192.168.100.x que nao alcanca 10.0.21.145). Nao e bug, e mudanca fisica de rede. O dono ligou um ProPresenter LOCAL nesta propria maquina (teve que ativar a API de Rede nas Preferencias, que vem desligada por padrao) para eu testar de verdade.
+- BIBLIOTECA: /v1/libraries + /v1/library/{id} + trigger por /v1/library/{lib}/{pres}/trigger — testado, bateu com a apresentacao real aberta ("A Ti eu vou clamar").
+- PLAYLIST: arvore/itens reais; clique dispara; reordenar via NOVO endpoint /api/reorder-playlist-item (POST, {playlistId, itemIndex, direction}) no server.js, reaproveitando a MESMA logica de seguranca da correcao de ontem (normalizarItensPlaylist, backup em logs/backups, conferencia depois do PUT).
+- MIDIA/ProContent: arvore + grade com thumbnails reais (/v1/media/{uuid}/thumbnail); clique dispara — testado disparando "image (3)" e confirmando via /v1/media/playlist/active que mudou de verdade no ProPresenter.
+- Sincronismo ao vivo: o preview seguiu sozinho quando o slide mudou no proprio ProPresenter (Slide 1 -> Slide 2), com a MESMA protecao anti-"pulo" (lastUserActionTime, pollInFlight, ignora respostas antigas) ja corrigida ontem no mobile.
+- PALCO: telas/layouts reais, toggle "mudar em conjunto" (mesma logica isStageScreenSynced/stageSetLayoutSafe/fila de 400ms por UUID do mobile, colada aqui — e codigo NOSSO, sem problema reusar).
+- Busca de musica + Adicionar a Playlist: testado buscando "clamar", abrindo modal com a playlist real "Padrao". Testei adicionar a MESMA musica que ja estava na playlist: o ProPresenter uniu (dedup) em vez de duplicar, e o CONFERIDOR (que ja tinhamos) detectou a contagem diferente do esperado e avisou "confira manualmente" — protecao funcionando certo, nada foi perdido (playlist ficou identica byte-a-byte, confirmado com diff).
+- Achado tecnico: /api/list-culto-playlists falhou 4x seguidas quando chamado pelo navegador enquanto o polling de 1s tambem rodava (mas curl isolado sempre funcionou) — parece concorrencia de conexoes locais do ProPresenter sob teste automatizado MUITO rapido (varias chamadas em menos de 2s). Adicionei 1 nova tentativa (retry com 500ms de espera) no modal por seguranca. Nao reproduzido em uso manual normal.
+- TEMPORIZADORES: 3 cronometros reais apareceram; testei Iniciar (00:05:00 -> 00:04:59 rodando) e Pausar — funcionou.
+- CAPTURA: tentei Iniciar/Parar; o proprio ProPresenter respondeu 500 direto (confirmado via curl direto nele) porque essa instancia local nao tem destino de captura configurado — nao e bug nosso, nosso codigo reagiu certo (sem travar).
+- AUDIO/MENSAGENS/PROPS/VIDEO/MACROS: renderizam corretamente o estado "vazio" (a instancia de teste nao tem nada configurado nessas categorias); mesma logica testada do mobile (is_active/is_playing/estados).
+- Um UNICO loop de polling (1s) atualiza: slide/midia ao vivo + temporizadores + status de captura, sem duplicar chamadas.
+
+### 13.4 Idioma (multilinguas) — pedido do dono, feito nesta rodada
+- public/js/i18n.js (NOVO, compartilhado pelas 2 peles): dicionario pt-BR/en/es, funcao detectar() com ordem escolha do usuario (localStorage) > padrao do servidor (config.json) > idioma do navegador > pt-BR, funcao aplicar() que troca todo texto com data-i18n/data-i18n-placeholder/data-i18n-title.
+- server.js: novo endpoint POST /api/set-language (valida contra pt-BR|en|es|vazio, grava em config.json); /api/server-info ja devolvia language (adicionado ontem, reaproveitado agora); getAppVersion() agora tambem hasheia js/i18n.js.
+- Desktop: novo painel de Configuracoes (o botao "Config." nao fazia NADA antes — agora abre modal com IP/porta do ProPresenter [reaproveita /api/set-pro-host] + seletor de idioma [grava em localStorage, location.reload() ao salvar]). Titulos "BIBLIOTECA"/"PLAYLIST" e varios textos da UI com data-i18n.
+- Mobile: incluido js/i18n.js no index.html; aplicado no DOMContentLoaded (idioma do aparelho, instantaneo) e de novo em loadServerInfo() (padrao do servidor, se o usuario nao escolheu nada no proprio aparelho); seletor de idioma NOVO dentro do modal de Configuracoes existente (cfg-idioma), salvo junto com host/porta em handleSaveSettings() (so recarrega a pagina se o idioma realmente mudou).
+- BUG que corrigi durante a implementacao: meu proprio script de edicao em lote (node -e) colocou a chave biblioteca DUAS VEZES no bloco ERRADO (as duas foram parar no bloco pt-BR e no es, nada no en; e o texto em espanhol saiu "LIBRARY" em vez de "Biblioteca"). Percebi e corrigi na mao, conferido lendo o arquivo depois.
+- NAO testado ainda no navegador (a sessao foi interrompida pelo ProPresenter local parar de responder — 2 processos ProPresenter.exe rodando ao mesmo tempo, PIDs 8820 e 12784 — o dono foi reiniciar o ProPresenter quando pediu para compactar). Sintaxe conferida (node --check / new Function), mas o fluxo completo (abrir Configuracoes, trocar idioma, ver o texto mudar, salvar, recarregar) AINDA NAO FOI CLICADO no navegador.
+- Cobertura do idioma: so a "casca" (menus, botoes, titulos, Configuracoes) foi traduzida. Os textos dinamicos dentro de app.js (toasts, status ao vivo tipo "Slide 2 de 5", mensagens de erro) CONTINUAM em portugues fixo — trabalho futuro, nao escondi isso do dono.
+
+### 13.5 Pendencias exatas para retomar
+1. ProPresenter local: o dono estava reiniciando (tinha 2 processos ProPresenter.exe abertos, avisei disso). Confirmar que so 1 processo fica no ar e que a API de Rede continua ligada antes de retestar.
+2. Testar o idioma de verdade no navegador: abrir /desktop/, clicar Config., trocar pra "English"/"Espanol", salvar, confirmar que o texto muda e nada quebra; repetir no mobile (/).
+3. Ainda falta (fora do escopo desta rodada): traduzir os textos dinamicos do app.js (fase futura, ja avisado ao dono); testar reordenar (up/down) na UI do desktop de verdade com uma playlist de 2+ itens (a "Padrao" so tinha 1 item disponivel para teste); revisar visualmente as 8 abas com mais dados reais (props/mensagens/macros/audio) quando o dono tiver esses itens configurados no ProPresenter de producao.
+4. Nada foi commitado nem enviado ao GitHub desde a v1.1.4 (26/09). Quando o dono aprovar toda a Fase 2 + idioma, preparar um commit/release novo (ex.: v1.2.0) reunindo: a versao desktop inteira + i18n (ainda NAO publicados).
+5. Servidor de teste (porta 3055) pode ter ficado rodando nesta maquina — conferir e parar antes de considerar a sessao encerrada (o dono pediu antes para nao deixar nada rodando aqui).
+
+### 13.6 27/09 NOITE — mock do ProPresenter + idioma e reordenar validados de verdade
+
+O ProPresenter travou o computador do dono e foi DESINSTALADO desta maquina de dev (a pendencia 1 acima ficou sem objeto). Pedido do dono: continuar mesmo sem ProPresenter, com base no que ja funciona no aplicativo mobile.
+
+**Criado `tools/mock-propresenter.js`** (promovido do rascunho `tools-rascunho/mock-propresenter.rascunho.js`, resolve tambem a issue #3 do GitHub): mock completo da API v1 cobrindo TODOS os endpoints que os dois apps chamam (Biblioteca, Playlists — "Culto Domingo" com 2 musicas de proposito pra dar pra testar reordenar —, Midia/ProContent, Audio, Mensagens, Props, Video, Macros, Palco, Timers, Captura, Looks, e um catch-all generico pra qualquer /trigger ou /clear nao mapeado). Uso: `node tools/mock-propresenter.js [porta]`, depois `PRO_HOST=127.0.0.1 PRO_PORT=<porta> node server.js`.
+
+Achado ao subir: havia 3 processos node.exe ANTIGOS ainda rodando desde a sessao anterior (portas 3055 e 50999 duplicada) — sobra de teste de antes da compactacao. Confirmei que eram node.exe antes de parar, e subi tudo limpo de novo.
+
+**Testado no navegador contra o mock (mesmo contrato de API do real):**
+- Reordenar no desktop: cliquei "Mover para baixo" em "Grande e o Senhor" (posicao 1 de 2) -> UI trocou pra "Oceanos"/"Grande e o Senhor" E conferido via curl direto no mock que a nova ordem realmente persistiu no PUT. Funciona ponta a ponta.
+- Idioma nas DUAS peles: troquei pra English nas Configuracoes do desktop, salvou e recarregou -> "LIBRARY", "PLAYLIST", "2 ITEMS", "Change platform monitors together" traduzidos certo. Naveguei pro mobile (mesma origem) e o ingles ja estava aplicado sozinho (confirma localStorage compartilhado entre as 2 peles). Testei Espanol no mobile tambem -> "Buscar en mas de 4.500 canciones y letras..." certo. Voltei pra "Automatico" no final.
+- Confirmado como esperado (nao e bug, ja avisado antes): textos de menus decorativos (Arquivo/Editar/Apresentacao/Telas no desktop, dropdown "Ferramentas" e modal "Selecionar Pasta/Playlist" no mobile) continuam so em portugues — sao textos dinamicos/menus ainda sem data-i18n, fase futura.
+
+Nenhum bug novo encontrado nesta rodada. Servidores de teste parados ao final (portas 3055 e 50999 livres, confirmado por netstat).
+
+**Pendencias atualizadas:**
+1. Nada commitado/enviado ao GitHub desde a v1.1.4 — falta o dono aprovar pra empacotar v1.2.0 (desktop + i18n + reordenar + mock).
+2. Traduzir os textos dinamicos/menus decorativos citados acima (fase futura, ja avisado).
+3. Quando o dono reinstalar o ProPresenter, testar reordenar/idioma no REAL tambem (o mock prova a logica, mas o real pode ter nuances de timing, ex. a fila de 400ms do Palco).
+4. `tools/mock-propresenter.js` fica no repo como ferramenta permanente de dev (resolve a issue #3) — considerar citar no README/CLAUDE.md.

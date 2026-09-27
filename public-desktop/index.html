@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProPresenter 7 Remote — Desktop</title>
+<link rel="stylesheet" href="/desktop/css/style.css?v=1">
+</head>
+<body>
+<div class="pp-app">
+
+  <!-- ===== Barra de menu ===== -->
+  <div class="pp-menubar">
+    <span class="pp-menu-item">Arquivo</span>
+    <span class="pp-menu-item">Editar</span>
+    <span class="pp-menu-item">Apresentação</span>
+    <span class="pp-menu-item">Telas</span>
+    <span class="pp-menu-item">Visualizar</span>
+    <span class="pp-menu-item">Janela</span>
+    <span class="pp-menu-item">Ajuda</span>
+    <span class="pp-title">ProPresenter 7 Remote</span>
+  </div>
+
+  <!-- ===== Faixa de ferramentas — SÓ funções que existem no app mobile (checadas contra a API oficial) ===== -->
+  <div class="pp-toolbar">
+    <div class="pp-search-box" title="Busca músicas/apresentações indexadas e permite Adicionar à Playlist (mesma função do mobile)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="21" y1="21" x2="15.5" y2="15.5"/></svg>
+      <input type="text" id="pp-search-input" placeholder="Buscar em 4.500+ músicas e letras...">
+    </div>
+    <div class="pp-toolbar-sep"></div>
+    <button class="pp-tool" title="Aparência (Looks)"><span class="pp-badge c-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="pp-label">Aparência</span></button>
+    <div class="pp-toolbar-sep"></div>
+    <button class="pp-tool active" id="pp-btn-show" title="Mostrar (dispara o próximo)"><span class="pp-badge c-green"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20"/></svg></span><span class="pp-label">Mostrar</span></button>
+    <div class="pp-toolbar-sep"></div>
+    <button class="pp-tool" id="pp-btn-clear-all" title="Limpar todas as camadas (Áudio, Slide, Mídia, Mensagens, Props, Anúncios, Vídeo)"><span class="pp-badge c-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="9"/><line x1="15.5" y1="8.5" x2="8.5" y2="15.5"/><line x1="8.5" y1="8.5" x2="15.5" y2="15.5"/></svg></span><span class="pp-label">Limpar</span></button>
+
+    <div class="pp-toolbar-spacer"></div>
+
+    <div class="pp-status-dots">
+      <div class="pp-tool" title="Conexão com o ProPresenter"><span class="pp-dot on-green" id="pp-conn-dot"></span><span class="pp-label" id="pp-conn-label">Conectado</span></div>
+      <button class="pp-tool" id="pp-btn-config" title="Configurações (IP/porta do ProPresenter, idioma)"><span class="pp-badge c-gray"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4.8a7.6 7.6 0 0 0-1.7-1l-.4-2.5h-4l-.4 2.5a7.6 7.6 0 0 0-1.7 1l-2.4-.8-2 3.4L6.6 11a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.4-.8a7.6 7.6 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.6 7.6 0 0 0 1.7-1l2.4.8 2-3.4z"/></svg></span><span class="pp-label" data-i18n="configuracoes">Config.</span></button>
+    </div>
+  </div>
+
+  <!-- ===== Corpo ===== -->
+  <div class="pp-body">
+
+    <!-- Coluna esquerda -->
+    <div class="pp-col-left" id="pp-col-left">
+      <div class="pp-section-title" data-i18n="biblioteca">BIBLIOTECA</div>
+      <div class="pp-tree" id="pp-library-tree" style="flex-shrink:0; height:64px; min-height:32px">
+        <div class="pp-tree-item" style="opacity:.6">Carregando...</div>
+      </div>
+      <div class="pp-resizer pp-resizer-h" data-resize="library-tree" title="Arraste para redimensionar"></div>
+      <div class="pp-section-title" data-i18n="playlist">PLAYLIST</div>
+      <div class="pp-tree" id="pp-playlist-tree" style="flex-shrink:0">
+        <div class="pp-tree-item" style="opacity:.6">Carregando...</div>
+      </div>
+      <div class="pp-resizer pp-resizer-h" data-resize="playlist-tree" title="Arraste para redimensionar"></div>
+      <div class="pp-items-count" id="pp-items-count">0 ITENS</div>
+      <div class="pp-items-list" id="pp-items-list">
+        <div class="pp-item-row live"><span class="pp-item-idx">1</span><span class="pp-item-name">Vem Está É a Hora</span><span class="pp-item-tag">Louvores</span><span class="pp-reorder"><button title="Mover para cima">▲</button><button title="Mover para baixo">▼</button></span></div>
+        <div class="pp-item-row"><span class="pp-item-idx">2</span><span class="pp-item-name">Jesus Em Tua Presença</span><span class="pp-item-tag">Louvores</span><span class="pp-reorder"><button title="Mover para cima">▲</button><button title="Mover para baixo">▼</button></span></div>
+        <div class="pp-item-row"><span class="pp-item-idx">3</span><span class="pp-item-name">Declaramos</span><span class="pp-item-tag">Oficial</span><span class="pp-reorder"><button title="Mover para cima">▲</button><button title="Mover para baixo">▼</button></span></div>
+        <div class="pp-item-row"><span class="pp-item-idx">4</span><span class="pp-item-name">Teu Reino</span><span class="pp-item-tag">Oficial</span><span class="pp-reorder"><button title="Mover para cima">▲</button><button title="Mover para baixo">▼</button></span></div>
+      </div>
+      <div class="pp-resizer pp-resizer-h" data-resize="left-vertical" title="Arraste para redimensionar"></div>
+      <div class="pp-media-browser" id="pp-media-browser">
+        <div class="pp-brand"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>ProContent</div>
+        <div class="pp-tree" id="pp-media-tree"><div class="pp-tree-item" style="opacity:.6">Carregando...</div></div>
+      </div>
+    </div>
+
+    <div class="pp-resizer pp-resizer-v" data-resize="left" title="Arraste para redimensionar"></div>
+
+    <!-- Coluna central -->
+    <div class="pp-col-center">
+      <div class="pp-stage-canvas" id="pp-stage-canvas" data-i18n="preview_editor">(preview do slide/mídia selecionado)</div>
+      <div class="pp-transport-bar">
+        <button class="pp-chip" id="pp-btn-prev" title="Slide/mídia anterior">◀ Anterior</button>
+        <button class="pp-chip" id="pp-btn-next" title="Próximo slide/mídia">Próximo ▶</button>
+        <span style="flex:1"></span>
+        <span style="color:var(--text-dim)" title="A API do ProPresenter só permite reordenar playlists de Culto/Apresentação, não playlists de Mídia">Mídia (ProContent) — sem reordenar via API</span>
+      </div>
+      <div class="pp-resizer pp-resizer-h" data-resize="media-grid" title="Arraste para redimensionar"></div>
+      <div class="pp-media-grid" id="pp-media-grid">
+        <div class="pp-media-card live"><div class="pp-media-thumb">PCA<br>LIDERANÇA</div><div class="pp-media-caption"><span>1</span><span>pcaliderelogio</span></div></div>
+        <div class="pp-media-card"><div class="pp-media-thumb">PCA<br>LIDERANÇA</div><div class="pp-media-caption"><span>2</span><span>telapca</span></div></div>
+        <div class="pp-media-card"><div class="pp-media-thumb">INTERVALO</div><div class="pp-media-caption"><span>3</span><span>telapca intervalo</span></div></div>
+        <div class="pp-media-card"><div class="pp-media-thumb">PCA<br>LIDERANÇA</div><div class="pp-media-caption"><span>4</span><span>PCALIDE01</span></div></div>
+      </div>
+    </div>
+
+    <div class="pp-resizer pp-resizer-v" data-resize="right" title="Arraste para redimensionar"></div>
+
+    <!-- Coluna direita -->
+    <div class="pp-col-right" id="pp-col-right">
+      <div class="pp-preview-block" id="pp-preview-block">
+        <div class="pp-live-preview" id="pp-live-preview">
+          <button class="pp-live-clear-btn" id="pp-btn-clear-preview" title="Limpar (camada de slide)">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15" stroke="#fff" stroke-width="2"/><line x1="9" y1="9" x2="15" y2="15" stroke="#fff" stroke-width="2"/></svg>
+          </button>
+          <span id="pp-live-title">Nada no ar</span>
+          <div class="pp-timers-row" id="pp-live-timers" style="display:none"><span id="pp-tm-total"></span><span id="pp-tm-elapsed"></span><span id="pp-tm-remaining"></span></div>
+        </div>
+        <div class="pp-layer-name" id="pp-live-subtitle">—</div>
+      </div>
+      <div class="pp-resizer pp-resizer-h" data-resize="preview-block" title="Arraste para redimensionar"></div>
+
+      <div class="pp-tabstrip" id="pp-tabstrip">
+        <div class="pp-tab" data-tab="audio" title="Áudio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg></div>
+        <div class="pp-tab active" data-tab="palco" title="Palco"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="12" rx="1.5"/><line x1="8" y1="20" x2="16" y2="20"/><line x1="12" y1="16" x2="12" y2="20"/></svg></div>
+        <div class="pp-tab" data-tab="timers" title="Temporizadores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2"/><path d="M9 2h6"/></svg></div>
+        <div class="pp-tab" data-tab="mensagens" title="Mensagens"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l18-8-6 18-4-7-8-3z"/></svg></div>
+        <div class="pp-tab" data-tab="props" title="Props"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7l8-4 8 4-8 4z"/><path d="M4 12l8 4 8-4"/><path d="M4 17l8 4 8-4"/></svg></div>
+        <div class="pp-tab" data-tab="video" title="Entradas de Vídeo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="14" height="12" rx="1.5"/><polygon points="17 9 22 6.5 22 17.5 17 15"/></svg></div>
+        <div class="pp-tab" data-tab="captura" title="Captura"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.4" fill="currentColor" stroke="none"/></svg></div>
+        <div class="pp-tab" data-tab="macros" title="Macros"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><text x="12" y="16" font-size="11" text-anchor="middle" fill="currentColor" stroke="none">M</text></svg></div>
+      </div>
+
+      <div class="pp-tabpanel" data-panel="audio">
+        <div id="pp-audio-tabs" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px"></div>
+        <div id="pp-audio-current" class="pp-item-card" style="display:none"></div>
+        <div id="pp-audio-list"><div class="pp-item-card">Carregando...</div></div>
+      </div>
+
+      <div class="pp-tabpanel active" data-panel="palco">
+        <div id="pp-stage-all-section"></div>
+        <div id="pp-stage-screens-list"><div class="pp-item-card">Carregando telas de palco...</div></div>
+        <h4 style="margin-top:14px" data-i18n="mensagem_palco">MENSAGEM DE PALCO</h4>
+        <div class="pp-stage-message">
+          <textarea id="pp-stage-msg-input" placeholder="Digite um aviso para o retorno..."></textarea>
+          <div style="margin-top:6px; text-align:right">
+            <button class="pp-btn" id="pp-stage-msg-clear">Limpar</button>
+            <button class="pp-btn primary" id="pp-stage-msg-show">Mostrar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="pp-tabpanel" data-panel="timers">
+        <div id="pp-timers-list"><div class="pp-item-card">Carregando...</div></div>
+      </div>
+
+      <div class="pp-tabpanel" data-panel="mensagens">
+        <select id="pp-msg-select" class="pp-btn pp-btn-sm" style="width:100%; margin-bottom:8px"></select>
+        <div id="pp-msg-body"><div class="pp-item-card">Carregando...</div></div>
+      </div>
+
+      <div class="pp-tabpanel" data-panel="props">
+        <div id="pp-props-grid" class="pp-props-grid"></div>
+      </div>
+
+      <div class="pp-tabpanel" data-panel="video">
+        <div id="pp-video-list"><div class="pp-item-card">Carregando...</div></div>
+      </div>
+
+      <div class="pp-tabpanel" data-panel="captura">
+        <div class="pp-item-card">
+          <div id="pp-captura-status" style="margin-bottom:8px">Carregando...</div>
+          <button class="pp-btn primary pp-btn-sm" id="pp-btn-iniciar-gravacao" data-i18n="iniciar_gravacao">Iniciar Gravação</button>
+          <button class="pp-btn pp-btn-sm" id="pp-btn-parar-gravacao" data-i18n="parar_gravacao">Parar Gravação</button>
+        </div>
+      </div>
+
+      <div class="pp-tabpanel" data-panel="macros">
+        <div id="pp-macro-grid" class="pp-macro-grid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="pp-modal-overlay hidden" id="pp-config-overlay">
+  <div class="pp-modal-box">
+    <div class="pp-modal-header">
+      <span data-i18n="config_titulo_curto">Configurações</span>
+      <button id="pp-config-close">✕</button>
+    </div>
+    <div class="pp-modal-body" style="padding:12px">
+      <div class="pp-field-row">
+        <label data-i18n="cfg_ip">IP do ProPresenter 7:</label>
+        <input type="text" id="pp-cfg-host" placeholder="ex: 10.0.21.145 ou localhost">
+      </div>
+      <div class="pp-field-row">
+        <label data-i18n="cfg_porta">Porta da API:</label>
+        <input type="number" id="pp-cfg-port" placeholder="ex: 50820">
+      </div>
+      <div class="pp-field-row">
+        <label data-i18n="cfg_meu_idioma">Meu idioma neste aparelho:</label>
+        <select id="pp-cfg-idioma">
+          <option value="">Automático (idioma do aparelho)</option>
+          <option value="pt-BR">Português (Brasil)</option>
+          <option value="en">English</option>
+          <option value="es">Español</option>
+        </select>
+      </div>
+      <div style="font-size:11px;color:var(--text-dim);margin:6px 0" id="pp-cfg-ips"></div>
+      <div style="text-align:right;margin-top:10px">
+        <button class="pp-btn primary" id="pp-cfg-salvar" data-i18n="cfg_salvar">Salvar e Reconectar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="pp-modal-overlay hidden" id="pp-picker-overlay">
+  <div class="pp-modal-box">
+    <div class="pp-modal-header">
+      <span data-i18n="add_playlist">Adicionar à Playlist</span>
+      <button id="pp-picker-close">✕</button>
+    </div>
+    <div class="pp-modal-body" id="pp-picker-body">Carregando...</div>
+  </div>
+</div>
+
+<div class="pp-phase-banner">Fase 2 em andamento — Playlists, Palco, Mídia e Busca já usam dados reais; Áudio/Temporizadores/Mensagens/Props/Vídeo/Captura/Macros ainda são exemplo.</div>
+
+<script src="/js/i18n.js?v=1"></script>
+<script src="/desktop/js/app-desktop.js?v=1"></script>
+</body>
+</html>

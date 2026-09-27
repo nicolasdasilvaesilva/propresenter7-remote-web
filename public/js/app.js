@@ -189,6 +189,7 @@ const dom = {
   btnCloseSettings: document.getElementById('btn-close-settings'),
   cfgProHost: document.getElementById('cfg-pro-host'),
   cfgProPort: document.getElementById('cfg-pro-port'),
+  cfgIdioma: document.getElementById('cfg-idioma'),
   localIpsDisplay: document.getElementById('local-ips-display'),
   btnSaveSettings: document.getElementById('btn-save-settings'),
 
@@ -207,7 +208,10 @@ const dom = {
 // ==========================================================================
 // INICIALIZAÇÃO
 // ==========================================================================
+let idiomaAtual = 'pt-BR';
 window.addEventListener('DOMContentLoaded', () => {
+  idiomaAtual = I18N.detectar({}); // aplica na hora (idioma do aparelho); o padrão do servidor entra ao carregar /server-info
+  I18N.aplicar(idiomaAtual);
   setupEventListeners();
   setupClearLayers();
   setupSearchHandlers();
@@ -2606,12 +2610,18 @@ async function loadServerInfo() {
       const links = data.ips.map(n => `<code>http://${n.ip}:3000</code> (${n.name})`).join('<br>');
       dom.localIpsDisplay.innerHTML = `Acesse no Tablet / Celular:<br>${links}`;
     }
+    // Se o dono nao escolheu um idioma NESTE aparelho, o padrao do servidor pode mudar o idioma aplicado
+    idiomaAtual = I18N.detectar(data);
+    I18N.aplicar(idiomaAtual);
   }
+  if (dom.cfgIdioma) dom.cfgIdioma.value = localStorage.getItem(I18N.CHAVE_LOCAL) || '';
 }
 
 async function handleSaveSettings() {
   const host = dom.cfgProHost.value.trim();
   const port = parseInt(dom.cfgProPort.value.trim()) || 50820;
+  const idiomaEscolhido = dom.cfgIdioma ? dom.cfgIdioma.value : '';
+  const idiomaMudou = idiomaEscolhido !== (localStorage.getItem(I18N.CHAVE_LOCAL) || '');
 
   const res = await fetch('/api/set-pro-host', {
     method: 'POST',
@@ -2620,6 +2630,8 @@ async function handleSaveSettings() {
   });
 
   if (res.ok) {
+    I18N.definirEscolhaUsuario(idiomaEscolhido);
+    if (idiomaMudou) { location.reload(); return; }
     dom.settingsModal.classList.remove('open');
     loadInitialPlaylists();
   } else {
