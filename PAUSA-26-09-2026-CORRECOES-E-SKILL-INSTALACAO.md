@@ -398,7 +398,19 @@ Achado ao subir: havia 3 processos node.exe ANTIGOS ainda rodando desde a sessao
 Nenhum bug novo encontrado nesta rodada. Servidores de teste parados ao final (portas 3055 e 50999 livres, confirmado por netstat).
 
 **Pendencias atualizadas:**
-1. Nada commitado/enviado ao GitHub desde a v1.1.4 — falta o dono aprovar pra empacotar v1.2.0 (desktop + i18n + reordenar + mock).
+1. ~~Nada commitado~~ — FEITO: **v1.2.0 publicada** (main `51abddd`, tag `v1.2.0`) com desktop + i18n + reordenar + `tools/mock-propresenter.js`.
 2. Traduzir os textos dinamicos/menus decorativos citados acima (fase futura, ja avisado).
-3. Quando o dono reinstalar o ProPresenter, testar reordenar/idioma no REAL tambem (o mock prova a logica, mas o real pode ter nuances de timing, ex. a fila de 400ms do Palco).
-4. `tools/mock-propresenter.js` fica no repo como ferramenta permanente de dev (resolve a issue #3) — considerar citar no README/CLAUDE.md.
+3. ~~Testar no real~~ — FEITO nesta mesma sessao, ver 13.7 abaixo.
+4. `tools/mock-propresenter.js` fica no repo como ferramenta permanente de dev (resolve a issue #3) — considerar citar no README/CLAUDE.md (nao feito ainda).
+
+### 13.7 27/09 (mesma noite) — validado contra o ProPresenter REAL da igreja, achado 1 bug, v1.2.0 publicada
+
+O dono avisou que o ProPresenter real estava acessivel pela rede em `192.168.100.82:49850` (nome da maquina: MacBook-Pro-de-Elisandra, ProPresenter 21.4). Apontei o servidor de dev pra la (`PRO_HOST`/`PRO_PORT`) e testei — **SO LEITURAS**, nunca cliquei em Mostrar/Aplicar layout/Limpar/Ativar, porque a apresentacao estava ativa de verdade (o slide ao vivo avancou sozinho de 8 pra 9 enquanto eu olhava).
+
+**Confirmado funcionando com dados reais de producao:** Biblioteca, LISTA (playlists reais: DOMINGO, TERCA DA ESPERANCA, VIGILIA, REGRESSIVA etc.), ProContent (pastas reais: DOMINGO, ANIVERSARIANTES, PREGACAO, CEIA, FUNDOS...), Palco (nomes reais das telas: RETORNO PLATAFORMA R/L, LOUVOR/LITURGIA/iPad-PCA-NDI4), Props (formulario real de carro/kids com campos COR/PLACA), Temporizadores (TEMPO PALAVRA, TELA CONTAGEM reais), Audio (playlist longa real de formatura/casamento), Macros (Padrao/Teste/Legendario/Colacao de Grau), sincronismo ao vivo acompanhando a apresentacao de verdade. Busca indexou 1794 apresentacoes reais sem erro.
+
+**BUG ACHADO (so aparece com o real, o mock sempre respondia 200):** a API real do ProPresenter devolve HTTP 500 pra thumbnail de midia na MAIORIA dos itens (confirmado com curl direto nele: 25 de 26 numa pasta de video real) — parece ser normal pra videos sem cache de thumbnail gerado. O mobile ja tratava isso certo (mostra 🎬/🖼️ no lugar da imagem quebrada); o Desktop (`public-desktop/js/app-desktop.js` linha ~590) so escondia a imagem e deixava vazio. Corrigido: mesmo padrao do mobile (fallback icon + CSS `.pp-media-fallback-icon` em `public-desktop/css/style.css`), testado de novo contra o real e confirmado via JS (`25 fallback / 1 imagem carregada`, igual antes).
+
+**Publicado:** commit `2500b41` (desktop+i18n+reordenar+mock) + commit `51abddd` (fix do fallback) + tag `v1.2.0` + release no GitHub com notas e zip (`ProPresenter-Remote-v1.2.0.zip`, `git archive` a partir da tag).
+
+**Pendente real agora:** nada bloqueando. Proximos passos possiveis: o dono rodar `Atualizar-Controle-Remoto.bat` no PC de producao pra subir a v1.2.0; testar reordenar de verdade numa playlist real (so fiz leitura desta vez, o reordenar em si so foi testado no mock); traduzir textos dinamicos (fase futura).
