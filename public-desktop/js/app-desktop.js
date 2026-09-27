@@ -587,7 +587,7 @@ async function loadMediaItems(id) {
     card.className = 'pp-media-card';
     card.dataset.uuid = uuid || '';
     card.innerHTML = isVideoOuImagem && uuid
-      ? `<div class="pp-media-thumb" style="padding:0"><img src="/api/v1/media/${uuid}/thumbnail" style="width:100%;height:100%;object-fit:cover;border-radius:6px" onerror="this.style.display='none'"></div><div class="pp-media-caption"><span>${idx + 1}</span><span>${escapeHtml(nome)}</span></div>`
+      ? `<div class="pp-media-thumb" style="padding:0"><img src="/api/v1/media/${uuid}/thumbnail" style="width:100%;height:100%;object-fit:cover;border-radius:6px" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" alt="${escapeHtml(nome)}"><div class="pp-media-fallback-icon" style="display:none">${item.type === 'video' ? '🎬' : '🖼️'}</div></div><div class="pp-media-caption"><span>${idx + 1}</span><span>${escapeHtml(nome)}</span></div>`
       : `<div class="pp-media-thumb">${escapeHtml(nome)}</div><div class="pp-media-caption"><span>${idx + 1}</span><span>${escapeHtml(nome)}</span></div>`;
     card.addEventListener('click', () => triggerMediaItem(id, item, idx));
     grid.appendChild(card);
