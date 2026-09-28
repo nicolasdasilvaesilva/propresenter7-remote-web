@@ -242,6 +242,7 @@ async function enviarMensagemAtual() {
     if (tok.timer || tok.clock) return tok;
     return {
       name: tok.name,
+      uuid: tok.uuid,
       text: { text: st.tokenValues[tok.name] !== undefined ? String(st.tokenValues[tok.name]) : (tok.text?.text || '') }
     };
   });

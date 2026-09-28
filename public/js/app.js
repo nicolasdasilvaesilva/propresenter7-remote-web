@@ -2155,6 +2155,7 @@ async function triggerSendMessage() {
     if (tok.timer || tok.clock) return tok;
     return {
       name: tok.name,
+      uuid: tok.uuid,
       text: {
         text: state.messages.tokenValues[tok.name] !== undefined ? String(state.messages.tokenValues[tok.name]) : (tok.text?.text || '')
       }

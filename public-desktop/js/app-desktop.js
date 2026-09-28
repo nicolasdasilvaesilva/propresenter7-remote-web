@@ -1409,7 +1409,7 @@ async function triggerMessage(msg) {
   const msgId = msg.id?.uuid || msg.id?.index;
   const inputs = document.querySelectorAll('#pp-msg-body [data-token]');
   const valores = {}; inputs.forEach(inp => { valores[inp.dataset.token] = inp.value; });
-  const tokensLimpos = (msg.tokens || []).map(t => t.timer || t.clock ? t : { name: t.name, text: { text: valores[t.name] ?? (t.text?.text || '') } });
+  const tokensLimpos = (msg.tokens || []).map(t => t.timer || t.clock ? t : { name: t.name, uuid: t.uuid, text: { text: valores[t.name] ?? (t.text?.text || '') } });
   await apiRequest(`/v1/message/${encodeURIComponent(msgId)}`, 'PUT', Object.assign({}, msg, { tokens: tokensLimpos, visible_on_network: true }));
   await apiRequest(`/v1/message/${encodeURIComponent(msgId)}/trigger`, 'POST', tokensLimpos);
 }
