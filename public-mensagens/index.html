@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Enviar Aviso</title>
+<link rel="manifest" href="/mensagens/manifest.json">
+<link rel="icon" type="image/png" href="/img/favicon.png">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Avisos">
+<meta name="theme-color" content="#121316">
+<!-- Reaproveita o CSS do app mobile: já tem TODAS as classes .pro-msg-*/.pro-token-*
+     usadas aqui (é o mesmo cartão do popup "Mensagens no Telão"), zero duplicação. -->
+<link rel="stylesheet" href="/css/style.css?v=1">
+<link rel="stylesheet" href="/mensagens/css/mensagens.css?v=1">
+</head>
+<body>
+<div id="pagina-mensagens">
+  <header class="msg-header-bar">
+    <div class="msg-header-title">
+      <span class="msg-header-icon">📣</span>
+      <span>Enviar Aviso</span>
+    </div>
+    <span class="msg-conn-dot" id="msg-conn-dot" title="Conectado ao ProPresenter"></span>
+  </header>
+  <main class="msg-content" id="msg-content">
+    <div class="loading-spinner-box">
+      <div class="spinner"></div>
+      <span>Carregando modelos...</span>
+    </div>
+  </main>
+</div>
+
+<!-- Confirmação antes de ir pro telão: essa tela é usada por quem não é o operador
+     treinado (zeladores, segurança), então um passo a mais evita clique errado indo
+     ao vivo na frente de toda a igreja. -->
+<div class="msg-confirm-overlay hidden" id="msg-confirm-overlay">
+  <div class="msg-confirm-card">
+    <h3>Confirmar envio?</h3>
+    <div class="msg-confirm-preview" id="msg-confirm-preview"></div>
+    <p class="msg-confirm-note">Essa mensagem vai aparecer no telão da igreja agora.</p>
+    <div class="msg-confirm-actions">
+      <button class="pro-btn-dark" id="msg-confirm-cancel">Cancelar</button>
+      <button class="pro-btn-dark btn-pro-show" id="msg-confirm-ok">Sim, enviar</button>
+    </div>
+  </div>
+</div>
+
+<script src="/mensagens/js/app-mensagens.js?v=1"></script>
+</body>
+</html>

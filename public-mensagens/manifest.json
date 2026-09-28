@@ -1,0 +1,40 @@
+{
+  "name": "Enviar Aviso",
+  "short_name": "Avisos",
+  "description": "Envia avisos para o telão da igreja (ex.: carro com vidro aberto no estacionamento)",
+  "id": "/mensagens/",
+  "start_url": "/mensagens/",
+  "scope": "/mensagens/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#121316",
+  "theme_color": "#121316",
+  "categories": ["utilities"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

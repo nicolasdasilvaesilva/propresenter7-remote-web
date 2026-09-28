@@ -25,6 +25,10 @@ let PROPRESENTER_PORT = Number(process.env.PRO_PORT || CONFIG.proPort || 50820);
 const PUBLIC_DIR = path.join(__dirname, 'public');
 // Pele para desktop (visual do painel oficial do ProPresenter), MESMO backend/API que a pele mobile/iPad.
 const DESKTOP_DIR = path.join(__dirname, 'public-desktop');
+// Pele exclusiva de "Enviar Aviso" (mensagem pro telão) — pra quem NÃO é o operador treinado
+// (zeladores, segurança do estacionamento) instalar no próprio celular, sem acesso a
+// playlist/mídia/Blackout. MESMO backend/API das outras duas.
+const MENSAGENS_DIR = path.join(__dirname, 'public-mensagens');
 
 // Versão dos arquivos do app = hash do conteúdo. Vai no "?v=" do index.html e no nome do cache do
 // service worker, então TODA atualização invalida o cache antigo dos aparelhos automaticamente.
@@ -38,6 +42,9 @@ function getAppVersion() {
   }
   for (const f of ['index.html', 'css/style.css', 'js/app-desktop.js']) {
     try { h.update(fs.readFileSync(path.join(DESKTOP_DIR, f))); } catch (e) { /* pele desktop pode nao existir ainda */ }
+  }
+  for (const f of ['index.html', 'css/mensagens.css', 'js/app-mensagens.js', 'manifest.json']) {
+    try { h.update(fs.readFileSync(path.join(MENSAGENS_DIR, f))); } catch (e) { /* pele de mensagens pode nao existir ainda */ }
   }
   appVersion = h.digest('hex').slice(0, 8);
   appVersionAt = Date.now();
@@ -602,15 +609,18 @@ const server = http.createServer(async (req, res) => {
   }
 
   // Pele desktop: /desktop e /desktop/... servem de public-desktop/, com o MESMO proxy /api/v1 de cima.
-  // Sem a barra final, caminhos relativos do HTML resolveriam contra "/" (raiz) em vez de "/desktop/".
-  if (pathname === '/desktop') {
-    res.writeHead(301, { Location: '/desktop/' + (parsedUrl.search || '') });
+  // Pele de mensagens: /mensagens e /mensagens/... servem de public-mensagens/, idem.
+  // Sem a barra final, caminhos relativos do HTML resolveriam contra "/" (raiz) em vez da pele certa.
+  if (pathname === '/desktop' || pathname === '/mensagens') {
+    res.writeHead(301, { Location: pathname + '/' + (parsedUrl.search || '') });
     res.end();
     return;
   }
   const ehDesktop = pathname === '/desktop' || pathname.startsWith('/desktop/');
-  const raizAtual = ehDesktop ? DESKTOP_DIR : PUBLIC_DIR;
-  let safePath = path.normalize(ehDesktop ? pathname.slice('/desktop'.length) || '/' : pathname).replace(/^(\.\.[\/\\])+/, '');
+  const ehMensagens = pathname === '/mensagens' || pathname.startsWith('/mensagens/');
+  const raizAtual = ehDesktop ? DESKTOP_DIR : (ehMensagens ? MENSAGENS_DIR : PUBLIC_DIR);
+  const prefixoPele = ehDesktop ? '/desktop' : (ehMensagens ? '/mensagens' : '');
+  let safePath = path.normalize(prefixoPele ? pathname.slice(prefixoPele.length) || '/' : pathname).replace(/^(\.\.[\/\\])+/, '');
   if (safePath === '/' || safePath === '\\') {
     safePath = '/index.html';
   }

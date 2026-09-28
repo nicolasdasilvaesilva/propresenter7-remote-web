@@ -1,0 +1,156 @@
+/* ==========================================================================
+   ENVIAR AVISO — pele exclusiva pra mandar mensagem pro telão (zeladores,
+   segurança do estacionamento etc.), sem acesso a playlist/mídia/Blackout.
+   Usa as variáveis e o cartão .pro-messages-container do CSS do mobile
+   (/css/style.css) — aqui só o layout da página em volta dele.
+   ========================================================================== */
+
+#pagina-mensagens {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.msg-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.msg-header-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.msg-header-icon {
+  font-size: 22px;
+}
+
+.msg-conn-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: 0 0 6px rgba(16, 185, 129, .6);
+  flex-shrink: 0;
+}
+
+.msg-conn-dot.disconnected {
+  background: var(--color-danger);
+  box-shadow: 0 0 6px rgba(239, 68, 68, .6);
+}
+
+.msg-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 14px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.msg-content .pro-messages-container {
+  width: 100%;
+  max-width: 480px;
+  margin-top: 8px;
+}
+
+/* Botões maiores e mais fáceis de acertar no celular por quem não usa o app todo dia */
+.msg-content .pro-msg-footer {
+  flex-direction: column-reverse;
+  align-items: stretch;
+}
+
+.msg-content .pro-msg-btn-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.msg-content .pro-msg-btn-group .pro-btn-dark {
+  width: 100%;
+  padding: 14px 10px;
+  font-size: 15px;
+  border-radius: 8px;
+}
+
+.msg-content .pro-msg-status {
+  justify-content: center;
+  text-align: center;
+}
+
+.msg-content .pro-token-input {
+  padding: 10px 12px;
+  font-size: 15px;
+}
+
+/* Diálogo de confirmação antes de enviar pro telão */
+.msg-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 20px;
+}
+
+.msg-confirm-overlay.hidden {
+  display: none;
+}
+
+.msg-confirm-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 20px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: var(--shadow-lg);
+}
+
+.msg-confirm-card h3 {
+  font-size: 17px;
+  margin-bottom: 12px;
+  color: var(--text-main);
+}
+
+.msg-confirm-preview {
+  background: #181818;
+  border: 1px solid #2e2e2e;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #e5e7eb;
+  margin-bottom: 10px;
+  white-space: pre-wrap;
+}
+
+.msg-confirm-note {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  margin-bottom: 18px;
+}
+
+.msg-confirm-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.msg-confirm-actions .pro-btn-dark {
+  padding: 13px;
+  font-size: 14.5px;
+  border-radius: 8px;
+}
