@@ -476,13 +476,88 @@ O dono foi testando ao vivo no navegador (eu com o painel aberto, ele mandando c
 
 **COMMITADO** nesta rodada (ver `git log` do repo de deploy pra hash exato — dono pediu commit explicitamente: "vamos comitar e vou testar amanha").
 
-### 13.10 O QUE FALTA PRA FINALIZAR O APLICATIVO (lista pedida pelo dono antes de compactar)
+### 13.10 (SUPERADA pela 13.11 — quase tudo daqui foi testado e resolvido em 28/09)
 
-1. **Testar tudo isto contra o ProPresenter REAL** (so foi testado no mock nesta rodada de polimento) — especialmente: Look (trocar de verdade), Instalar App no Windows de verdade (confirmar que o icone aparece certo, nao so a letra P), arrastar-e-soltar da playlist numa playlist real com 3+ itens, VU meter com audio de verdade tocando, teclado numa janela real (nao So via JS sintetico).
-2. **Auto-deteccao desktop/mobile**: testar no PC de producao real (Windows) e, se possivel, num iPad de verdade — a logica usa `maxTouchPoints`, que precisa ser confirmada em hardware real (testado ate agora so no Chromium do painel do Claude, que reporta "sem touch" corretamente, mas nunca testado num touchscreen real tipo Surface/monitor touch).
-3. **Traduzir textos dinamicos** (i18n) que ainda estao so em portugues: toasts, "Slide N de M" (onde ainda aparecer), textos do JS em geral — fase futura ja avisada ao dono varias vezes.
-4. **Arrastar-e-soltar da LETRA/slide dentro da apresentacao** (mudar ordem dos slides dentro de uma musica) — o dono perguntou se e possivel; NAO EXISTE endpoint de reordenar slides dentro de uma apresentacao na API do ProPresenter (so playlist-level). Nao comecado, e provavelmente impossivel pela API.
-5. **Revisar as abas com dados reais**: Mensagens, Props, Video Input, Captura, Macros — testadas so com a instancia de teste (function ou vazias); precisam de dados reais de producao pra validacao final.
-6. Decidir e publicar a proxima versao/release (v1.2.1 ou v1.3.0 — o volume de mudanca desta rodada e grande, talvez mereça v1.3.0) com notas explicando tudo isso pro dono/igreja.
-7. Rodar `Atualizar-Controle-Remoto.bat` (Admin) no PC de producao pra subir a versao nova, uma vez publicada.
-8. Servidores de teste desta sessao (mock + server.js locais) ja foram parados antes de compactar.
+### 13.11 28/09 — TESTE CONTRA O PROPRESENTER REAL (10.0.21.145:50820), AO VIVO, COM O DONO
+
+Rede do dono ficou acessivel ao ProPresenter real da igreja (versao 21.4.2). Testamos tudo
+direto na API real, boa parte com o dono olhando no proprio Chrome dele em paralelo. Correcoes
+e descobertas desta rodada (tudo verificado contra o servidor real, nao mock):
+
+**Bug corrigido — letra duplicada no PGM:** o thumbnail do proprio slide ja vem com a letra
+desenhada dentro da imagem (e o render do slide); nosso overlay desenhava de novo por cima.
+Agora so sobrepoe letra quando o fundo e de uma midia separada (video/imagem em loop atras do
+texto) — quando o fundo e o thumbnail do proprio slide, mostra so ele.
+
+**Novo — arrastar-e-soltar por toque/mouse na playlist do MOBILE** (`public/js/app.js`,
+`public/css/style.css`): pedido do dono depois de ver o resultado no desktop. Usa Pointer
+Events (cobre dedo e mouse) porque o drag-and-drop nativo HTML5 nao funciona em touch. So
+aparece em playlists de apresentacao (Mídia/ProContent continua sem suporte a reordenar via
+API). Testado de ponta a ponta contra o real: reordenou e persistiu.
+
+**VU meter — so reage a audio de verdade:** antes animava sempre que algo estava ao vivo
+(inclusive uma imagem estatica sem som nenhum). Descoberto testando: uma imagem PNG/JPEG tem
+uma "duracao" residual de ~0.33s no `/v1/transport/presentation/current` (nao e audio, e
+metadado do ProPresenter) — por isso o limite virou `duration > 1.5s` E `is_playing`. Testado
+com video real (anima) e imagem real (fica parado em 92%).
+
+**Novo — play/pause/seek REAIS de midia e anuncio:** descoberto que `/v1/transport/{camada}`
+so aceita 3 valores (`presentation`, `announcement`, `audio` — apareceu no erro 404 da API) e
+que `presentation` cobre TANTO slide quanto midia/video (mesma camada no ProPresenter). Cada
+uma tem `/current` (estado), e — descoberta importante, o comentario antigo dizia que nao
+existia — `/time` (GET devolve a posicao atual, PUT muda a posicao). Testado ao vivo:
+play/pause (confirmado nos dois sentidos), -10/+10 segundos (testado com precisao exata,
+170.6s → 160.0s → 170.0s), e a barra de progresso real (mm:ss / mm:ss) pras 3 camadas
+(midia/video, anuncio, MP3 — o audio ja tinha play/pause, so faltava a barra).
+NAO EXISTE endpoint de marcador/bookmark na API (so no editor do ProPresenter) — nao construido.
+NAO EXISTE endpoint de preview visual de uma tela especifica (`/v1/status/screens` so da nomes,
+nao imagem) — pra ver o que uma tela especifica esta mostrando so via NDI (outra tecnologia,
+fora de escopo). O `/v1/trigger/next`/`previous` NAO funciona pra avancar item de playlist de
+midia (testado, nao fez nada) — so serve pra slide.
+
+**Clear-strip virou coluna fixa:** saiu de dentro do monitor (overlay absoluto) e virou coluna
+propria ao lado, largura fixa (24px) — antes encolhia/se movia junto com o monitor ao
+redimensionar. Testado: 16:9 exato (`1.7778`) mantido em qualquer tamanho de painel.
+
+**Toolbar redesenhado estilo mobile/tablet:** grupo em pilula (fundo escuro arredondado,
+botoes em linha) igual ao `.control-btn-group`/`.action-btn` do mobile — antes cada botao do
+desktop era um icone empilhado (badge em cima, rotulo embaixo). Icone do Look trocado
+(oculos+bigode, depois removido a pedido do dono, ficou so o texto). Removido acidentalmente
+um bug de `overflow:hidden` que cortava o dropdown do Look — corrigido.
+
+**Secao MIDIA/ProContent/Playlists:** reestruturada pra bater com o painel oficial (titulo
+MIDIA, depois ProContent, depois titulo Playlists, depois a lista). Barra divisoria da
+biblioteca/playlist estava com `background:transparent` (so aparecia no hover) — agora tem
+cor visivel sempre.
+
+**Macros — lista reescrita:** mostrava so o numero (1, 2...) escondendo o nome de verdade no
+tooltip. Virou lista (nao grade de quadrados) igual ao painel oficial: numero/cor + NOME
+COMPLETO + icones das acoes reais que o macro dispara (vem de `/v1/macros` → campo `actions`,
+tipos vistos: `audience_look`, `clear`, `stage_layout`, `prop`). Testado disparando um macro
+real ("LOUVOR - TECLA 1"): mudou o Look pra LOUVOR e limpou as camadas, exatamente como
+configurado.
+
+**Bug corrigido — rotulo do Look ficava desatualizado:** so carregava uma vez no início;
+se o Look mudasse por fora (macro, outro controle), o rotulo nao acompanhava. Achado
+testando o macro acima. Agora confere a cada 2s (`checarLookAtual`).
+
+**Removido o rodape "Fase 2 em andamento":** estava dizendo que Audio/Temporizadores/
+Mensagens/Props/Video/Captura/Macros "ainda sao exemplo" — MENTIRA desatualizada, checamos
+uma por uma contra a API real e todas tem dados de verdade (`/v1/timers/current`, `/v1/props`,
+`/v1/video_inputs`, `/v1/capture/status`, `/v1/macros`, `/v1/messages` — todas com conteudo
+real da igreja). Aviso removido do HTML e CSS.
+
+**Confirmado (Mensagens/Props/Video/Captura/Macros com dados reais):** todas usam a API de
+verdade e mostraram dados reais da igreja durante o teste (ex.: mensagem "CARROS" com
+placeholders, prop "CAMPANHA"/"DIZIMOS E OFERTAS", entrada de video "EasyWorship").
+
+**COMMITADO e PUBLICADO** nesta rodada como release nova — dono pediu explicitamente
+("pode comitar pra nova release").
+
+### O QUE AINDA FALTA (genuinamente, nao depende de codigo daqui)
+
+1. **Auto-deteccao desktop/mobile num touchscreen real** — so testado no Chromium sem touch;
+   nunca testado num iPad/Surface/monitor touch de verdade.
+2. **Traduzir textos dinamicos (i18n)** restantes — toasts, strings geradas por JS. Fase
+   futura, ja avisada varias vezes.
+3. Rodar `Atualizar-Controle-Remoto.bat` (Admin) no PC de producao pra subir esta versao.
