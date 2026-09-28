@@ -2734,6 +2734,69 @@ async function pollLiveStatusOnce(startedAt) {
       // Silencioso
     }
   }
+
+  // 3. PGM SEMPRE MOSTRA O QUE ESTÁ REALMENTE AO VIVO, MESMO NAVEGANDO EM OUTRA PLAYLIST
+  // Os dois blocos acima só atualizam o PGM quando o TIPO aberto no aparelho (mídia ou
+  // apresentação) bate com o tipo que está ao vivo — é assim que já funcionava e continua
+  // funcionando igual. Mas se o operador está navegando, por exemplo, na lista de músicas
+  // enquanto um vídeo da pasta de Mídia está tocando (ou o contrário), o PGM ficava sem
+  // mostrar nada até ele voltar pra aba certa — antes disso existir, o PGM sempre acompanhava
+  // o que estava no ar, não importa em qual playlist o operador estava navegando. Estes dois
+  // blocos cobrem exatamente o caso contrário, só atualizando o quadro do PGM (título,
+  // legenda, imagem) — sem tocar na lista/pasta que o operador está navegando nem carregar a
+  // grade de slides dela, pra não trocar a tela dele sem ele pedir.
+  if (state.activePlaylistType !== 'media') {
+    try {
+      const activeMediaData = await apiRequest('/v1/media/playlist/active');
+      if (!isStale() && activeMediaData && activeMediaData.item) {
+        const mItem = activeMediaData.item;
+        const mUuid = mItem.uuid;
+        if (mUuid !== state.liveMediaUuid) {
+          state.liveMediaUuid = mUuid;
+          state.liveMediaIndex = (mItem.index !== undefined) ? mItem.index : 0;
+
+          dom.liveItemTitle.textContent = mItem.name || 'Mídia';
+          dom.liveCueSubtitle.textContent = `${activeMediaData.playlist?.name || 'Mídia'} ao vivo`;
+
+          dom.previewPlaceholder.classList.add('hidden');
+          dom.previewTextOverlay.classList.add('hidden');
+          dom.liveSlideImage.classList.remove('hidden');
+          dom.liveSlideImage.dataset.loadedUuid = '';
+          dom.liveSlideImage.src = `/api/v1/media/${mUuid}/thumbnail?t=${Date.now()}`;
+        }
+      }
+    } catch (err) {
+      // Silencioso
+    }
+  }
+
+  if (state.activePlaylistType !== 'presentation') {
+    try {
+      const slideIndexData = await apiRequest('/v1/presentation/slide_index');
+      if (!isStale() && slideIndexData && slideIndexData.presentation_index) {
+        const pIndex = slideIndexData.presentation_index;
+        const curIdx = pIndex.index;
+        const presUuid = pIndex.presentation_id?.uuid;
+        const presName = pIndex.presentation_id?.name;
+
+        if (curIdx !== state.liveSlideIndex || presUuid !== state.livePresentationUuid) {
+          state.liveSlideIndex = curIdx;
+          state.livePresentationUuid = presUuid;
+
+          dom.liveItemTitle.textContent = presName || 'Apresentação';
+          dom.liveCueSubtitle.textContent = `Slide ${curIdx + 1}`;
+
+          dom.previewPlaceholder.classList.add('hidden');
+          dom.previewTextOverlay.classList.add('hidden');
+          dom.liveSlideImage.classList.remove('hidden');
+          dom.liveSlideImage.dataset.loadedUuid = '';
+          dom.liveSlideImage.src = `/api/v1/presentation/${presUuid}/thumbnail/${curIdx}?t=${Date.now()}`;
+        }
+      }
+    } catch (err) {
+      // Silencioso
+    }
+  }
 }
 
 // ==========================================================================
