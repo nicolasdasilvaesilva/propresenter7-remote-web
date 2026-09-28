@@ -609,8 +609,21 @@ notas da release deixam isso claro como "em andamento", nao como resolvido.
 **v1.4.0 PUBLICADA** (commit `dd54e0e`, tag e release no GitHub) —
 https://github.com/nicolasdasilvaesilva/propresenter7-remote-web/releases/tag/v1.4.0
 
+**Descricao exata do bug, dada pelo dono com video** (`C:\Users\nicol\Downloads\modelo do
+painel propresenter\1\bug-arrasta-letra-play-list.mp4` — nao consegui abrir esse .mp4 nesta
+sessao, nem pelo Read nem navegando pro file:// no navegador; ficou so a descricao verbal):
+ao arrastar uma musica pra soltar logo ACIMA ou ABAIXO de uma musica VIZINHA (reordenacao
+curta, nao de longa distancia), o item "pula" pra uma posicao diferente da pretendida — nao
+da pra escolher a posicao exata. **Acontece em TODOS os aparelhos moveis** (tablet, iPad,
+celular). Isso sugere que o problema nao e so falta de auto-scroll (que ja foi confirmado
+funcionando pra distancia longa) — o calculo de troca em si (troca quando o meio do card
+arrastado cruza o meio do vizinho, em `attachItemDragReorder`, `public/js/app.js`) pode estar
+disparando errado especificamente pra trocas curtas entre vizinhos em touch. Dono disse
+"iremos mexer depois" — pausado por pedido dele, nao por falta do que investigar.
+
 **Proxima sessao, em ordem:**
-1. Pedir ao dono uma descricao exata do que acontece ao arrastar no iPad (ou gravar um video).
+1. Tentar abrir o video do bug de outro jeito (converter, pedir frames/print) e/ou revisar a
+   logica de troca curta entre vizinhos com base na descricao acima.
 2. Testar o TRIGGER de um Grupo de Limpar de verdade (so a listagem foi confirmada).
 3. Os 3 itens ja conhecidos: touchscreen real pra auto-deteccao, i18n dos textos dinamicos,
    rodar `Atualizar-Controle-Remoto.bat` no PC de producao.
