@@ -1,5 +1,7 @@
 # ProPresenter 7 Remote Web
 
+🇧🇷 Português | 🇺🇸 [English](README.en.md) | 🇪🇸 [Español](README.es.md)
+
 Controle remoto web **profissional, completo e gratuito** para o **ProPresenter 7** — **duas telas num só app**: uma para **iPad/tablet/celular** e outra para **computador**, com o visual do painel oficial. Opera cultos e eventos ao vivo pela rede Wi-Fi local, sem instalar nada no aparelho de quem está operando. Acompanha **skills para o Claude Code e para o Google Antigravity** (instalação, atualização e suporte guiados por IA).
 
 **Resumo:** um servidor Node.js (**sem nenhuma dependência**, porta padrão **3000**) roda **no computador do ProPresenter**, sobe sozinho quando o Windows liga e serve as duas telas do app. O operador só abre `http://IP-DO-COMPUTADOR:3000` — o app **reconhece sozinho** se é um celular/tablet ou um computador e abre a tela certa.
