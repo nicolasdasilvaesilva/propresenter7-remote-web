@@ -502,18 +502,28 @@ const server = http.createServer(async (req, res) => {
     req.on('end', async () => {
       try {
         const payload = JSON.parse(body || '{}');
-        const { playlistId, itemIndex, direction } = payload;
+        const { playlistId, itemIndex, direction, toIndex } = payload;
 
         if (!playlistId) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'playlistId é obrigatório' })); return; }
         if (!Number.isInteger(itemIndex) || itemIndex < 0) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'itemIndex inválido' })); return; }
-        if (direction !== 'up' && direction !== 'down') { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'direction deve ser "up" ou "down"' })); return; }
+
+        // direction (▲▼, move 1 posição) OU toIndex (arrastar-e-soltar, qualquer posição).
+        let alvo;
+        if (direction === 'up' || direction === 'down') {
+          alvo = direction === 'up' ? itemIndex - 1 : itemIndex + 1;
+        } else if (Number.isInteger(toIndex)) {
+          alvo = toIndex;
+        } else {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'informe direction ("up"/"down") ou toIndex' }));
+          return;
+        }
 
         const curRes = await proFetch(`/v1/playlist/${encodeURIComponent(playlistId)}`);
         if (!curRes.ok) throw new Error('ProPresenter respondeu ' + curRes.status + ' ao ler a playlist');
         const curData = await curRes.json();
         const existingItems = Array.isArray(curData?.items) ? curData.items : [];
 
-        const alvo = direction === 'up' ? itemIndex - 1 : itemIndex + 1;
         if (alvo < 0 || alvo >= existingItems.length || itemIndex >= existingItems.length) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Não há posição para mover (já está na ponta da lista).' }));
@@ -522,7 +532,8 @@ const server = http.createServer(async (req, res) => {
 
         const nomeMovido = existingItems[itemIndex]?.id?.name || 'item';
         const reordenados = existingItems.slice();
-        [reordenados[itemIndex], reordenados[alvo]] = [reordenados[alvo], reordenados[itemIndex]];
+        const [itemMovido] = reordenados.splice(itemIndex, 1);
+        reordenados.splice(alvo, 0, itemMovido);
         const { itens: itensNormalizados } = normalizarItensPlaylist(reordenados);
 
         const arquivoBackup = guardarBackupPlaylist('reorder-' + playlistId, existingItems);

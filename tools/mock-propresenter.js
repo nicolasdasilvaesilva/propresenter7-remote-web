@@ -37,6 +37,7 @@ const slides = {
 
 let live = { presUuid: 'P-GrandeESenhor', idx: 0 };
 let pending = null; // simula pequeno atraso no trigger, igual ao ProPresenter real
+let liveMedia = null; // { playlistUuid, uuid, name } — mídia realmente "no ar" (camada Media)
 
 function currentLive() {
   if (pending && Date.now() < pending.at) return pending.old;
@@ -45,10 +46,10 @@ function currentLive() {
 }
 
 // --- Mídia / ProContent ------------------------------------------------------------------
-const mediaPlaylists = { 'MP-Fotos': { name: 'Fotos do Culto', items: [id('foto1.jpg', 'M-1'), id('foto2.jpg', 'M-2')] } };
+const mediaPlaylists = { 'MP-Fotos': { name: 'Fotos do Culto', items: [{ id: id('foto1.jpg', 'M-1'), type: 'image' }, { id: id('foto2.jpg', 'M-2'), type: 'image' }] } };
 
 // --- Áudio ---------------------------------------------------------------------------------
-const audioPlaylists = { 'AP-Trilhas': { name: 'Trilhas', items: [id('Trilha 1', 'A-1'), id('Trilha 2', 'A-2')] } };
+const audioPlaylists = { 'AP-Trilhas': { name: 'Trilhas', items: [{ id: id('Trilha 1', 'A-1'), duration: 180 }, { id: id('Trilha 2', 'A-2'), duration: 210 }] } };
 let audioTransport = { is_playing: false, uuid: 'A-1', name: 'Trilha 1', artist: '', duration: 180 };
 
 // --- Mensagens / Props / Video inputs / Macros --------------------------------------------
@@ -69,6 +70,9 @@ let captureStatus = 'inactive';
 const looks = [{ id: id('Look A', 'LK-1') }];
 
 const log = [];
+// PNG 4x4 roxo sólido, só para o teste conseguir mostrar uma imagem de verdade por trás da letra
+// (metade dos casos reais o ProPresenter recusa a thumbnail com 500 — simulado abaixo como 404).
+const FAKE_THUMB_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAEUlEQVR42mNkYPhfz0AEYBxVAABgYQPnQgp8ZQAAAABJRU5ErkJggg==', 'base64');
 
 http.createServer((req, res) => {
   const p = req.url.split('?')[0];
@@ -124,6 +128,12 @@ http.createServer((req, res) => {
       if (!(uuid in slides)) return none(404);
       return json(slides[uuid]);
     }
+    // Thumbnail: só "Oceanos" devolve imagem de verdade (testa a camada de fundo real);
+    // as outras 404 igual o ProPresenter real faz na maioria dos casos (testa o ícone de fallback).
+    if ((m = p.match(/^\/v1\/presentation\/([^/]+)\/thumbnail\/(\d+)$/))) {
+      if (decodeURIComponent(m[1]) === 'P-Oceanos') { res.writeHead(200, { 'Content-Type': 'image/png' }); return res.end(FAKE_THUMB_PNG); }
+      return none(404);
+    }
 
     // Mídia
     if (p === '/v1/media/playlists') return json(Object.entries(mediaPlaylists).map(([uuid, pl]) => ({ id: { uuid, name: pl.name, index: 0 }, type: 'playlist' })));
@@ -132,8 +142,21 @@ http.createServer((req, res) => {
       if (!(key in mediaPlaylists)) return none(404);
       return json({ id: { uuid: key, name: mediaPlaylists[key].name, index: 0 }, items: mediaPlaylists[key].items });
     }
-    if ((m = p.match(/^\/v1\/media\/playlist\/([^/]+)\/([^/]+)\/trigger$/))) return none(204);
-    if (p === '/v1/media/playlist/active') return json(null);
+    if ((m = p.match(/^\/v1\/media\/playlist\/([^/]+)\/([^/]+)\/trigger$/))) {
+      const key = decodeURIComponent(m[1]); const mediaUuid = decodeURIComponent(m[2]);
+      const pl = mediaPlaylists[key];
+      const item = pl && pl.items.find(it => it.id.uuid === mediaUuid);
+      if (item) liveMedia = { playlistUuid: key, uuid: item.id.uuid, name: item.id.name };
+      return none(204);
+    }
+    if (p === '/v1/media/playlist/active') {
+      if (!liveMedia) return json(null);
+      return json({ playlist: { uuid: liveMedia.playlistUuid }, item: { uuid: liveMedia.uuid, name: liveMedia.name, index: 0 } });
+    }
+    if ((m = p.match(/^\/v1\/media\/([^/]+)\/thumbnail$/))) {
+      if (decodeURIComponent(m[1]) === 'M-1') { res.writeHead(200, { 'Content-Type': 'image/png' }); return res.end(FAKE_THUMB_PNG); }
+      return none(404);
+    }
 
     // Áudio
     if (p === '/v1/audio/playlists') return json(Object.entries(audioPlaylists).map(([uuid, pl]) => ({ id: { uuid, name: pl.name, index: 0 }, type: 'playlist' })));
@@ -142,7 +165,14 @@ http.createServer((req, res) => {
       if (!(key in audioPlaylists)) return none(404);
       return json({ id: { uuid: key, name: audioPlaylists[key].name, index: 0 }, items: audioPlaylists[key].items });
     }
-    if ((m = p.match(/^\/v1\/audio\/playlist\/([^/]+)\/([^/]+)\/trigger$/))) { audioTransport.is_playing = true; return none(204); }
+    if ((m = p.match(/^\/v1\/audio\/playlist\/([^/]+)\/([^/]+)\/trigger$/))) {
+      const key = decodeURIComponent(m[1]); const trackUuid = decodeURIComponent(m[2]);
+      const pl = audioPlaylists[key];
+      const track = pl && pl.items.find(it => it.id.uuid === trackUuid);
+      if (track) { audioTransport.uuid = track.id.uuid; audioTransport.name = track.id.name; audioTransport.duration = track.duration || 0; }
+      audioTransport.is_playing = true;
+      return none(204);
+    }
     if (p === '/v1/transport/audio/current') return json(audioTransport);
     if (p === '/v1/transport/audio/play') { audioTransport.is_playing = true; return none(204); }
     if (p === '/v1/transport/audio/pause') { audioTransport.is_playing = false; return none(204); }

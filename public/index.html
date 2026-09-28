@@ -2,6 +2,20 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <script>
+    // Reconhece computador (sem toque) e manda direto pra pele desktop, sem precisar digitar
+    // "/desktop" na URL. iPad/tablet continuam aqui: eles têm toque mesmo quando o navegador
+    // se identifica como "Macintosh" (iPadOS faz isso desde o iOS 13). "?mobile=1" força esta
+    // tela mesmo num computador, se precisar testar.
+    (function () {
+      try {
+        if (location.search.indexOf('mobile=1') !== -1) return;
+        var temToque = (navigator.maxTouchPoints > 0) || ('ontouchstart' in window);
+        var uaMobile = /Android|iPhone|iPod|Mobi/i.test(navigator.userAgent);
+        if (!temToque && !uaMobile) location.replace('/desktop/');
+      } catch (e) { /* falhou a checagem: fica nesta tela mesmo */ }
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="img/favicon.png">

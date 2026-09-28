@@ -1,0 +1,40 @@
+{
+  "name": "ProPresenter 7 Remote — Desktop",
+  "short_name": "Pro Remote",
+  "description": "Painel de controle do ProPresenter 7, com o visual do painel oficial",
+  "id": "/desktop/",
+  "start_url": "/desktop/",
+  "scope": "/desktop/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1c1c1f",
+  "theme_color": "#f1f1f3",
+  "categories": ["utilities", "productivity"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

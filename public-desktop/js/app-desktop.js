@@ -9,9 +9,12 @@ const state = {
   liveSlideIndex: null,
   livePresentationUuid: null,
   currentPresentationUuid: null,
+  currentPresentationSlides: [],
+  liveSlideName: '',
   isConnected: false,
 };
 let lastUserActionTime = 0;
+let slidesLoadSeq = 0;
 
 // ==========================================================================
 // Troca de abas + toggles do Stage (Fase 1, mantido)
@@ -74,6 +77,136 @@ function escapeHtml(str) {
 }
 
 // ==========================================================================
+// Preview ao vivo (PGM), em camadas: imagem de fundo (mídia OU o próprio slide)
+// + letra por cima, igual pedido pelo dono olhando o painel oficial — "se eu
+// passar a letra, a imagem junto, quero que apareçam os dois, que são camadas".
+// ==========================================================================
+function setLivePreview({ imgUrl, fallbackIcon, lyricsText, title, subtitle, live }) {
+  const img = document.getElementById('pp-live-bg-img');
+  const fallback = document.getElementById('pp-live-fallback-icon');
+  const overlay = document.getElementById('pp-live-lyrics-overlay');
+  const box = document.getElementById('pp-live-preview');
+  const titleEl = document.getElementById('pp-live-title');
+  const subtitleEl = document.getElementById('pp-live-subtitle');
+
+  if (imgUrl) {
+    img.classList.remove('hidden');
+    fallback.classList.add('hidden');
+    if (img.dataset.loadedUrl !== imgUrl) {
+      img.dataset.loadedUrl = imgUrl;
+      img.src = imgUrl;
+      img.onerror = () => { img.classList.add('hidden'); fallback.classList.remove('hidden'); fallback.textContent = fallbackIcon || '🖼️'; };
+    }
+    box.classList.add('has-media');
+  } else {
+    img.classList.add('hidden');
+    img.dataset.loadedUrl = '';
+    fallback.classList.add('hidden');
+    box.classList.remove('has-media');
+  }
+
+  if (lyricsText) {
+    overlay.classList.remove('hidden');
+    overlay.innerHTML = `<div class="pp-live-lyrics-text">${escapeHtml(lyricsText)}</div>`;
+  } else {
+    overlay.classList.add('hidden');
+    overlay.innerHTML = '';
+  }
+
+  if (titleEl && title !== undefined) titleEl.textContent = title;
+  if (subtitleEl && subtitle !== undefined) subtitleEl.textContent = subtitle;
+}
+
+function clearLivePreview() {
+  setLivePreview({ imgUrl: null, lyricsText: null, title: I18N.t('nada_no_ar', idiomaAtual) || 'Nada no ar', subtitle: '—', live: false });
+}
+
+// Carrega os slides/letras de uma apresentação num grid clicável (igual ao mobile),
+// para poder ver e escolher o slide certo ANTES de mandar ao vivo.
+async function loadPresentationSlides(presUuid, presName, itemIndex, shouldTriggerFirst = false) {
+  const grid = document.getElementById('pp-slide-grid');
+  if (!grid || !presUuid) return;
+  grid.innerHTML = `<div class="pp-slide-grid-empty">${I18N.t('carregando', idiomaAtual) || 'Carregando...'}</div>`;
+
+  const loadSeq = ++slidesLoadSeq;
+  const presRaw = await apiRequest(`/v1/presentation/${encodeURIComponent(presUuid)}`);
+  if (loadSeq !== slidesLoadSeq) return;
+  const presData = presRaw && (presRaw.presentation ? presRaw : (presRaw.groups ? { presentation: presRaw } : null));
+  if (!presData) {
+    grid.innerHTML = '<div class="pp-slide-grid-empty">Não foi possível carregar os slides desta apresentação.</div>';
+    return;
+  }
+
+  const pres = presData.presentation;
+  state.currentPresentationUuid = presUuid;
+  const groups = pres.groups || [];
+  const allSlides = [];
+  let globalCueIndex = 0;
+  groups.forEach(g => {
+    (g.slides || []).forEach(s => {
+      allSlides.push({ text: s.text || '', cueIndex: globalCueIndex, presUuid });
+      globalCueIndex++;
+    });
+  });
+  state.currentPresentationSlides = allSlides;
+
+  if (allSlides.length === 0) {
+    grid.innerHTML = '<div class="pp-slide-grid-empty">Esta apresentação não contém slides.</div>';
+    return;
+  }
+
+  grid.innerHTML = '';
+  allSlides.forEach(slide => {
+    const card = document.createElement('div');
+    card.className = 'pp-slide-card';
+    card.dataset.cue = slide.cueIndex;
+    const hasLyrics = slide.text && slide.text.trim().length > 0;
+    const thumbUrl = `/api/v1/presentation/${encodeURIComponent(presUuid)}/thumbnail/${slide.cueIndex}`;
+    const contentHtml = hasLyrics
+      ? `<div class="pp-slide-lyrics-display"><div class="pp-slide-lyrics-text">${escapeHtml(slide.text)}</div></div>`
+      : `<img class="pp-slide-thumb-img" src="${thumbUrl}" alt="Slide ${slide.cueIndex + 1}" onerror="this.style.display='none'">`;
+    card.innerHTML = `<div class="pp-slide-card-index">${slide.cueIndex + 1}</div><div class="pp-slide-preview-wrapper">${contentHtml}</div>`;
+    card.addEventListener('click', () => triggerSlideCue(presUuid, slide.cueIndex, presName, slide.text, allSlides.length));
+    grid.appendChild(card);
+  });
+
+  highlightActiveSlideCard(state.livePresentationUuid === presUuid ? state.liveSlideIndex : -1);
+
+  if (shouldTriggerFirst) triggerSlideCue(presUuid, 0, presName, allSlides[0]?.text || '', allSlides.length);
+}
+
+function highlightActiveSlideCard(cueIndex) {
+  document.querySelectorAll('#pp-slide-grid .pp-slide-card').forEach(card => {
+    card.classList.toggle('live', Number(card.dataset.cue) === cueIndex);
+  });
+}
+
+async function triggerSlideCue(presUuid, cueIndex, presName, slideText = '', totalSlides = 1) {
+  lastUserActionTime = Date.now();
+  state.currentSlideIndex = cueIndex;
+  state.liveSlideIndex = cueIndex;
+  state.livePresentationUuid = presUuid;
+  state.currentPresentationUuid = presUuid;
+  highlightActiveSlideCard(cueIndex);
+  highlightActiveItem();
+
+  const hasLyrics = slideText && slideText.trim().length > 0;
+  const bgUrl = mediaState.liveUuid
+    ? `/api/v1/media/${encodeURIComponent(mediaState.liveUuid)}/thumbnail?t=${Date.now()}`
+    : `/api/v1/presentation/${encodeURIComponent(presUuid)}/thumbnail/${cueIndex}?t=${Date.now()}`;
+  setLivePreview({
+    imgUrl: bgUrl,
+    fallbackIcon: '📑',
+    lyricsText: hasLyrics ? slideText : '',
+    title: presName || '—',
+    subtitle: `Slide ${cueIndex + 1} de ${totalSlides || state.currentPresentationSlides.length || 1}`,
+    live: true,
+  });
+
+  await apiRequest(`/v1/presentation/${encodeURIComponent(presUuid)}/${cueIndex}/trigger`);
+}
+
+// ==========================================================================
 // Playlists de Culto/Apresentação (coluna esquerda)
 // ==========================================================================
 async function loadPlaylists() {
@@ -115,7 +248,7 @@ async function loadPlaylistItems(id) {
   renderItemsList(items, {
     vazio: 'Playlist vazia',
     podeReordenar: true,
-    aoClicar: (item, idx) => triggerPlaylistItem(id, idx, item),
+    aoClicar: (item, idx) => selectPlaylistItem(item),
     aoReordenar: (idx, dir) => reordenarItem(id, idx, dir),
   });
 }
@@ -159,17 +292,15 @@ async function loadLibraryItems(id) {
   renderItemsList(state.playlistItems, {
     vazio: 'Biblioteca vazia',
     podeReordenar: false,
-    aoClicar: (item) => triggerLibraryItem(id, item.id.uuid, item),
+    aoClicar: (item) => selectLibraryItem(item.id.uuid, item),
   });
 }
 
-async function triggerLibraryItem(libraryId, presentationUuid, item) {
-  lastUserActionTime = Date.now();
-  await apiRequest(`/v1/library/${encodeURIComponent(libraryId)}/${encodeURIComponent(presentationUuid)}/trigger`);
-  state.livePresentationUuid = presentationUuid;
-  state.currentPresentationUuid = presentationUuid;
-  document.getElementById('pp-live-title').textContent = item?.id?.name || item?.name || '—';
-  highlightActiveItem();
+// Clicar só CARREGA o grid de slides/letras (como no mobile e no painel oficial);
+// disparar ao vivo é um clique à parte, no slide específico do grid.
+function selectLibraryItem(presentationUuid, item) {
+  const nome = item?.id?.name || item?.name || 'Apresentação';
+  loadPresentationSlides(presentationUuid, nome, 0, false);
 }
 
 // Renderiza a lista de itens (playlist OU biblioteca) num único lugar, para as duas
@@ -188,19 +319,37 @@ function renderItemsList(items, { vazio, podeReordenar, aoClicar, aoReordenar })
     row.className = 'pp-item-row';
     row.dataset.index = idx;
     const nome = item.id?.name || item.name || `Item ${idx + 1}`;
+    const podeArrastar = podeReordenar && isPresentation;
+    // As setas ▲▼ saíram: o arrastar-e-soltar (⠿) já cobre reordenar, é mais prático.
     row.innerHTML = `
+      ${podeArrastar ? '<span class="pp-drag-handle" title="Arraste pra reordenar">⠿</span>' : ''}
       <span class="pp-item-idx">${idx + 1}</span>
       <span class="pp-item-name" title="${escapeHtml(nome)}">${escapeHtml(nome)}</span>
-      <span class="pp-item-tag">${escapeHtml(item.type || '')}</span>
-      ${podeReordenar && isPresentation ? `<span class="pp-reorder"><button title="${I18N.t('mover_cima', idiomaAtual)}" data-dir="up">▲</button><button title="${I18N.t('mover_baixo', idiomaAtual)}" data-dir="down">▼</button></span>` : ''}
     `;
     row.addEventListener('click', (e) => {
-      if (e.target.closest('.pp-reorder')) return;
+      if (e.target.closest('.pp-drag-handle')) return;
       aoClicar(item, idx);
     });
-    if (podeReordenar && isPresentation) {
-      row.querySelectorAll('.pp-reorder button').forEach(btn => {
-        btn.addEventListener('click', (e) => { e.stopPropagation(); aoReordenar(idx, btn.dataset.dir); });
+    if (podeArrastar) {
+      // Arrastar-e-soltar pra reordenar (mais prático que setas, a pedido do dono).
+      row.draggable = true;
+      row.addEventListener('dragstart', (e) => {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(idx));
+        row.classList.add('dragging');
+      });
+      row.addEventListener('dragend', () => row.classList.remove('dragging'));
+      row.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        row.classList.add('drag-over');
+      });
+      row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
+      row.addEventListener('drop', (e) => {
+        e.preventDefault();
+        row.classList.remove('drag-over');
+        const origem = Number(e.dataTransfer.getData('text/plain'));
+        if (!Number.isNaN(origem) && origem !== idx) aoReordenar(origem, idx);
       });
     }
     list.appendChild(row);
@@ -218,18 +367,22 @@ function highlightActiveItem() {
   });
 }
 
-async function triggerPlaylistItem(playlistId, idx, item) {
-  lastUserActionTime = Date.now();
-  await apiRequest(`/v1/playlist/${encodeURIComponent(playlistId)}/${idx}/trigger`);
-  const uuid = item?.presentation_info?.presentation_uuid || item?.id?.uuid;
-  if (uuid) { state.livePresentationUuid = uuid; state.currentPresentationUuid = uuid; }
-  document.getElementById('pp-live-title').textContent = item?.id?.name || item?.name || '—';
-  highlightActiveItem();
+// Clicar num item da playlist só CARREGA o grid de slides/letras (não vai ao ar sozinho) —
+// igual ao mobile e ao painel oficial: browse é seguro, ir ao vivo é um clique à parte no slide.
+function selectPlaylistItem(item) {
+  const uuid = item?.presentation_info?.presentation_uuid || item?.target_uuid || item?.id?.uuid;
+  const nome = item?.id?.name || item?.name || 'Apresentação';
+  if (!uuid) return;
+  loadPresentationSlides(uuid, nome, 0, false);
 }
 
-async function reordenarItem(playlistId, itemIndex, direction) {
+// direcaoOuIndice: 'up'/'down' (botões ▲▼) OU um número (posição solta ao arrastar).
+async function reordenarItem(playlistId, itemIndex, direcaoOuIndice) {
   lastUserActionTime = Date.now();
-  const res = await apiRequest('/reorder-playlist-item', 'POST', { playlistId, itemIndex, direction });
+  const payload = typeof direcaoOuIndice === 'number'
+    ? { playlistId, itemIndex, toIndex: direcaoOuIndice }
+    : { playlistId, itemIndex, direction: direcaoOuIndice };
+  const res = await apiRequest('/reorder-playlist-item', 'POST', payload);
   if (res && res.success) {
     await loadPlaylistItems(playlistId);
   } else {
@@ -239,18 +392,70 @@ async function reordenarItem(playlistId, itemIndex, direction) {
 
 document.getElementById('pp-btn-prev')?.addEventListener('click', async () => { lastUserActionTime = Date.now(); await apiRequest('/v1/trigger/previous'); });
 document.getElementById('pp-btn-next')?.addEventListener('click', async () => { lastUserActionTime = Date.now(); await apiRequest('/v1/trigger/next'); });
-document.getElementById('pp-btn-show')?.addEventListener('click', async () => { lastUserActionTime = Date.now(); await apiRequest('/v1/trigger/next'); });
-document.getElementById('pp-btn-clear-preview')?.addEventListener('click', async () => {
-  lastUserActionTime = Date.now();
-  await apiRequest('/v1/clear/layer/slide');
-  document.getElementById('pp-live-title').textContent = 'Nada no ar';
-  document.getElementById('pp-live-subtitle').textContent = '—';
-});
-document.getElementById('pp-btn-clear-all')?.addEventListener('click', async () => {
-  for (const camada of ['slide', 'media', 'audio', 'messages', 'props', 'announcements', 'video_input']) {
-    await apiRequest(`/v1/clear/layer/${camada}`);
+
+// Setas do teclado avançam/voltam o slide ou a mídia (igual pedido: "seta pra frente/trás e
+// pra cima/baixo funcione na letra e na mídia") — protegido contra digitação em campos de texto.
+window.addEventListener('keydown', (e) => {
+  const alvo = document.activeElement;
+  if (alvo && (alvo.tagName === 'INPUT' || alvo.tagName === 'TEXTAREA' || alvo.isContentEditable)) return;
+  if (!document.getElementById('pp-search-overlay')?.classList.contains('hidden')) return;
+  if (!document.getElementById('pp-picker-overlay')?.classList.contains('hidden')) return;
+  if (!document.getElementById('pp-config-overlay')?.classList.contains('hidden')) return;
+
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
+    e.preventDefault();
+    lastUserActionTime = Date.now();
+    apiRequest('/v1/trigger/next');
+  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') {
+    e.preventDefault();
+    lastUserActionTime = Date.now();
+    apiRequest('/v1/trigger/previous');
   }
 });
+document.getElementById('pp-btn-show')?.addEventListener('click', async () => { lastUserActionTime = Date.now(); await apiRequest('/v1/trigger/next'); });
+// Faixa de limpar por camada (dentro do PGM) + o botão "Limpar" do topo (tudo de uma vez).
+// Cada ícone só limpa a SUA camada na API; o estado local só é tocado nas camadas que
+// realmente afetam o composto ao vivo (slide/mídia/áudio) — as outras (mensagem/props/
+// anúncio) não têm representação visual própria no PGM ainda, só o clear na API mesmo.
+async function limparCamada(layer) {
+  lastUserActionTime = Date.now();
+  if (layer === 'all') {
+    for (const camada of ['slide', 'media', 'audio', 'messages', 'props', 'announcements', 'video_input']) {
+      await apiRequest(`/v1/clear/layer/${camada}`);
+    }
+    state.liveSlideIndex = null;
+    state.livePresentationUuid = null;
+    mediaState.liveUuid = null;
+    mediaState.liveSince = null;
+    audioState.playing = false;
+    audioState.currentTrackUuid = null;
+    highlightActiveSlideCard(-1);
+    highlightLiveMedia();
+    atualizarDestaqueAudio();
+    clearLivePreview();
+    return;
+  }
+  await apiRequest(`/v1/clear/layer/${layer}`);
+  if (layer === 'slide') {
+    state.liveSlideIndex = null;
+    state.livePresentationUuid = null;
+    highlightActiveSlideCard(-1);
+  } else if (layer === 'media') {
+    mediaState.liveUuid = null;
+    mediaState.liveSince = null;
+    highlightLiveMedia();
+  } else if (layer === 'audio') {
+    audioState.playing = false;
+    audioState.currentTrackUuid = null;
+    atualizarDestaqueAudio();
+  }
+  refreshLiveComposite();
+}
+document.getElementById('pp-clear-strip')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('.pp-clear-btn');
+  if (btn) limparCamada(btn.dataset.layer);
+});
+document.getElementById('pp-btn-clear-all')?.addEventListener('click', () => limparCamada('all'));
 
 // ==========================================================================
 // Sincronismo ao vivo (mesma proteção contra o "pulo" da pele mobile):
@@ -259,6 +464,36 @@ document.getElementById('pp-btn-clear-all')?.addEventListener('click', async () 
 let pollInFlight = false;
 const POLL_QUIET_AFTER_CLICK_MS = 2500;
 
+// Monta o preview ao vivo com as DUAS camadas que o ProPresenter pode ter simultâneas:
+// o fundo (mídia em loop OU o próprio slide, se não houver mídia à parte) + a letra
+// por cima quando o slide tiver texto — pedido do dono olhando o painel oficial.
+function refreshLiveComposite() {
+  const presUuid = state.livePresentationUuid;
+  const idx = state.liveSlideIndex;
+  const curSlide = (presUuid && state.currentPresentationUuid === presUuid) ? state.currentPresentationSlides[idx] : null;
+  const hasLyrics = Boolean(curSlide && curSlide.text && curSlide.text.trim().length > 0);
+  const somethingLive = Boolean(mediaState.liveUuid || presUuid);
+
+  let imgUrl = null;
+  let fallbackIcon = '📑';
+  let title = I18N.t('nada_no_ar', idiomaAtual) || 'Nada no ar';
+  let subtitle = '—';
+
+  if (presUuid) {
+    title = state.liveSlideName || title;
+    subtitle = `Slide ${(idx ?? 0) + 1}` + (state.currentPresentationSlides.length ? ` de ${state.currentPresentationSlides.length}` : '');
+  }
+  if (mediaState.liveUuid) {
+    imgUrl = `/api/v1/media/${encodeURIComponent(mediaState.liveUuid)}/thumbnail?t=${Date.now()}`;
+    fallbackIcon = '🎬';
+    if (!presUuid) { title = mediaState.liveName || title; subtitle = mediaState.activeName || '—'; }
+  } else if (presUuid) {
+    imgUrl = `/api/v1/presentation/${encodeURIComponent(presUuid)}/thumbnail/${idx}?t=${Date.now()}`;
+  }
+
+  setLivePreview({ imgUrl, fallbackIcon, lyricsText: hasLyrics ? curSlide.text : '', title, subtitle, live: somethingLive });
+}
+
 async function pollLiveStatus() {
   if (pollInFlight) return;
   if (Date.now() - lastUserActionTime < POLL_QUIET_AFTER_CLICK_MS) return;
@@ -266,6 +501,8 @@ async function pollLiveStatus() {
   const startedAt = Date.now();
   try {
     const isStale = () => lastUserActionTime > startedAt;
+    let mudou = false;
+
     const slideIndexData = await apiRequest('/v1/presentation/slide_index');
     if (!isStale() && slideIndexData && slideIndexData.presentation_index) {
       const pIndex = slideIndexData.presentation_index;
@@ -274,23 +511,32 @@ async function pollLiveStatus() {
       if (pIndex.index !== state.liveSlideIndex || presUuid !== state.livePresentationUuid) {
         state.liveSlideIndex = pIndex.index;
         state.livePresentationUuid = presUuid;
-        state.currentPresentationUuid = presUuid;
-        document.getElementById('pp-live-title').textContent = presName || 'Nada no ar';
-        document.getElementById('pp-live-subtitle').textContent = presName ? `Slide ${pIndex.index + 1}` : '—';
+        state.liveSlideName = presName;
+        mudou = true;
         highlightActiveItem();
-      }
-    }
-    if (!isStale() && mediaState.activeId) {
-      const activeMedia = await apiRequest('/v1/media/playlist/active');
-      if (!isStale() && activeMedia && activeMedia.item && activeMedia.playlist?.uuid === mediaState.activeId) {
-        if (activeMedia.item.uuid !== mediaState.liveUuid) {
-          mediaState.liveUuid = activeMedia.item.uuid;
-          document.getElementById('pp-live-title').textContent = activeMedia.item.name || '—';
-          document.getElementById('pp-live-subtitle').textContent = mediaState.activeName;
-          highlightLiveMedia();
+        // Outra apresentação ficou ao vivo (disparada de outro aparelho ou do próprio
+        // ProPresenter): recarrega o grid de slides/letras pra bater com o que está no ar.
+        if (presUuid && presUuid !== state.currentPresentationUuid) {
+          await loadPresentationSlides(presUuid, presName, pIndex.index, false);
+        } else {
+          highlightActiveSlideCard(pIndex.index);
         }
       }
     }
+
+    const activeMedia = await apiRequest('/v1/media/playlist/active');
+    if (!isStale()) {
+      const mUuid = activeMedia?.item?.uuid || null;
+      if (mUuid !== mediaState.liveUuid) {
+        mediaState.liveUuid = mUuid;
+        mediaState.liveName = activeMedia?.item?.name || '';
+        mediaState.liveSince = mUuid ? Date.now() : null;
+        mudou = true;
+        highlightLiveMedia();
+      }
+    }
+
+    if (!isStale() && mudou) refreshLiveComposite();
   } finally {
     pollInFlight = false;
   }
@@ -537,13 +783,36 @@ document.getElementById('pp-stage-msg-clear')?.addEventListener('click', async (
   arrastavelHorizontal(document.querySelector('.pp-resizer[data-resize="library-tree"]'), libraryTree, 'libraryTreeH', false);
   arrastavelHorizontal(document.querySelector('.pp-resizer[data-resize="media-grid"]'), mediaGrid, 'mediaGridH', true);
   arrastavelHorizontal(document.querySelector('.pp-resizer[data-resize="preview-block"]'), previewBlock, 'previewBlockH', false);
+
+  // O monitor (PGM) é sempre 16:9, como o painel oficial: qualquer divisória que mude o
+  // espaço dele (largura da coluna OU altura do bloco) recalcula o tamanho exato em px pra
+  // caber sem esticar a imagem nem cortar a faixa de limpar — o CSS aspect-ratio sozinho não
+  // dá conta de respeitar os dois limites (largura E altura) ao mesmo tempo.
+  const videoWrap = document.querySelector('.pp-preview-video-wrap');
+  const videoBox = document.getElementById('pp-live-preview');
+  function ajustarMonitor16x9() {
+    if (!videoWrap || !videoBox) return;
+    const cs = getComputedStyle(videoWrap);
+    const vu = document.getElementById('pp-vu-meter');
+    const vuFolga = vu ? vu.getBoundingClientRect().width + parseFloat(cs.gap || 0) : 0;
+    const availW = videoWrap.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - vuFolga;
+    const availH = videoWrap.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    if (availW <= 0 || availH <= 0) return;
+    let w, h;
+    if (availW / availH > 16 / 9) { h = availH; w = h * 16 / 9; }
+    else { w = availW; h = w * 9 / 16; }
+    videoBox.style.width = w + 'px';
+    videoBox.style.height = h + 'px';
+    if (vu) vu.style.height = h + 'px'; // simétrico com o monitor, nunca mais alto que ele
+  }
+  if (videoWrap) new ResizeObserver(ajustarMonitor16x9).observe(videoWrap);
 })();
 
 // ==========================================================================
 // Mídia / ProContent (árvore esquerda + grade central). A API só permite
 // LEITURA e DISPARO de playlists de mídia — nunca reordenar (ver /v1/media/playlist).
 // ==========================================================================
-const mediaState = { activeId: null, activeName: '', items: [], liveUuid: null };
+const mediaState = { activeId: null, activeName: '', items: [], liveUuid: null, liveName: '', liveSince: null };
 
 async function loadMediaPlaylists() {
   const raw = await apiRequest('/v1/media/playlists');
@@ -587,8 +856,8 @@ async function loadMediaItems(id) {
     card.className = 'pp-media-card';
     card.dataset.uuid = uuid || '';
     card.innerHTML = isVideoOuImagem && uuid
-      ? `<div class="pp-media-thumb" style="padding:0"><img src="/api/v1/media/${uuid}/thumbnail" style="width:100%;height:100%;object-fit:cover;border-radius:6px" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" alt="${escapeHtml(nome)}"><div class="pp-media-fallback-icon" style="display:none">${item.type === 'video' ? '🎬' : '🖼️'}</div></div><div class="pp-media-caption"><span>${idx + 1}</span><span>${escapeHtml(nome)}</span></div>`
-      : `<div class="pp-media-thumb">${escapeHtml(nome)}</div><div class="pp-media-caption"><span>${idx + 1}</span><span>${escapeHtml(nome)}</span></div>`;
+      ? `<div class="pp-media-thumb" style="padding:0"><img src="/api/v1/media/${uuid}/thumbnail" style="width:100%;height:100%;object-fit:cover;border-radius:6px" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" alt="${escapeHtml(nome)}"><div class="pp-media-fallback-icon" style="display:none">${item.type === 'video' ? '🎬' : '🖼️'}</div><span class="pp-media-elapsed"></span></div><div class="pp-media-caption"><span>${idx + 1}</span><span>${escapeHtml(nome)}</span></div>`
+      : `<div class="pp-media-thumb">${escapeHtml(nome)}<span class="pp-media-elapsed"></span></div><div class="pp-media-caption"><span>${idx + 1}</span><span>${escapeHtml(nome)}</span></div>`;
     card.addEventListener('click', () => triggerMediaItem(id, item, idx));
     grid.appendChild(card);
   });
@@ -600,69 +869,119 @@ async function triggerMediaItem(playlistId, item, idx) {
   const mediaId = item.id?.uuid ?? idx;
   await apiRequest(`/v1/media/playlist/${encodeURIComponent(playlistId)}/${encodeURIComponent(mediaId)}/trigger`);
   mediaState.liveUuid = item.id?.uuid || null;
-  document.getElementById('pp-live-title').textContent = item.id?.name || item.name || '—';
-  document.getElementById('pp-live-subtitle').textContent = mediaState.activeName;
+  mediaState.liveName = item.id?.name || item.name || '';
+  mediaState.liveSince = Date.now();
   highlightLiveMedia();
+  refreshLiveComposite();
 }
 
 function highlightLiveMedia() {
   document.querySelectorAll('#pp-media-grid .pp-media-card').forEach(card => {
     card.classList.toggle('live', Boolean(mediaState.liveUuid) && card.dataset.uuid === mediaState.liveUuid);
   });
+  atualizarContadorMedia();
 }
 
-// ==========================================================================
-// Busca de músicas/apresentações + Adicionar à Playlist (mesma função da pele
-// mobile: /api/search-songs, /api/list-culto-playlists, /api/add-song-to-playlist)
+// Contador de tempo decorrido na mídia ao vivo (aproximado: a API não devolve a posição
+// de reprodução, então conta a partir do momento em que detectamos o disparo).
+function atualizarContadorMedia() {
+  document.querySelectorAll('#pp-media-grid .pp-media-card .pp-media-elapsed').forEach(el => { el.textContent = ''; });
+  if (!mediaState.liveUuid || !mediaState.liveSince) return;
+  const card = document.querySelector(`#pp-media-grid .pp-media-card[data-uuid="${CSS.escape(mediaState.liveUuid)}"] .pp-media-elapsed`);
+  if (!card) return;
+  const segundos = Math.max(0, Math.floor((Date.now() - mediaState.liveSince) / 1000));
+  const m = Math.floor(segundos / 60), s = segundos % 60;
+  card.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+// VU meter aproximado, ao lado do monitor: pulsa quando o MP3 ou a mídia/vídeo ao vivo têm
+// áudio tocando. A API do ProPresenter não devolve o volume real (nenhum decibel), só se
+// está tocando ou não — então isto é uma animação "está tocando", igual em espírito às 3
+// barrinhas que já existem no mobile, não uma leitura fiel do áudio.
+function atualizarVuMeter() {
+  const fill = document.getElementById('pp-vu-fill');
+  if (!fill) return;
+  const tocando = audioState.playing || Boolean(mediaState.liveUuid);
+  const pct = tocando ? (22 + Math.random() * 45) : 92;
+  fill.style.height = pct + '%';
+}
+// quando dá — igual ao painel oficial. Mesma API da pele mobile: /api/search-songs,
+// /api/list-culto-playlists, /api/add-song-to-playlist.
 // ==========================================================================
 let searchDebounce = null;
-const searchInput = document.getElementById('pp-search-input');
-searchInput?.addEventListener('input', () => {
+let searchSelecionado = null; // { uuid, name, libraryName, libraryUuid }
+const searchModalInput = document.getElementById('pp-search-modal-input');
+
+document.getElementById('pp-btn-search-open')?.addEventListener('click', () => {
+  document.getElementById('pp-search-overlay').classList.remove('hidden');
+  searchModalInput.value = '';
+  searchModalInput.focus();
+  document.getElementById('pp-search-modal-list').innerHTML = '<div class="pp-search-empty">Digite pra buscar…</div>';
+  document.getElementById('pp-search-modal-preview').innerHTML = '<div class="pp-search-empty">Selecione um resultado pra ver a letra</div>';
+  searchSelecionado = null;
+  atualizarBotoesBusca();
+});
+document.getElementById('pp-search-modal-close')?.addEventListener('click', fecharModalBusca);
+function fecharModalBusca() { document.getElementById('pp-search-overlay').classList.add('hidden'); }
+
+searchModalInput?.addEventListener('input', () => {
   clearTimeout(searchDebounce);
-  const q = searchInput.value.trim();
-  fecharResultadosBusca();
-  if (!q) return;
+  const q = searchModalInput.value.trim();
+  searchSelecionado = null;
+  atualizarBotoesBusca();
+  document.getElementById('pp-search-modal-preview').innerHTML = '<div class="pp-search-empty">Selecione um resultado pra ver a letra</div>';
+  if (!q) { document.getElementById('pp-search-modal-list').innerHTML = '<div class="pp-search-empty">Digite pra buscar…</div>'; return; }
   searchDebounce = setTimeout(() => executarBusca(q), 250);
 });
-searchInput?.addEventListener('keydown', (e) => { if (e.key === 'Escape') fecharResultadosBusca(); });
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('.pp-search-box')) fecharResultadosBusca();
-});
-
-function fecharResultadosBusca() {
-  document.getElementById('pp-search-results')?.remove();
-}
 
 async function executarBusca(q) {
+  const list = document.getElementById('pp-search-modal-list');
   const res = await fetch(`/api/search-songs?q=${encodeURIComponent(q)}`);
   const data = await res.json().catch(() => null);
   const results = (data && data.results) || [];
-  fecharResultadosBusca();
-  const box = document.createElement('div');
-  box.className = 'pp-search-results';
-  box.id = 'pp-search-results';
-  if (results.length === 0) {
-    box.innerHTML = '<div class="pp-search-empty">Nenhuma música encontrada</div>';
-  } else {
-    results.forEach(item => {
-      const row = document.createElement('div');
-      row.className = 'pp-search-result-row';
-      row.innerHTML = `
-        <div class="pp-search-result-info">
-          <div class="pp-search-result-name">${escapeHtml(item.name)}</div>
-          <div class="pp-search-result-lib">${escapeHtml(item.libraryName || '')}</div>
-        </div>
-        <button class="pp-search-add-btn" data-i18n="add_playlist">+ ${I18N.t('add_playlist', idiomaAtual)}</button>
-      `;
-      row.querySelector('.pp-search-add-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        abrirEscolhaPlaylist(item);
-      });
-      box.appendChild(row);
-    });
-  }
-  searchInput.closest('.pp-search-box').appendChild(box);
+  if (results.length === 0) { list.innerHTML = '<div class="pp-search-empty">Nenhuma música encontrada</div>'; return; }
+  list.innerHTML = '';
+  results.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'pp-search-modal-result';
+    row.innerHTML = `<span>${escapeHtml(item.name)}</span><span class="lib">${escapeHtml(item.libraryName || '')}</span>`;
+    row.addEventListener('click', () => selecionarResultadoBusca(item, row));
+    list.appendChild(row);
+  });
 }
+
+function atualizarBotoesBusca() {
+  document.getElementById('pp-search-modal-add').disabled = !searchSelecionado;
+  document.getElementById('pp-search-modal-open').disabled = !searchSelecionado;
+}
+
+async function selecionarResultadoBusca(item, row) {
+  searchSelecionado = item;
+  document.querySelectorAll('.pp-search-modal-result.selected').forEach(el => el.classList.remove('selected'));
+  row.classList.add('selected');
+  atualizarBotoesBusca();
+
+  const preview = document.getElementById('pp-search-modal-preview');
+  preview.innerHTML = '<div class="pp-search-empty">Carregando letra…</div>';
+  // Preview é um extra: se a apresentação não carregar (ex.: item de mídia), some sozinho
+  // e a busca+adicionar continuam funcionando normalmente (igual já era no mobile).
+  const presRaw = await apiRequest(`/v1/presentation/${encodeURIComponent(item.uuid)}`);
+  const presData = presRaw && (presRaw.presentation ? presRaw : (presRaw.groups ? { presentation: presRaw } : null));
+  const linhas = [];
+  (presData?.presentation?.groups || []).forEach(g => (g.slides || []).forEach(s => { if (s.text && s.text.trim()) linhas.push(s.text.trim()); }));
+  if (linhas.length === 0) {
+    preview.innerHTML = `<h4>${escapeHtml(item.name)}</h4><div class="pp-search-empty">Sem letra pra mostrar (mídia ou slide sem texto)</div>`;
+  } else {
+    preview.innerHTML = `<h4>${escapeHtml(item.name)}</h4>` + linhas.map(l => `<div class="pp-slide-line">${escapeHtml(l)}</div>`).join('');
+  }
+}
+
+document.getElementById('pp-search-modal-add')?.addEventListener('click', () => { if (searchSelecionado) abrirEscolhaPlaylist(searchSelecionado); });
+document.getElementById('pp-search-modal-open')?.addEventListener('click', () => {
+  if (!searchSelecionado) return;
+  loadPresentationSlides(searchSelecionado.uuid, searchSelecionado.name, 0, false);
+  fecharModalBusca();
+});
 
 async function abrirEscolhaPlaylist(songItem) {
   const overlay = document.getElementById('pp-picker-overlay');
@@ -705,8 +1024,7 @@ async function confirmarAddPlaylist(songItem, playlist) {
   } else {
     alert('Erro ao adicionar: ' + (data.error || 'Falha na API'));
   }
-  fecharResultadosBusca();
-  searchInput.value = '';
+  fecharModalBusca();
 }
 
 document.getElementById('pp-picker-close')?.addEventListener('click', () => document.getElementById('pp-picker-overlay').classList.add('hidden'));
@@ -781,22 +1099,53 @@ function atualizarDestaqueAudio() {
   });
 }
 
+// Transporte real do áudio (Tocar/Pausar/Anterior/Próxima) — a API do ProPresenter não
+// devolve posição/tempo decorrido, então não dá pra montar a barra de progresso do
+// painel oficial; o que a API permite (nome, tocando/pausado, trocar de faixa) fica igual.
+function atualizarPainelAudio() {
+  const card = document.getElementById('pp-audio-current');
+  const nomeEl = document.getElementById('pp-audio-transport-name');
+  const subEl = document.getElementById('pp-audio-transport-sub');
+  const btnPlay = document.getElementById('pp-audio-btn-playpause');
+  if (!card) return;
+  if (!audioState.currentTrackUuid && !audioState.currentTrackName) { card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+  nomeEl.textContent = audioState.currentTrackName || '—';
+  subEl.textContent = (audioState.activeName || 'Áudio') + (audioState.playing ? '' : ' • Pausado');
+  btnPlay.textContent = audioState.playing ? '⏸' : '▶';
+}
+
 async function checarAudioAtual() {
   const cur = await apiRequest('/v1/transport/audio/current');
-  const card = document.getElementById('pp-audio-current');
-  if (!card) return;
   if (cur && (cur.name || cur.id?.name)) {
-    const nome = cur.name || cur.id?.name;
-    const tocando = cur.is_playing !== false;
-    audioState.playing = tocando;
+    audioState.currentTrackName = cur.name || cur.id?.name;
+    audioState.playing = cur.is_playing !== false;
     if (cur.uuid || cur.id?.uuid) audioState.currentTrackUuid = cur.uuid || cur.id.uuid;
-    card.style.display = '';
-    card.textContent = `${tocando ? '▶' : '⏸'} ${nome}${cur.artist ? ' — ' + cur.artist : ''}`;
-    atualizarDestaqueAudio();
   } else {
-    card.style.display = 'none';
+    audioState.currentTrackName = '';
+    audioState.playing = false;
   }
+  atualizarDestaqueAudio();
+  atualizarPainelAudio();
 }
+
+document.getElementById('pp-audio-btn-playpause')?.addEventListener('click', async () => {
+  lastUserActionTime = Date.now();
+  await apiRequest(`/v1/transport/audio/${audioState.playing ? 'pause' : 'play'}`);
+  audioState.playing = !audioState.playing;
+  atualizarPainelAudio();
+  atualizarDestaqueAudio();
+});
+document.getElementById('pp-audio-btn-prev')?.addEventListener('click', async () => {
+  lastUserActionTime = Date.now();
+  await apiRequest('/v1/trigger/audio/previous');
+  checarAudioAtual();
+});
+document.getElementById('pp-audio-btn-next')?.addEventListener('click', async () => {
+  lastUserActionTime = Date.now();
+  await apiRequest('/v1/trigger/audio/next');
+  checarAudioAtual();
+});
 
 // ==========================================================================
 // TEMPORIZADORES
@@ -986,6 +1335,85 @@ async function loadMacros() {
 }
 
 // ==========================================================================
+// LOOK / APARÊNCIA (mesma função do mobile: troca o "Look" ativo no ProPresenter)
+// ==========================================================================
+const lookState = { looks: [], current: null };
+
+async function loadLooks() {
+  const [looks, current] = await Promise.all([apiRequest('/v1/looks'), apiRequest('/v1/look/current')]);
+  if (!Array.isArray(looks)) return;
+  lookState.looks = looks;
+  lookState.current = (current && current.id) ? current.id : (looks[0]?.id || null);
+  document.getElementById('pp-look-label').textContent = lookState.current?.name || 'Look';
+  renderLookMenu();
+}
+
+function renderLookMenu() {
+  const list = document.getElementById('pp-look-menu-list');
+  if (!list) return;
+  if (lookState.looks.length === 0) { list.innerHTML = '<div class="pp-look-menu-item" style="opacity:.6">Nenhum Look configurado</div>'; return; }
+  list.innerHTML = '';
+  lookState.looks.forEach(look => {
+    const isCurrent = lookState.current && (lookState.current.uuid === look.id.uuid || lookState.current.name === look.id.name);
+    const item = document.createElement('div');
+    item.className = 'pp-look-menu-item' + (isCurrent ? ' active' : '');
+    item.innerHTML = `<span>${escapeHtml(look.id.name)}</span>${isCurrent ? '<span>✓</span>' : ''}`;
+    item.addEventListener('click', () => triggerLook(look));
+    list.appendChild(item);
+  });
+}
+
+async function triggerLook(look) {
+  lastUserActionTime = Date.now();
+  const lookId = look.id.uuid || look.id.name;
+  await apiRequest(`/v1/look/${encodeURIComponent(lookId)}/trigger`);
+  lookState.current = look.id;
+  document.getElementById('pp-look-label').textContent = look.id.name || 'Look';
+  renderLookMenu();
+  document.getElementById('pp-look-menu').classList.add('hidden');
+}
+
+document.getElementById('pp-btn-look')?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('pp-look-menu').classList.toggle('hidden');
+});
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.pp-look-wrap')) document.getElementById('pp-look-menu')?.classList.add('hidden');
+});
+
+// ==========================================================================
+// Instalar como app (PWA) — mesma lógica do mobile: some sozinho se já estiver
+// instalado, e usa o prompt nativo do navegador quando disponível.
+// ==========================================================================
+let deferredInstallPrompt = null;
+(function setupPwaInstallDesktop() {
+  const btn = document.getElementById('pp-btn-install-pwa');
+  if (!btn) return;
+  const jaInstalado = window.matchMedia('(display-mode: standalone)').matches;
+  if (jaInstalado) return; // continua escondido
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    btn.classList.remove('hidden');
+  });
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    btn.classList.add('hidden');
+  });
+  btn.addEventListener('click', async () => {
+    if (!deferredInstallPrompt) {
+      alert('Para instalar, clique no ícone de instalação (⊕) ao lado da barra de endereços do Chrome/Edge.');
+      return;
+    }
+    deferredInstallPrompt.prompt();
+    const { outcome } = await deferredInstallPrompt.userChoice;
+    if (outcome === 'accepted') btn.classList.add('hidden');
+    deferredInstallPrompt = null;
+  });
+})();
+
+// ==========================================================================
 // Configurações (IP/porta do ProPresenter + idioma deste aparelho)
 // ==========================================================================
 document.getElementById('pp-btn-config')?.addEventListener('click', async () => {
@@ -1038,7 +1466,11 @@ let idiomaAtual = 'pt-BR';
   await loadVideoInputs();
   await loadCaptureStatus();
   await loadMacros();
+  await loadLooks();
   setInterval(pollLiveStatus, 1000);
   setInterval(loadTimers, 1000);
   setInterval(loadCaptureStatus, 1000);
+  setInterval(checarAudioAtual, 1000);
+  setInterval(atualizarContadorMedia, 1000);
+  setInterval(atualizarVuMeter, 160);
 })();
