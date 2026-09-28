@@ -16,36 +16,40 @@
        (a antiga barra de menu Arquivo/Editar/Apresentação/... foi removida: era só decorativa,
        sem nenhuma função real, e o dono pediu pra tirar em vez de fingir que faz algo.) -->
   <div class="pp-toolbar">
-    <button class="pp-tool" id="pp-btn-search-open" title="Pesquisar músicas/apresentações e adicionar à playlist">
-      <span class="pp-badge c-gray"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="21" y1="21" x2="15.5" y2="15.5"/></svg></span>
-      <span class="pp-label" data-i18n="pesquisar">Pesquisar</span>
-    </button>
+    <div class="pp-control-group">
+      <button class="pp-action-btn" id="pp-btn-search-open" title="Pesquisar músicas/apresentações e adicionar à playlist">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="21" y1="21" x2="15.5" y2="15.5"/></svg>
+        <span class="pp-action-label" data-i18n="pesquisar">Pesquisar</span>
+      </button>
+    </div>
     <div class="pp-toolbar-spacer"></div>
 
     <!-- "Limpar" (tudo) saiu daqui — já existe dentro do próprio PGM (o X no fim da faixa de
          limpar por camada). "Mostrar" também saiu — clicar no slide/mídia específico ou usar
-         a seta do teclado (▶) já faz a mesma ação de avançar, sem duplicar botão. -->
-    <div class="pp-status-dots">
-      <button class="pp-tool hidden" id="pp-btn-install-pwa" title="Instalar este app no computador">
-        <span class="pp-badge c-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></span>
-        <span class="pp-label">Instalar App</span>
+         a seta do teclado (▶) já faz a mesma ação de avançar, sem duplicar botão.
+         Visual em pílula (grupo escuro arredondado, botões em linha) igual ao menu do
+         mobile/tablet, a pedido do dono — antes cada botão era um ícone empilhado à parte. -->
+    <div class="pp-control-group">
+      <button class="pp-action-btn hidden" id="pp-btn-install-pwa" title="Instalar este app no computador">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        <span class="pp-action-label">Instalar App</span>
       </button>
       <div class="pp-look-wrap">
-        <button class="pp-tool" id="pp-btn-look" title="Look / Aparência do ProPresenter">
-          <span class="pp-badge c-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></span>
-          <span class="pp-label-row"><span class="pp-label" id="pp-look-label">Look</span><span class="pp-caret">▾</span></span>
+        <button class="pp-action-btn pp-action-btn-accent" id="pp-btn-look" title="Look / Aparência do ProPresenter">
+          <span class="pp-action-label" id="pp-look-label">Look</span>
+          <span class="pp-action-chevron">▾</span>
         </button>
         <div class="pp-look-menu hidden" id="pp-look-menu">
           <div class="pp-look-menu-header">Looks / Aparência</div>
           <div class="pp-look-menu-list" id="pp-look-menu-list"></div>
         </div>
       </div>
-      <div class="pp-tool" title="Conexão com o ProPresenter" style="min-width:24px">
+      <div class="pp-action-dot-wrap" title="Conexão com o ProPresenter">
         <span class="pp-dot on-green" id="pp-conn-dot"></span>
       </div>
-      <button class="pp-tool" id="pp-btn-config" title="Configurações (IP/porta do ProPresenter, idioma)">
-        <span class="pp-badge c-gray"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4.8a7.6 7.6 0 0 0-1.7-1l-.4-2.5h-4l-.4 2.5a7.6 7.6 0 0 0-1.7 1l-2.4-.8-2 3.4L6.6 11a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.4-.8a7.6 7.6 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.6 7.6 0 0 0 1.7-1l2.4.8 2-3.4z"/></svg></span>
-        <span class="pp-label" data-i18n="configuracoes">Config.</span>
+      <button class="pp-action-btn" id="pp-btn-config" title="Configurações (IP/porta do ProPresenter, idioma)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4.8a7.6 7.6 0 0 0-1.7-1l-.4-2.5h-4l-.4 2.5a7.6 7.6 0 0 0-1.7 1l-2.4-.8-2 3.4L6.6 11a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.4-.8a7.6 7.6 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.6 7.6 0 0 0 1.7-1l2.4.8 2-3.4z"/></svg>
+        <span class="pp-action-label" data-i18n="configuracoes">Config.</span>
       </button>
     </div>
   </div>
@@ -74,7 +78,9 @@
       </div>
       <div class="pp-resizer pp-resizer-h" data-resize="left-vertical" title="Arraste para redimensionar"></div>
       <div class="pp-media-browser" id="pp-media-browser">
+        <div class="pp-section-title">MÍDIA</div>
         <div class="pp-brand"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>ProContent</div>
+        <div class="pp-section-title">Playlists</div>
         <div class="pp-tree" id="pp-media-tree"><div class="pp-tree-item" style="opacity:.6">Carregando...</div></div>
       </div>
     </div>
@@ -113,36 +119,60 @@
           <img class="pp-live-bg-img hidden" id="pp-live-bg-img" alt="">
           <div class="pp-live-fallback-icon hidden" id="pp-live-fallback-icon"></div>
           <div class="pp-live-lyrics-overlay hidden" id="pp-live-lyrics-overlay"></div>
-          <div class="pp-clear-strip" id="pp-clear-strip">
-            <button class="pp-clear-btn color-audio" data-layer="audio" title="Limpar Áudio">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-            </button>
-            <button class="pp-clear-btn color-msg" data-layer="messages" title="Limpar Mensagens">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-            </button>
-            <button class="pp-clear-btn color-props" data-layer="props" title="Limpar Props">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-            </button>
-            <button class="pp-clear-btn color-announ" data-layer="announcements" title="Limpar Anúncios">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
-            </button>
-            <button class="pp-clear-btn color-slide" data-layer="slide" title="Limpar Slide">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg>
-            </button>
-            <button class="pp-clear-btn color-media" data-layer="media" title="Limpar Mídia">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-            </button>
-            <button class="pp-clear-btn color-video" data-layer="video_input" title="Limpar Video Input">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-            </button>
-            <div class="pp-clear-strip-sep"></div>
-            <button class="pp-clear-btn pp-clear-btn-all" id="pp-btn-clear-preview" data-layer="all" title="Limpar Todas as Telas">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-            </button>
-          </div>
           <span id="pp-live-title">Nada no ar</span>
           <div class="pp-timers-row" id="pp-live-timers" style="display:none"><span id="pp-tm-total"></span><span id="pp-tm-elapsed"></span><span id="pp-tm-remaining"></span></div>
         </div>
+        <!-- Coluna fixa, separada do monitor (igual ao painel oficial): redimensionar o
+             espaço só muda o tamanho do monitor, essa faixa nunca encolhe nem some. -->
+        <div class="pp-clear-strip" id="pp-clear-strip">
+          <button class="pp-clear-btn color-audio" data-layer="audio" title="Limpar Áudio">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          </button>
+          <button class="pp-clear-btn color-msg" data-layer="messages" title="Limpar Mensagens">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+          <button class="pp-clear-btn color-props" data-layer="props" title="Limpar Props">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+          </button>
+          <button class="pp-clear-btn color-announ" data-layer="announcements" title="Limpar Anúncios">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+          </button>
+          <button class="pp-clear-btn color-slide" data-layer="slide" title="Limpar Slide">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg>
+          </button>
+          <button class="pp-clear-btn color-media" data-layer="media" title="Limpar Mídia">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          </button>
+          <button class="pp-clear-btn color-video" data-layer="video_input" title="Limpar Video Input">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+          </button>
+          <div class="pp-clear-strip-sep"></div>
+          <button class="pp-clear-btn pp-clear-btn-all" id="pp-btn-clear-preview" data-layer="all" title="Limpar Todas as Telas">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          </button>
+        </div>
+        </div>
+        <div class="pp-media-transport-row" id="pp-media-transport-row">
+          <div class="pp-mini-transport hidden" id="pp-transport-presentation">
+            <div class="pp-mini-transport-top">
+              <button class="pp-btn pp-btn-sm" id="pp-btn-pres-back10" title="Voltar 10 segundos">-10</button>
+              <button class="pp-btn pp-btn-sm primary" id="pp-btn-pres-playpause">▶</button>
+              <button class="pp-btn pp-btn-sm" id="pp-btn-pres-fwd10" title="Avançar 10 segundos">+10</button>
+              <span class="pp-mini-transport-name" id="pp-transport-presentation-name">—</span>
+              <span class="pp-mini-transport-time" id="pp-transport-presentation-time">00:00 / 00:00</span>
+            </div>
+            <div class="pp-mini-transport-bar"><div class="pp-mini-transport-bar-fill" id="pp-transport-presentation-bar-fill"></div></div>
+          </div>
+          <div class="pp-mini-transport hidden" id="pp-transport-announcement">
+            <div class="pp-mini-transport-top">
+              <button class="pp-btn pp-btn-sm" id="pp-btn-announ-back10" title="Voltar 10 segundos">-10</button>
+              <button class="pp-btn pp-btn-sm primary" id="pp-btn-announ-playpause">▶</button>
+              <button class="pp-btn pp-btn-sm" id="pp-btn-announ-fwd10" title="Avançar 10 segundos">+10</button>
+              <span class="pp-mini-transport-name">📣 <span id="pp-transport-announcement-name">—</span></span>
+              <span class="pp-mini-transport-time" id="pp-transport-announcement-time">00:00 / 00:00</span>
+            </div>
+            <div class="pp-mini-transport-bar"><div class="pp-mini-transport-bar-fill" id="pp-transport-announcement-bar-fill"></div></div>
+          </div>
         </div>
         <div class="pp-layer-name" id="pp-live-subtitle">—</div>
       </div>
@@ -164,6 +194,8 @@
         <div id="pp-audio-current" class="pp-audio-transport hidden">
           <div class="pp-audio-transport-name" id="pp-audio-transport-name">—</div>
           <div class="pp-audio-transport-sub" id="pp-audio-transport-sub">—</div>
+          <div class="pp-mini-transport-bar"><div class="pp-mini-transport-bar-fill" id="pp-audio-bar-fill"></div></div>
+          <div class="pp-mini-transport-time" id="pp-audio-time" style="text-align:right; margin-bottom:6px">00:00 / 00:00</div>
           <div class="pp-audio-transport-controls">
             <button class="pp-btn pp-btn-sm" id="pp-audio-btn-prev" title="Faixa anterior">◀◀</button>
             <button class="pp-btn pp-btn-sm primary" id="pp-audio-btn-playpause" title="Tocar/Pausar">▶</button>
@@ -286,8 +318,6 @@
     <div class="pp-modal-body" id="pp-picker-body">Carregando...</div>
   </div>
 </div>
-
-<div class="pp-phase-banner">Fase 2 em andamento — Playlists, Palco, Mídia e Busca já usam dados reais; Áudio/Temporizadores/Mensagens/Props/Vídeo/Captura/Macros ainda são exemplo.</div>
 
 <script src="/js/i18n.js?v=1"></script>
 <script src="/desktop/js/app-desktop.js?v=1"></script>

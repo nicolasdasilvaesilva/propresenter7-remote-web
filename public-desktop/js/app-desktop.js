@@ -190,7 +190,10 @@ async function triggerSlideCue(presUuid, cueIndex, presName, slideText = '', tot
   highlightActiveSlideCard(cueIndex);
   highlightActiveItem();
 
-  const hasLyrics = slideText && slideText.trim().length > 0;
+  // Só sobrepõe a letra quando o fundo vem de uma MÍDIA separada (vídeo/imagem em loop
+  // por trás do texto). Quando o fundo é o thumbnail da própria apresentação, ele já traz
+  // a letra desenhada dentro da imagem (é o próprio render do slide) — sobrepor de novo duplicava.
+  const hasLyrics = Boolean(mediaState.liveUuid) && slideText && slideText.trim().length > 0;
   const bgUrl = mediaState.liveUuid
     ? `/api/v1/media/${encodeURIComponent(mediaState.liveUuid)}/thumbnail?t=${Date.now()}`
     : `/api/v1/presentation/${encodeURIComponent(presUuid)}/thumbnail/${cueIndex}?t=${Date.now()}`;
@@ -471,7 +474,9 @@ function refreshLiveComposite() {
   const presUuid = state.livePresentationUuid;
   const idx = state.liveSlideIndex;
   const curSlide = (presUuid && state.currentPresentationUuid === presUuid) ? state.currentPresentationSlides[idx] : null;
-  const hasLyrics = Boolean(curSlide && curSlide.text && curSlide.text.trim().length > 0);
+  // Só sobrepõe a letra quando o fundo vem de uma mídia separada (senão o thumbnail do
+  // próprio slide já traz a letra desenhada dentro da imagem, e duplicava o texto).
+  const hasLyrics = Boolean(mediaState.liveUuid) && Boolean(curSlide && curSlide.text && curSlide.text.trim().length > 0);
   const somethingLive = Boolean(mediaState.liveUuid || presUuid);
 
   let imgUrl = null;
@@ -794,8 +799,11 @@ document.getElementById('pp-stage-msg-clear')?.addEventListener('click', async (
     if (!videoWrap || !videoBox) return;
     const cs = getComputedStyle(videoWrap);
     const vu = document.getElementById('pp-vu-meter');
-    const vuFolga = vu ? vu.getBoundingClientRect().width + parseFloat(cs.gap || 0) : 0;
-    const availW = videoWrap.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - vuFolga;
+    const clearStrip = document.getElementById('pp-clear-strip');
+    const gap = parseFloat(cs.gap || 0);
+    const vuFolga = vu ? vu.getBoundingClientRect().width + gap : 0;
+    const clearFolga = clearStrip ? clearStrip.getBoundingClientRect().width + gap : 0;
+    const availW = videoWrap.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - vuFolga - clearFolga;
     const availH = videoWrap.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
     if (availW <= 0 || availH <= 0) return;
     let w, h;
@@ -804,6 +812,7 @@ document.getElementById('pp-stage-msg-clear')?.addEventListener('click', async (
     videoBox.style.width = w + 'px';
     videoBox.style.height = h + 'px';
     if (vu) vu.style.height = h + 'px'; // simétrico com o monitor, nunca mais alto que ele
+    if (clearStrip) clearStrip.style.height = h + 'px'; // idem: a faixa de limpar fica do tamanho do monitor
   }
   if (videoWrap) new ResizeObserver(ajustarMonitor16x9).observe(videoWrap);
 })();
@@ -901,7 +910,11 @@ function atualizarContadorMedia() {
 function atualizarVuMeter() {
   const fill = document.getElementById('pp-vu-fill');
   if (!fill) return;
-  const tocando = audioState.playing || Boolean(mediaState.liveUuid);
+  // Só "balança" quando existe áudio de verdade tocando: o MP3, OU a camada de
+  // presentation/mídia com duração > 0 (vídeo) E tocando — uma imagem estática (PNG/JPEG)
+  // não tem duração nenhuma, então fica parado, em vez de animar à toa.
+  const pres = transportState.presentation;
+  const tocando = audioState.playing || (pres.isPlaying && pres.duration > DURACAO_MINIMA_REAL);
   const pct = tocando ? (22 + Math.random() * 45) : 92;
   fill.style.height = pct + '%';
 }
@@ -1032,7 +1045,96 @@ document.getElementById('pp-picker-close')?.addEventListener('click', () => docu
 // ==========================================================================
 // ÁUDIO
 // ==========================================================================
-const audioState = { activeId: null, activeName: '', tracks: [], playing: false, currentTrackUuid: null };
+const audioState = { activeId: null, activeName: '', tracks: [], playing: false, currentTrackUuid: null, duration: 0, currentTime: 0 };
+
+// Transporte de "presentation" (cobre slide/vídeo E mídia/ProContent — é a mesma camada
+// no ProPresenter) e de "announcement" (camada de anúncios em loop). A API dá tocar/pausar
+// E a posição atual (/time) — confirmado incrementando ao vivo contra o ProPresenter real —
+// então dá pra montar a barra de progresso de verdade. O que ela NÃO dá é como escrever uma
+// posição nova com segurança (não testamos escrita numa mídia ao vivo), então a barra é só
+// visual/leitura, sem arrastar pra avançar/voltar.
+const transportState = {
+  presentation: { isPlaying: false, uuid: '', name: '', duration: 0, currentTime: 0 },
+  announcement: { isPlaying: false, uuid: '', name: '', duration: 0, currentTime: 0 },
+};
+
+// Testado ao vivo: uma imagem estática (PNG/JPEG) também aparece em /transport/presentation
+// com uma "duração" residual (ex.: 0.33s) que não é tempo de reprodução real — só vídeo/áudio
+// de verdade passa de 1,5s. Usado tanto pra mostrar o mini-player quanto pro VU meter.
+const DURACAO_MINIMA_REAL = 1.5;
+
+function formatarTempo(segundos) {
+  const s = Math.max(0, Math.floor(segundos || 0));
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+}
+
+async function checarTransporte(layer) {
+  const cur = await apiRequest(`/v1/transport/${layer}/current`);
+  const st = transportState[layer];
+  if (cur && cur.uuid) {
+    st.isPlaying = cur.is_playing !== false;
+    st.uuid = cur.uuid;
+    st.name = cur.name || '';
+    st.duration = Number(cur.duration) || 0;
+    const tempo = await apiRequest(`/v1/transport/${layer}/time`);
+    st.currentTime = Number(tempo) || 0;
+  } else {
+    st.isPlaying = false;
+    st.uuid = '';
+    st.name = '';
+    st.duration = 0;
+    st.currentTime = 0;
+  }
+  atualizarPainelTransporte(layer);
+}
+
+// Só mostra o mini-player quando existe DE VERDADE um conteúdo com tempo (vídeo/áudio) na
+// camada — um slide de texto ou uma imagem estática não tem duração, então fica escondido.
+function atualizarPainelTransporte(layer) {
+  const row = document.getElementById(`pp-transport-${layer}`);
+  const btn = document.getElementById(layer === 'presentation' ? 'pp-btn-pres-playpause' : 'pp-btn-announ-playpause');
+  const nameEl = document.getElementById(`pp-transport-${layer}-name`);
+  const fill = document.getElementById(`pp-transport-${layer}-bar-fill`);
+  const timeEl = document.getElementById(`pp-transport-${layer}-time`);
+  if (!row) return;
+  const st = transportState[layer];
+  const temConteudo = Boolean(st.uuid) && st.duration > DURACAO_MINIMA_REAL;
+  row.classList.toggle('hidden', !temConteudo);
+  if (!temConteudo) return;
+  if (nameEl) nameEl.textContent = st.name || '—';
+  if (btn) btn.textContent = st.isPlaying ? '⏸' : '▶';
+  if (fill) fill.style.width = Math.min(100, (st.currentTime / st.duration) * 100) + '%';
+  if (timeEl) timeEl.textContent = `${formatarTempo(st.currentTime)} / ${formatarTempo(st.duration)}`;
+}
+
+function ligarBotaoTransporte(layer, btnId) {
+  document.getElementById(btnId)?.addEventListener('click', async () => {
+    lastUserActionTime = Date.now();
+    const st = transportState[layer];
+    await apiRequest(`/v1/transport/${layer}/${st.isPlaying ? 'pause' : 'play'}`);
+    st.isPlaying = !st.isPlaying;
+    atualizarPainelTransporte(layer);
+  });
+}
+ligarBotaoTransporte('presentation', 'pp-btn-pres-playpause');
+ligarBotaoTransporte('announcement', 'pp-btn-announ-playpause');
+
+// Avançar/voltar 10s no vídeo/mídia — testado contra o ProPresenter real: escrever em
+// /v1/transport/{camada}/time muda a posição de verdade (o "-10"/"+10" que tem no vídeo
+// dentro do ProPresenter). Não existe endpoint de marcador na API (isso é só do editor).
+async function pularTempoTransporte(layer, delta) {
+  lastUserActionTime = Date.now();
+  const st = transportState[layer];
+  if (!st.uuid) return;
+  const novoTempo = Math.min(st.duration, Math.max(0, st.currentTime + delta));
+  await apiRequest(`/v1/transport/${layer}/time`, 'PUT', novoTempo);
+  st.currentTime = novoTempo;
+  atualizarPainelTransporte(layer);
+}
+document.getElementById('pp-btn-pres-back10')?.addEventListener('click', () => pularTempoTransporte('presentation', -10));
+document.getElementById('pp-btn-pres-fwd10')?.addEventListener('click', () => pularTempoTransporte('presentation', 10));
+document.getElementById('pp-btn-announ-back10')?.addEventListener('click', () => pularTempoTransporte('announcement', -10));
+document.getElementById('pp-btn-announ-fwd10')?.addEventListener('click', () => pularTempoTransporte('announcement', 10));
 
 async function loadAudioPlaylists() {
   const raw = await apiRequest('/v1/audio/playlists');
@@ -1099,20 +1201,24 @@ function atualizarDestaqueAudio() {
   });
 }
 
-// Transporte real do áudio (Tocar/Pausar/Anterior/Próxima) — a API do ProPresenter não
-// devolve posição/tempo decorrido, então não dá pra montar a barra de progresso do
-// painel oficial; o que a API permite (nome, tocando/pausado, trocar de faixa) fica igual.
+// Transporte real do áudio (Tocar/Pausar/Anterior/Próxima) — a posição real vem de
+// /v1/transport/audio/time (confirmado ao vivo contra o ProPresenter real, junto com a
+// mídia/vídeo), por isso dá pra montar a barra de progresso de verdade.
 function atualizarPainelAudio() {
   const card = document.getElementById('pp-audio-current');
   const nomeEl = document.getElementById('pp-audio-transport-name');
   const subEl = document.getElementById('pp-audio-transport-sub');
   const btnPlay = document.getElementById('pp-audio-btn-playpause');
+  const fill = document.getElementById('pp-audio-bar-fill');
+  const timeEl = document.getElementById('pp-audio-time');
   if (!card) return;
   if (!audioState.currentTrackUuid && !audioState.currentTrackName) { card.classList.add('hidden'); return; }
   card.classList.remove('hidden');
   nomeEl.textContent = audioState.currentTrackName || '—';
   subEl.textContent = (audioState.activeName || 'Áudio') + (audioState.playing ? '' : ' • Pausado');
   btnPlay.textContent = audioState.playing ? '⏸' : '▶';
+  if (fill) fill.style.width = (audioState.duration > 0 ? Math.min(100, (audioState.currentTime / audioState.duration) * 100) : 0) + '%';
+  if (timeEl) timeEl.textContent = `${formatarTempo(audioState.currentTime)} / ${formatarTempo(audioState.duration)}`;
 }
 
 async function checarAudioAtual() {
@@ -1120,10 +1226,15 @@ async function checarAudioAtual() {
   if (cur && (cur.name || cur.id?.name)) {
     audioState.currentTrackName = cur.name || cur.id?.name;
     audioState.playing = cur.is_playing !== false;
+    audioState.duration = Number(cur.duration) || 0;
     if (cur.uuid || cur.id?.uuid) audioState.currentTrackUuid = cur.uuid || cur.id.uuid;
+    const tempo = await apiRequest('/v1/transport/audio/time');
+    audioState.currentTime = Number(tempo) || 0;
   } else {
     audioState.currentTrackName = '';
     audioState.playing = false;
+    audioState.duration = 0;
+    audioState.currentTime = 0;
   }
   atualizarDestaqueAudio();
   atualizarPainelAudio();
@@ -1312,6 +1423,22 @@ document.getElementById('pp-btn-parar-gravacao')?.addEventListener('click', asyn
 // ==========================================================================
 // MACROS
 // ==========================================================================
+// Ícone por tipo de ação (o que o macro realmente faz por dentro) — mesma linguagem visual
+// dos outros ícones do app. Tipo desconhecido vira uma bolinha genérica (nunca inventa um
+// ícone específico pra algo que não sabemos identificar).
+const MACRO_ACTION_ICONS = {
+  audience_look: '<circle cx="6.5" cy="13" r="3.2"/><circle cx="17.5" cy="13" r="3.2"/><path d="M9.7 13h4.6"/>',
+  clear: '<circle cx="12" cy="12" r="9"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
+  stage_layout: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><line x1="8" y1="20" x2="16" y2="20"/><line x1="12" y1="16" x2="12" y2="20"/>',
+  prop: '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
+};
+function iconeAcaoMacro(tipo) {
+  const inner = MACRO_ACTION_ICONS[tipo] || '<circle cx="12" cy="12" r="3"/>';
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${inner}</svg>`;
+}
+
+// Lista (não grade de quadrados) — igual ao painel oficial: numero/cor + nome completo do
+// macro + os icones das acoes reais que ele dispara (vem da propria API, /v1/macros).
 async function loadMacros() {
   const grid = document.getElementById('pp-macro-grid');
   if (!grid) return;
@@ -1323,14 +1450,16 @@ async function loadMacros() {
     const id = m.id?.uuid ?? idx;
     const nome = m.id?.name || `Macro ${idx + 1}`;
     const cor = m.color ? `rgb(${Math.round((m.color.red || 0) * 255)},${Math.round((m.color.green || 0) * 255)},${Math.round((m.color.blue || 0) * 255)})` : '#2563eb';
-    const btn = document.createElement('div');
-    btn.className = 'pp-macro-btn';
-    btn.style.background = cor;
-    btn.style.fontSize = '13px';
-    btn.title = nome;
-    btn.textContent = idx + 1;
-    btn.addEventListener('click', async () => { lastUserActionTime = Date.now(); await apiRequest(`/v1/macro/${encodeURIComponent(id)}/trigger`); });
-    grid.appendChild(btn);
+    const acoes = Array.isArray(m.actions) ? m.actions : [];
+    const row = document.createElement('div');
+    row.className = 'pp-macro-row';
+    row.innerHTML = `
+      <span class="pp-macro-idx" style="background:${cor}">${idx + 1}</span>
+      <span class="pp-macro-name" title="${escapeHtml(nome)}">${escapeHtml(nome)}</span>
+      <span class="pp-macro-actions">${acoes.map(a => iconeAcaoMacro(a.type)).join('')}</span>
+    `;
+    row.addEventListener('click', async () => { lastUserActionTime = Date.now(); await apiRequest(`/v1/macro/${encodeURIComponent(id)}/trigger`); });
+    grid.appendChild(row);
   });
 }
 
@@ -1345,6 +1474,19 @@ async function loadLooks() {
   lookState.looks = looks;
   lookState.current = (current && current.id) ? current.id : (looks[0]?.id || null);
   document.getElementById('pp-look-label').textContent = lookState.current?.name || 'Look';
+  renderLookMenu();
+}
+
+// O Look pode mudar por FORA do nosso app (macro, outro controle, o próprio ProPresenter) —
+// testado ao vivo: um macro trocou o Look real pra "LOUVOR" e o rótulo aqui ficou com o nome
+// antigo até essa checagem rodar. Só confere o atual (leve), não recarrega a lista toda.
+async function checarLookAtual() {
+  const current = await apiRequest('/v1/look/current');
+  const novoId = (current && current.id) ? current.id : null;
+  if (!novoId) return;
+  if (lookState.current && lookState.current.uuid === novoId.uuid) return;
+  lookState.current = novoId;
+  document.getElementById('pp-look-label').textContent = novoId.name || 'Look';
   renderLookMenu();
 }
 
@@ -1471,6 +1613,9 @@ let idiomaAtual = 'pt-BR';
   setInterval(loadTimers, 1000);
   setInterval(loadCaptureStatus, 1000);
   setInterval(checarAudioAtual, 1000);
+  setInterval(() => checarTransporte('presentation'), 1000);
+  setInterval(() => checarTransporte('announcement'), 1000);
+  setInterval(checarLookAtual, 2000);
   setInterval(atualizarContadorMedia, 1000);
   setInterval(atualizarVuMeter, 160);
 })();

@@ -977,6 +977,10 @@ async function loadPlaylistItems(type, id) {
   dom.itemsCounter.textContent = data.items.length;
   dom.playlistItemsContainer.innerHTML = '';
 
+  // Reordenar por arrastar só existe pra playlist de apresentação (culto) — a API do
+  // ProPresenter não tem endpoint pra reordenar playlist de Mídia/ProContent.
+  const podeArrastar = type !== 'media';
+
   data.items.forEach((item, idx) => {
     const card = document.createElement('div');
     card.className = 'playlist-item-card';
@@ -1003,6 +1007,7 @@ async function loadPlaylistItems(type, id) {
     }
 
     card.innerHTML = `
+      ${podeArrastar ? '<span class="item-drag-handle" title="Segure e arraste pra reordenar">⠿</span>' : ''}
       <div class="item-thumb-box">${thumbHtml}</div>
       <div class="item-info-col">
         <div class="item-meta">${itemType || 'Item'} ${idx + 1}</div>
@@ -1013,9 +1018,12 @@ async function loadPlaylistItems(type, id) {
       </div>
     `;
 
-    card.addEventListener('click', () => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.item-drag-handle')) return;
       handleItemClick(item, idx, card, true);
     });
+
+    if (podeArrastar) attachItemDragReorder(card, dom.playlistItemsContainer);
 
     dom.playlistItemsContainer.appendChild(card);
   });
@@ -1029,6 +1037,78 @@ async function loadPlaylistItems(type, id) {
   if (data.items.length > 0) {
     const firstCard = dom.playlistItemsContainer.firstElementChild;
     handleItemClick(data.items[0], 0, firstCard, false);
+  }
+}
+
+// Arrastar-e-soltar por toque/mouse pra reordenar a playlist (igual ficou bom no desktop):
+// segura na alça (⠿) e arrasta pra cima/baixo. Usa Pointer Events (cobre dedo e mouse com
+// o mesmo código) porque o drag-and-drop nativo do HTML5 não funciona em touch.
+function attachItemDragReorder(card, list) {
+  const handle = card.querySelector('.item-drag-handle');
+  if (!handle) return;
+  let dragging = false;
+  let startClientY = 0;
+
+  function onPointerMove(e) {
+    if (!dragging) return;
+    e.preventDefault();
+    card.style.transform = `translateY(${e.clientY - startClientY}px)`;
+
+    const cards = Array.from(list.querySelectorAll('.playlist-item-card'));
+    const myIndex = cards.indexOf(card);
+    const cardRect = card.getBoundingClientRect();
+    const cardMidY = cardRect.top + cardRect.height / 2;
+
+    for (const sib of cards) {
+      if (sib === card) continue;
+      const r = sib.getBoundingClientRect();
+      const sibMidY = r.top + r.height / 2;
+      const sibIndex = cards.indexOf(sib);
+      if (sibIndex < myIndex && cardMidY < sibMidY) {
+        list.insertBefore(card, sib);
+        break;
+      } else if (sibIndex > myIndex && cardMidY > sibMidY) {
+        list.insertBefore(card, sib.nextSibling);
+        break;
+      }
+    }
+  }
+
+  function onPointerUp(e) {
+    if (!dragging) return;
+    dragging = false;
+    document.removeEventListener('pointermove', onPointerMove);
+    document.removeEventListener('pointerup', onPointerUp);
+    card.classList.remove('dragging');
+    card.style.transform = '';
+    card.style.zIndex = '';
+    try { handle.releasePointerCapture(e.pointerId); } catch (err) {}
+
+    const cards = Array.from(list.querySelectorAll('.playlist-item-card'));
+    const newIndex = cards.indexOf(card);
+    const oldIndex = Number(card.dataset.index);
+    if (newIndex !== oldIndex) reordenarItemMobile(oldIndex, newIndex);
+  }
+
+  handle.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    dragging = true;
+    startClientY = e.clientY;
+    card.classList.add('dragging');
+    card.style.zIndex = '50';
+    try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+    document.addEventListener('pointermove', onPointerMove, { passive: false });
+    document.addEventListener('pointerup', onPointerUp);
+  });
+}
+
+async function reordenarItemMobile(itemIndex, toIndex) {
+  const playlistId = state.activePlaylistId;
+  const res = await apiRequest('/reorder-playlist-item', 'POST', { playlistId, itemIndex, toIndex });
+  if (res && res.success) {
+    await loadPlaylistItems(state.activePlaylistType, playlistId);
+  } else {
+    showToast((res && res.error) || 'Não foi possível reordenar este item.', 'info');
   }
 }
 

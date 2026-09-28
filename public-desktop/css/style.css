@@ -62,6 +62,8 @@ html, body {
   padding: 6px 12px;
   gap: 4px;
   flex-shrink: 0;
+  position: relative;
+  z-index: 20;
 }
 .pp-tool {
   display: flex;
@@ -89,6 +91,12 @@ html, body {
 }
 .pp-tool .pp-badge svg { width: 17px; height: 17px; }
 .pp-tool span.pp-label { font-size: 10.5px; color: var(--toolbar-text-dim); white-space: nowrap; }
+
+/* Look: ícone direto na barra, sem a caixinha colorida — igual aos ícones do menu
+   original do ProPresenter (ex.: VHT/VÍDEOS), mais elegante do que os outros botões. */
+.pp-badge-flat { background: transparent !important; width: auto; height: auto; }
+.pp-badge-flat.c-purple { color: var(--accent-purple); }
+.pp-badge-flat svg { width: 22px; height: 22px; }
 
 .pp-badge.c-orange  { background: var(--accent-orange); }
 .pp-badge.c-black   { background: var(--badge-black); }
@@ -161,9 +169,30 @@ html, body {
 .pp-toolbar-sep { width: 1px; background: var(--toolbar-border); margin: 4px 6px; }
 .pp-toolbar-spacer { flex: 1; }
 
-.pp-status-dots { display: flex; align-items: center; gap: 6px; }
-.pp-status-dots .pp-tool, .pp-status-dots .pp-look-wrap .pp-tool { min-width: 44px; }
-.pp-look-wrap { position: relative; }
+/* Grupo em pílula (fundo escuro arredondado, botões em linha) — igual ao menu do
+   mobile/tablet (.control-btn-group/.action-btn de lá), a pedido do dono. Cada botão vira
+   um item plano dentro do grupo, com um traço fino entre eles (sem duplicar borda no
+   último): usa border-left nos irmãos seguintes em vez de border-right + :last-child. */
+.pp-control-group {
+  display: flex; align-items: stretch;
+  background: var(--panel-dark-3); border: 1px solid var(--panel-border); border-radius: 8px;
+  flex-shrink: 0;
+}
+.pp-action-btn:first-child, .pp-control-group > .pp-look-wrap:first-child .pp-action-btn { border-radius: 7px 0 0 7px; }
+.pp-action-btn:last-child, .pp-control-group > *:last-child .pp-action-btn { border-radius: 0 7px 7px 0; }
+.pp-control-group > * + *, .pp-control-group > .pp-look-wrap + * { border-left: 1px solid var(--panel-border); }
+.pp-action-btn {
+  display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px;
+  background: transparent; border: none; color: var(--toolbar-text-dim);
+  font-size: 12.5px; font-weight: 600; white-space: nowrap; cursor: pointer;
+}
+.pp-action-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+.pp-action-btn:hover { background: rgba(255,255,255,.06); color: var(--toolbar-text); }
+.pp-action-btn.hidden { display: none; }
+.pp-action-btn-accent { color: var(--accent-purple); }
+.pp-action-chevron { font-size: 9px; opacity: .7; margin-left: -2px; }
+.pp-action-dot-wrap { display: flex; align-items: center; justify-content: center; padding: 0 12px; }
+.pp-look-wrap { position: relative; display: flex; }
 .pp-caret { font-size: 9px; margin-left: 2px; opacity: .8; }
 .pp-look-menu {
   position: absolute; top: 100%; right: 0; margin-top: 6px; min-width: 190px; z-index: 500;
@@ -196,7 +225,9 @@ html, body {
 .pp-body { display: flex; flex: 1; min-height: 0; }
 
 /* Divisórias arrastáveis (redimensionar colunas/áreas, igual ao ProPresenter oficial) */
-.pp-resizer { flex-shrink: 0; background: transparent; position: relative; z-index: 5; }
+/* Sempre visível (mesmo parada) — a pedido do dono, que não estava achando onde arrastar
+   quando a barra só aparecia no hover. */
+.pp-resizer { flex-shrink: 0; background: var(--panel-border); position: relative; z-index: 5; }
 .pp-resizer-v { width: 5px; cursor: col-resize; margin: 0 -2px; }
 .pp-resizer-h { height: 5px; cursor: row-resize; margin: -2px 0; }
 .pp-resizer:hover, .pp-resizer.dragging { background: var(--accent-blue); }
@@ -353,14 +384,18 @@ body.pp-resizing-h, body.pp-resizing-h * { cursor: row-resize !important; user-s
   background: linear-gradient(135deg,#3a1f4d,#1a0f26);
   display: flex; align-items: center; justify-content: center; color: #e9d8ff; font-weight: 700;
 }
-/* Faixa vertical de limpar por camada, encostada na borda direita do PGM: cada ícone
-   limpa SÓ a camada dele (Slide/Mídia/Áudio/Mensagem/Props/Anúncio); o X no topo limpa tudo.
-   Rolagem de segurança: se o monitor ficar pequeno demais, os ícones nunca desaparecem —
-   no pior caso, a faixa rola em vez de cortar. */
+/* Faixa vertical de limpar por camada, AO LADO do monitor (coluna própria, largura fixa —
+   igual ao painel oficial): cada ícone limpa SÓ a camada dele (Slide/Mídia/Áudio/Mensagem/
+   Props/Anúncio); o X no topo limpa tudo. Não é mais overlay dentro do monitor — assim
+   redimensionar a tela nunca move nem esconde os ícones, só o monitor muda de tamanho.
+   Altura exata em px definida por JS (ajustarMonitor16x9), igual ao VU meter, pra ficar
+   simétrica com o monitor. Rolagem de segurança: se ainda assim ficar pequena demais, a
+   faixa rola em vez de cortar os ícones.
+*/
 .pp-clear-strip {
-  position: absolute; top: 0; right: 0; bottom: 0; z-index: 3;
+  flex-shrink: 0; width: 24px; max-height: 100%;
   display: flex; flex-direction: column; align-items: center; gap: 3px;
-  padding: 4px 3px; background: rgba(10,6,14,.35); overflow-y: auto; overflow-x: hidden;
+  padding: 4px 3px; background: var(--panel-dark-3); border-radius: 4px; overflow-y: auto; overflow-x: hidden;
 }
 .pp-clear-btn {
   width: 17px; height: 17px; border-radius: 50%; border: none; padding: 0; flex-shrink: 0;
@@ -458,6 +493,25 @@ body.pp-resizing-h, body.pp-resizing-h * { cursor: row-resize !important; user-s
 .pp-audio-transport-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; margin-bottom: 8px; }
 .pp-audio-transport-controls { display: flex; gap: 6px; justify-content: center; }
 
+/* Tocar/Pausar de mídia (vídeo/slide) e de anúncio, embaixo do monitor — mesmo motivo do
+   áudio: a API só dá tocando/pausado, sem posição, então não dá pra fazer barra de progresso. */
+.pp-media-transport-row { display: flex; flex-direction: column; gap: 4px; }
+.pp-media-transport-row:empty, .pp-media-transport-row:has(> .hidden:only-child) { display: none; }
+.pp-mini-transport {
+  display: flex; flex-direction: column; gap: 4px;
+  background: var(--panel-dark-3); border: 1px solid var(--panel-border); border-radius: 6px;
+  padding: 4px 8px;
+}
+.pp-mini-transport-top { display: flex; align-items: center; gap: 8px; }
+.pp-mini-transport .pp-btn-sm { padding: 2px 8px; font-size: 12px; }
+.pp-mini-transport-name { font-size: 11px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.pp-mini-transport-time { font-size: 10.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+/* Posição real, lida de /v1/transport/{camada}/time (confirmado incrementando ao vivo contra
+   o ProPresenter real) — só leitura, sem arrastar: não testamos escrever uma posição nova
+   com segurança numa mídia ao vivo. */
+.pp-mini-transport-bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,.08); overflow: hidden; }
+.pp-mini-transport-bar-fill { height: 100%; width: 0%; background: var(--accent-green); transition: width .3s linear; }
+
 .pp-btn {
   background: var(--panel-dark-3); border: 1px solid var(--panel-border); color: var(--text-light);
   border-radius: 5px; padding: 6px 12px; cursor: pointer; font-size: 12px;
@@ -467,14 +521,21 @@ body.pp-resizing-h, body.pp-resizing-h * { cursor: row-resize !important; user-s
 .pp-btn.primary:hover { filter: brightness(1.08); }
 .pp-btn-sm { padding: 3px 9px; font-size: 11px; }
 
-.pp-props-grid, .pp-macro-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-.pp-macro-btn {
-  aspect-ratio: 1; border-radius: 8px; display: flex; align-items: center; justify-content: center;
-  font-weight: 800; font-size: 20px; color: #fff; cursor: pointer;
-}
+.pp-props-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 
-/* rodape com aviso de fase 1 */
-.pp-phase-banner {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
-  background: #e08a2c; color: #241300; font-size: 11px; text-align: center; padding: 3px 0;
+/* Lista de macros — igual ao painel oficial: número/cor + nome completo + os ícones das
+   ações reais que o macro dispara (vem da própria API, não é decoração). */
+.pp-macro-grid { display: flex; flex-direction: column; gap: 4px; }
+.pp-macro-row {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--panel-dark-3); border-radius: 6px; padding: 6px 8px; cursor: pointer;
 }
+.pp-macro-row:hover { background: #34343c; }
+.pp-macro-idx {
+  flex-shrink: 0; width: 22px; height: 22px; border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.5);
+}
+.pp-macro-name { flex: 1; min-width: 0; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp-macro-actions { flex-shrink: 0; display: flex; gap: 4px; color: var(--text-dim); }
+.pp-macro-actions svg { width: 13px; height: 13px; }

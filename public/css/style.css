@@ -2044,6 +2044,31 @@ html, body {
   transform: scale(0.99);
 }
 
+.playlist-item-card.dragging {
+  opacity: 0.85;
+  background: #23252c;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  transition: none;
+}
+
+/* Alça de arrastar (⠿): toque/mouse, pra reordenar a playlist sem precisar de setas. */
+.item-drag-handle {
+  flex-shrink: 0;
+  width: 26px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  font-size: 18px;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.item-drag-handle:active { cursor: grabbing; color: #e5e7eb; }
+
 /* ITEM ATIVO / SELECIONADO (AZUL VIBRANTE IDÊNTICO À FOTO) */
 .playlist-item-card.active {
   background: #2563eb !important;
