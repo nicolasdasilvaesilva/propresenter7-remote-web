@@ -381,7 +381,7 @@ body.pp-resizing-h, body.pp-resizing-h * { cursor: row-resize !important; user-s
      coluna vs. altura do bloco); por isso o tamanho real vem do script, isto é só um fallback. */
   aspect-ratio: 16 / 9;
   border-radius: 4px; position: relative; overflow: hidden;
-  background: linear-gradient(135deg,#3a1f4d,#1a0f26);
+  background: #090a0c; /* mesmo preto do monitor do mobile (.preview-screen), sem gradiente roxo */
   display: flex; align-items: center; justify-content: center; color: #e9d8ff; font-weight: 700;
 }
 /* Faixa vertical de limpar por camada, AO LADO do monitor (coluna própria, largura fixa —
@@ -431,7 +431,11 @@ body.pp-resizing-h, body.pp-resizing-h * { cursor: row-resize !important; user-s
 }
 /* Com imagem/letra ao vivo, o nome já aparece grande no centro (e no card do grid) — o
    rotulozinho no canto ficava redundante, removido a pedido do dono ("mais elegante"). */
-.pp-live-preview.has-media #pp-live-title { display: none; }
+/* Nome da apresentação sempre escondido — é redundante com a letra grande (que já mostra o
+   conteúdo do slide) e com o título/subtítulo que já aparecem fora do monitor. Antes só
+   escondia quando tinha imagem de fundo (has-media); reapareceu quando slides só-texto
+   passaram a não ter mais fundo nenhum (correção da letra nítida) — bug achado pelo dono. */
+#pp-live-title { display: none; }
 /* "Slide N de M" removido do visual a pedido do dono (mais elegante — a letra grande e o
    card do grid já mostram isso). O elemento continua no HTML/JS, só não aparece mais. */
 .pp-layer-name { display: none; }
