@@ -561,3 +561,56 @@ placeholders, prop "CAMPANHA"/"DIZIMOS E OFERTAS", entrada de video "EasyWorship
 2. **Traduzir textos dinamicos (i18n)** restantes — toasts, strings geradas por JS. Fase
    futura, ja avisada varias vezes.
 3. Rodar `Atualizar-Controle-Remoto.bat` (Admin) no PC de producao pra subir esta versao.
+
+### 13.12 28/09 (mais tarde) — spec oficial da API + v1.4.0, e um BUG ABERTO no mobile
+
+O dono pediu pra analisar se dava pra ter acesso total a API oficial do ProPresenter
+(openapi.propresenter.com). Baixei o spec completo (`swagger.json`, 194 endpoints, 22
+categorias) e comparei com o que o app ja usa. Opiniao dada: "acesso total" nao e o objetivo
+certo (Themes/Masks/Collections sao recursos de EDICAO de apresentacao, nao de OPERACAO ao
+vivo — e nao existe NENHUM endpoint pra criar uma apresentacao nova, entao "construir remoto"
+nao e possivel de jeito nenhum, independente de esforco). Escolhidos 4 itens de alto valor e
+baixo custo, todos implementados e testados no Desktop contra o ProPresenter real:
+
+1. **Blackout de verdade** (`GET/PUT /v1/status/audience_screens`, booleano puro) — botao no
+   menu, estado sincronizado a cada 2s.
+2. **Grupos de Limpar** (`/v1/clear/groups`, `/v1/clear/group/{id}/trigger`) — mostra os
+   presets que a PROPRIA IGREJA ja configura no ProPresenter (testado: eles tem um "Limpar
+   tudo" com 8 camadas). So a LISTAGEM foi testada ao vivo; o TRIGGER do grupo ainda nao foi
+   clicado de verdade (nao testamos pra nao arriscar limpar algo sem necessidade).
+3. **Skip nativo** (`GET /v1/transport/{camada}/skip_forward|skip_backward/{segundos}`) —
+   troca o "-10/+10" que antes lia o tempo e escrevia na mao; testado com precisao exata
+   (6.76s -> 16.02s ao pedir +10).
+4. **Contador de video** (`GET /v1/timer/video_countdown`) — mostrado ao lado do tempo do
+   media transport; testado com valor real.
+
+**Bug de bonus achado e corrigido**: `apiRequest` (desktop E mobile) fazia `if (body)` pra
+decidir se manda o corpo da requisicao — e isso e FALSO pra `body === false` (e tambem pra
+`0`/`""`), entao o Blackout nao mandava PUT nenhum na primeira tentativa (confirmado: a
+chamada direta via curl funcionava, a nossa via app nao). Trocado pra checar
+`null`/`undefined` explicitamente.
+
+**BUG ABERTO — arrastar a playlist no iPad real:** o dono testou no iPad de verdade (Safari,
+acessando o servidor de DEV `10.0.21.208:3000`) e reportou que o arrastar "nao vai
+corretamente pra onde eu quero". Investigado e achado: a lista de playlist tem rolagem
+propria (`overflow-y:auto`) e o codigo de arrastar nao rolava ela sozinha — se a posicao
+desejada estava fora da tela visivel, ficava impossivel chegar la. Implementado auto-scroll
+(a lista rola sozinha quando o dedo/mouse chega perto da borda) + aumentada a area de toque
+da alca pra 44px (era 26px, abaixo do minimo recomendado pela Apple). **Testado com sucesso
+via evento sintetico no navegador** (moveu um item da posicao 1 pra ultima posicao de uma
+playlist de 31 itens, confirmado via API) — mas o dono testou de novo no iPad real DEPOIS
+dessa correcao (fechando e abrindo o Safari) e disse "ainda ruim". Ou seja: **o auto-scroll
+ajuda mas NAO resolve sozinho o problema relatado** — falta o dono descrever exatamente o que
+acontece (nao inicia o arrasto? arrasta mas nao rola? solta no lugar errado?) pra investigar
+mais a fundo na proxima sessao. Publicado mesmo assim a pedido do dono ("a ultima atualizacao
+do desktop ficou ok, pode subir ela como release, depois resolvemos o mobile o bug") — as
+notas da release deixam isso claro como "em andamento", nao como resolvido.
+
+**v1.4.0 PUBLICADA** (commit `dd54e0e`, tag e release no GitHub) —
+https://github.com/nicolasdasilvaesilva/propresenter7-remote-web/releases/tag/v1.4.0
+
+**Proxima sessao, em ordem:**
+1. Pedir ao dono uma descricao exata do que acontece ao arrastar no iPad (ou gravar um video).
+2. Testar o TRIGGER de um Grupo de Limpar de verdade (so a listagem foi confirmada).
+3. Os 3 itens ja conhecidos: touchscreen real pra auto-deteccao, i18n dos textos dinamicos,
+   rodar `Atualizar-Controle-Remoto.bat` no PC de producao.
