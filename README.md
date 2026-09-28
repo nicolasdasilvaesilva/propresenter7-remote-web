@@ -272,6 +272,8 @@ node --check public\js\app.js; node --check public-desktop\js\app-desktop.js  # 
 ---
 
 ## 📦 Versões
+* **v1.5.0** — corrigido o arrastar-e-soltar da playlist no mobile: ao soltar perto de uma música vizinha, o cartão pulava pra posição errada (confirmado no iPad real); resolvido compensando o deslocamento de layout a cada troca. Sumiu o conteúdo de exemplo que ficava preso na tela do desktop (playlist/mídia fictícias) quando o ProPresenter ainda não tinha respondido na hora da conexão; agora playlist, biblioteca e mídia carregam sozinhas assim que aparecem no ProPresenter, sem precisar reiniciar o app (mobile e desktop).
+* **v1.4.0** — Blackout, Grupos de Limpar e skip nativo (±segundos de verdade) de vídeo/áudio, contador regressivo de vídeo — tudo via API oficial do ProPresenter.
 * **v1.3.1** — letra do PGM sempre nítida (HTML) e sem duplicar/sobrar texto atrás; fundo preto igual ao mobile.
 * **v1.3.0** — transporte real (tocar/pausar/avançar-voltar 10s/barra de progresso) de mídia e anúncios; VU meter honesto; arrastar-e-soltar por toque/mouse no mobile; Macros em lista com nome e ações reais; menu do desktop redesenhado em pílula igual ao mobile; clear-strip fixo ao lado do monitor.
 * **v1.2.0** — versão **Desktop** (visual do painel oficial), suporte a **3 idiomas** nas duas telas, reordenar playlist (setas), auto-detecção desktop/mobile.

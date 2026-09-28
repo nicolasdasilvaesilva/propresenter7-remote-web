@@ -222,6 +222,7 @@ window.addEventListener('DOMContentLoaded', () => {
   startStatusPolling();
   registerServiceWorker();
   setupPwaInstall();
+  setInterval(tentarCarregarPlaylistSeVazio, 6000);
 });
 
 // Registro do Service Worker para PWA com detecção de atualização
@@ -843,6 +844,15 @@ async function loadInitialPlaylists() {
   }
 }
 
+// Se o ProPresenter ainda estava abrindo o show (ou a API não respondeu a tempo) no momento
+// em que o app conectou, nenhuma playlist ficava selecionada — e só reiniciando o app pra
+// tentar de novo depois que a programação aparecesse no ProPresenter. Este relógio tenta
+// sozinho até dar certo, sem mexer em nada se já tem uma playlist carregada.
+function tentarCarregarPlaylistSeVazio() {
+  if (state.activePlaylistId) return;
+  loadInitialPlaylists();
+}
+
 async function switchDrawerTab(type, render = true) {
   state.activePlaylistType = type;
   if (type === 'media') {
@@ -1086,13 +1096,26 @@ function attachItemDragReorder(card, list) {
       const r = sib.getBoundingClientRect();
       const sibMidY = r.top + r.height / 2;
       const sibIndex = cards.indexOf(sib);
-      if (sibIndex < myIndex && cardMidY < sibMidY) {
+      const vaiTrocar = (sibIndex < myIndex && cardMidY < sibMidY) || (sibIndex > myIndex && cardMidY > sibMidY);
+      if (!vaiTrocar) continue;
+
+      if (sibIndex < myIndex) {
         list.insertBefore(card, sib);
-        break;
-      } else if (sibIndex > myIndex && cardMidY > sibMidY) {
+      } else {
         list.insertBefore(card, sib.nextSibling);
-        break;
       }
+
+      // Trocar a posição no DOM desloca o "repouso" do cartão (os vizinhos empurram ele pra
+      // cima/baixo), e isso fazia o cartão pular na tela sem o dedo ter se movido — pior
+      // quanto mais perto do vizinho (arrastar pra posição adjacente), porque o salto de
+      // ~1 card de altura é grande comparado ao movimento real do dedo, e um salto tão
+      // grande já dispara sozinho a troca seguinte, indo parar numa posição errada.
+      // Corrige compensando startClientY pela diferença de layout, mantendo a posição
+      // visual contínua no instante da troca (a mesma técnica do padrão FLIP).
+      const afterRect = card.getBoundingClientRect();
+      startClientY += afterRect.top - cardRect.top;
+      card.style.transform = `translateY(${lastClientY - startClientY}px)`;
+      break;
     }
   }
 

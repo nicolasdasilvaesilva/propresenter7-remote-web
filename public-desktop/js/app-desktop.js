@@ -235,6 +235,21 @@ async function loadPlaylists() {
   if (!state.activePlaylistId && playlists[0]) selectPlaylist(playlists[0].id.uuid || playlists[0].id.name, playlists[0].id.name);
 }
 
+// Se a árvore ficou vazia na conexão (ProPresenter ainda abrindo o show, ou a API não
+// respondeu a tempo), o dono tinha que reiniciar o app pra enxergar a playlist depois que
+// ela aparecesse no ProPresenter — este relógio tenta de novo sozinho até dar certo, sem
+// mexer em nada que já carregou (só reconsulta enquanto a árvore ainda mostra o placeholder
+// "Carregando.../Nenhuma encontrada", que é sempre um <div> sem classe própria e com
+// style="opacity:.6" — um item real nunca tem esse atributo).
+function recarregarArvoresVaziasSeNecessario() {
+  const playlistTree = document.getElementById('pp-playlist-tree');
+  const libraryTree = document.getElementById('pp-library-tree');
+  const mediaTree = document.getElementById('pp-media-tree');
+  if (playlistTree && !playlistTree.querySelector('.pp-tree-item:not([style])')) loadPlaylists();
+  if (libraryTree && !libraryTree.querySelector('.pp-tree-item:not([style])')) loadLibraries();
+  if (mediaTree && !mediaTree.querySelector('.pp-tree-item:not([style])')) loadMediaPlaylists();
+}
+
 function selectPlaylist(id, name) {
   state.mode = 'playlist';
   state.activePlaylistId = id;
@@ -1677,4 +1692,5 @@ let idiomaAtual = 'pt-BR';
   setInterval(checarBlackout, 2000);
   setInterval(atualizarContadorMedia, 1000);
   setInterval(atualizarVuMeter, 160);
+  setInterval(recarregarArvoresVaziasSeNecessario, 6000);
 })();
