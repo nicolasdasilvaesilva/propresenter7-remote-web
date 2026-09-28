@@ -272,6 +272,7 @@ node --check public\js\app.js; node --check public-desktop\js\app-desktop.js  # 
 ---
 
 ## 📦 Versões
+* **v1.5.1** — Macros, Looks, Palco, Áudio, Mensagens, Props e Entradas de Vídeo também ficavam presos vazios no Desktop se o ProPresenter não respondesse a tempo da conexão (achado em produção: Macros vazio mesmo com o ProPresenter ligado); agora todos se recuperam sozinhos, igual playlist/biblioteca/mídia. Corrigido também o cálculo da versão dos arquivos, que nunca detectava mudanças no JS do Desktop (procurava `app.js`, o arquivo certo é `app-desktop.js`) — podia deixar o navegador preso numa versão bem mais antiga mesmo depois de atualizar o servidor. No mobile, o Look também ganhou a mesma recuperação automática.
 * **v1.5.0** — corrigido o arrastar-e-soltar da playlist no mobile: ao soltar perto de uma música vizinha, o cartão pulava pra posição errada (confirmado no iPad real); resolvido compensando o deslocamento de layout a cada troca. Sumiu o conteúdo de exemplo que ficava preso na tela do desktop (playlist/mídia fictícias) quando o ProPresenter ainda não tinha respondido na hora da conexão; agora playlist, biblioteca e mídia carregam sozinhas assim que aparecem no ProPresenter, sem precisar reiniciar o app (mobile e desktop).
 * **v1.4.0** — Blackout, Grupos de Limpar e skip nativo (±segundos de verdade) de vídeo/áudio, contador regressivo de vídeo — tudo via API oficial do ProPresenter.
 * **v1.3.1** — letra do PGM sempre nítida (HTML) e sem duplicar/sobrar texto atrás; fundo preto igual ao mobile.

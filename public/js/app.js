@@ -223,6 +223,7 @@ window.addEventListener('DOMContentLoaded', () => {
   registerServiceWorker();
   setupPwaInstall();
   setInterval(tentarCarregarPlaylistSeVazio, 6000);
+  setInterval(tentarCarregarLookSeVazio, 6000);
 });
 
 // Registro do Service Worker para PWA com detecção de atualização
@@ -851,6 +852,16 @@ async function loadInitialPlaylists() {
 function tentarCarregarPlaylistSeVazio() {
   if (state.activePlaylistId) return;
   loadInitialPlaylists();
+}
+
+// Mesmo problema do Look: carrega só uma vez, em DOMContentLoaded. Áudio/Mensagens/Palco/
+// Props/Entradas de Vídeo não precisam disso — recarregam sozinhos toda vez que o operador
+// abre aquele modal. Macros também se recupera sozinho (reconsulta se `state.macros` ainda
+// estiver vazio ao abrir o modal, em `openMacroModal`). Só o Look não tinha nenhuma segunda
+// chance — ficava com o rótulo "Look" genérico e o menu vazio pra sempre.
+function tentarCarregarLookSeVazio() {
+  if (state.looks && state.looks.length > 0) return;
+  loadLooks();
 }
 
 async function switchDrawerTab(type, render = true) {

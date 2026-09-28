@@ -36,7 +36,7 @@ function getAppVersion() {
   for (const f of ['index.html', 'css/style.css', 'js/app.js', 'js/i18n.js', 'service-worker.js', 'manifest.json']) {
     try { h.update(fs.readFileSync(path.join(PUBLIC_DIR, f))); } catch (e) { /* arquivo ausente */ }
   }
-  for (const f of ['index.html', 'css/style.css', 'js/app.js']) {
+  for (const f of ['index.html', 'css/style.css', 'js/app-desktop.js']) {
     try { h.update(fs.readFileSync(path.join(DESKTOP_DIR, f))); } catch (e) { /* pele desktop pode nao existir ainda */ }
   }
   appVersion = h.digest('hex').slice(0, 8);

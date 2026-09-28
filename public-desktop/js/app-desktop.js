@@ -235,19 +235,44 @@ async function loadPlaylists() {
   if (!state.activePlaylistId && playlists[0]) selectPlaylist(playlists[0].id.uuid || playlists[0].id.name, playlists[0].id.name);
 }
 
-// Se a árvore ficou vazia na conexão (ProPresenter ainda abrindo o show, ou a API não
-// respondeu a tempo), o dono tinha que reiniciar o app pra enxergar a playlist depois que
-// ela aparecesse no ProPresenter — este relógio tenta de novo sozinho até dar certo, sem
-// mexer em nada que já carregou (só reconsulta enquanto a árvore ainda mostra o placeholder
-// "Carregando.../Nenhuma encontrada", que é sempre um <div> sem classe própria e com
-// style="opacity:.6" — um item real nunca tem esse atributo).
-function recarregarArvoresVaziasSeNecessario() {
-  const playlistTree = document.getElementById('pp-playlist-tree');
-  const libraryTree = document.getElementById('pp-library-tree');
-  const mediaTree = document.getElementById('pp-media-tree');
-  if (playlistTree && !playlistTree.querySelector('.pp-tree-item:not([style])')) loadPlaylists();
-  if (libraryTree && !libraryTree.querySelector('.pp-tree-item:not([style])')) loadLibraries();
-  if (mediaTree && !mediaTree.querySelector('.pp-tree-item:not([style])')) loadMediaPlaylists();
+// Vários painéis (Playlist/Biblioteca/Mídia, Palco, Áudio, Mensagens, Props, Entradas de
+// Vídeo, Macros, Looks) só carregam UMA VEZ na conexão. Se o ProPresenter ainda estivesse
+// abrindo o show (ou a API não respondesse a tempo) naquele instante, o painel ficava vazio
+// pra sempre — só reiniciando o app resolvia (achado de verdade: Macros vazio na produção,
+// mesmo com o ProPresenter ligado e com macros configurados, porque o servidor sobe sozinho
+// com o Windows e às vezes conecta antes do ProPresenter estar pronto). Este relógio detecta
+// "ainda não carregou nada de verdade" e tenta de novo sozinho até dar certo, sem mexer em
+// nada que já carregou. Cada `render*`/`load*` marca seu próprio placeholder de "nada aqui"
+// com a classe `pp-vazio` (só ela — nunca reaproveitar `.pp-item-card` sozinha pra isso, pois
+// varios paineis TAMBÉM usam essa classe pra card de conteúdo real, ex.: Props e Entradas de
+// Vídeo, o que faria um painel com 1 item real de verdade ser confundido com vazio). Pra
+// Playlist/Biblioteca/Mídia (árvores de pastas, não listas de item), "vazio" é a ausência de
+// qualquer `.pp-tree-item` real (os reais nunca têm o atributo `style`, só o placeholder tem).
+function painelAindaVazio(id) {
+  const el = document.getElementById(id);
+  if (!el) return false;
+  if (el.children.length === 0) return true;
+  if (el.querySelector('.pp-vazio')) return true;
+  if (el.classList.contains('pp-tree') && !el.querySelector('.pp-tree-item:not([style])')) return true;
+  return false;
+}
+
+function recarregarPaineisVaziosSeNecessario() {
+  const alvos = [
+    ['pp-playlist-tree', loadPlaylists],
+    ['pp-library-tree', loadLibraries],
+    ['pp-media-tree', loadMediaPlaylists],
+    ['pp-stage-screens-list', loadStageData],
+    ['pp-audio-tabs', loadAudioPlaylists],
+    ['pp-msg-select', loadMessages],
+    ['pp-props-grid', loadProps],
+    ['pp-video-list', loadVideoInputs],
+    ['pp-macro-grid', loadMacros],
+    ['pp-look-menu-list', loadLooks],
+  ];
+  for (const [id, fn] of alvos) {
+    if (painelAindaVazio(id)) fn();
+  }
 }
 
 function selectPlaylist(id, name) {
@@ -687,7 +712,7 @@ async function loadStageData() {
     alert(falhou.length ? `Falhou em: ${falhou.join(', ')}` : `✓ Retornos alterados para "${layoutName}"`);
   });
 
-  if (stageScreensCache.length === 0) { list.innerHTML = '<div class="pp-item-card">Nenhuma tela de palco configurada.</div>'; return; }
+  if (stageScreensCache.length === 0) { list.innerHTML = '<div class="pp-item-card pp-vazio">Nenhuma tela de palco configurada.</div>'; return; }
 
   list.innerHTML = '';
   stageScreensCache.forEach(screen => {
@@ -1404,7 +1429,7 @@ async function loadProps() {
   if (!grid) return;
   const props = await apiRequest('/v1/props');
   const lista = Array.isArray(props) ? props : [];
-  if (lista.length === 0) { grid.innerHTML = '<div class="pp-item-card">Nenhum Prop configurado</div>'; return; }
+  if (lista.length === 0) { grid.innerHTML = '<div class="pp-item-card pp-vazio">Nenhum Prop configurado</div>'; return; }
   grid.innerHTML = '';
   lista.forEach((p, idx) => {
     const id = p.id?.uuid ?? p.id?.index ?? idx;
@@ -1430,7 +1455,7 @@ async function loadVideoInputs() {
   if (!list) return;
   const inputs = await apiRequest('/v1/video_inputs');
   const lista = Array.isArray(inputs) ? inputs : [];
-  if (lista.length === 0) { list.innerHTML = '<div class="pp-item-card">Nenhuma entrada de vídeo configurada</div>'; return; }
+  if (lista.length === 0) { list.innerHTML = '<div class="pp-item-card pp-vazio">Nenhuma entrada de vídeo configurada</div>'; return; }
   list.innerHTML = '';
   lista.forEach((item, idx) => {
     const id = item.uuid ?? item.id?.uuid ?? item.index ?? idx;
@@ -1486,7 +1511,7 @@ async function loadMacros() {
   if (!grid) return;
   const macros = await apiRequest('/v1/macros');
   const lista = Array.isArray(macros) ? macros : [];
-  if (lista.length === 0) { grid.innerHTML = '<div class="pp-item-card">Nenhum macro configurado</div>'; return; }
+  if (lista.length === 0) { grid.innerHTML = '<div class="pp-item-card pp-vazio">Nenhum macro configurado</div>'; return; }
   grid.innerHTML = '';
   lista.forEach((m, idx) => {
     const id = m.id?.uuid ?? idx;
@@ -1564,7 +1589,7 @@ async function checarVideoCountdown() {
 function renderLookMenu() {
   const list = document.getElementById('pp-look-menu-list');
   if (!list) return;
-  if (lookState.looks.length === 0) { list.innerHTML = '<div class="pp-look-menu-item" style="opacity:.6">Nenhum Look configurado</div>'; return; }
+  if (lookState.looks.length === 0) { list.innerHTML = '<div class="pp-look-menu-item pp-vazio" style="opacity:.6">Nenhum Look configurado</div>'; return; }
   list.innerHTML = '';
   lookState.looks.forEach(look => {
     const isCurrent = lookState.current && (lookState.current.uuid === look.id.uuid || lookState.current.name === look.id.name);
@@ -1692,5 +1717,5 @@ let idiomaAtual = 'pt-BR';
   setInterval(checarBlackout, 2000);
   setInterval(atualizarContadorMedia, 1000);
   setInterval(atualizarVuMeter, 160);
-  setInterval(recarregarArvoresVaziasSeNecessario, 6000);
+  setInterval(recarregarPaineisVaziosSeNecessario, 6000);
 })();
