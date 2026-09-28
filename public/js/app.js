@@ -733,7 +733,7 @@ function enableHeaderDragToScroll() {
 async function apiRequest(endpoint, method = 'GET', body = null) {
   try {
     const options = { method };
-    if (body) {
+    if (body !== null && body !== undefined) {
       options.headers = { 'Content-Type': 'application/json' };
       options.body = JSON.stringify(body);
     }
@@ -1048,12 +1048,34 @@ function attachItemDragReorder(card, list) {
   if (!handle) return;
   let dragging = false;
   let startClientY = 0;
+  let lastClientY = 0;
+  let autoScrollFrame = null;
 
-  function onPointerMove(e) {
-    if (!dragging) return;
-    e.preventDefault();
-    card.style.transform = `translateY(${e.clientY - startClientY}px)`;
+  // A lista tem rolagem própria (playlists longas, 20-30+ músicas) — sem isso, arrastar pra
+  // uma posição fora da parte visível da tela travava (o dedo não tem como "rolar sozinho"
+  // no iPad/celular enquanto arrasta). Perto da borda, rola a lista sozinha a cada quadro.
+  const BORDA_PX = 60;
+  const VELOCIDADE_MAX = 14;
+  function passoAutoScroll() {
+    if (!dragging) { autoScrollFrame = null; return; }
+    const rect = list.getBoundingClientRect();
+    let delta = 0;
+    if (lastClientY < rect.top + BORDA_PX) {
+      delta = -VELOCIDADE_MAX * (1 - Math.max(0, lastClientY - rect.top) / BORDA_PX);
+    } else if (lastClientY > rect.bottom - BORDA_PX) {
+      delta = VELOCIDADE_MAX * (1 - Math.max(0, rect.bottom - lastClientY) / BORDA_PX);
+    }
+    if (delta) {
+      list.scrollTop += delta;
+      atualizarPosicaoCartao();
+    }
+    autoScrollFrame = requestAnimationFrame(passoAutoScroll);
+  }
 
+  // Calcula a troca de posição (igual antes) — separado pra poder rodar tanto no pointermove
+  // quanto a cada quadro do auto-scroll (a lista pode se mexer sem o dedo se mexer).
+  function atualizarPosicaoCartao() {
+    card.style.transform = `translateY(${lastClientY - startClientY}px)`;
     const cards = Array.from(list.querySelectorAll('.playlist-item-card'));
     const myIndex = cards.indexOf(card);
     const cardRect = card.getBoundingClientRect();
@@ -1074,9 +1096,17 @@ function attachItemDragReorder(card, list) {
     }
   }
 
+  function onPointerMove(e) {
+    if (!dragging) return;
+    e.preventDefault();
+    lastClientY = e.clientY;
+    atualizarPosicaoCartao();
+  }
+
   function onPointerUp(e) {
     if (!dragging) return;
     dragging = false;
+    if (autoScrollFrame) cancelAnimationFrame(autoScrollFrame);
     document.removeEventListener('pointermove', onPointerMove);
     document.removeEventListener('pointerup', onPointerUp);
     card.classList.remove('dragging');
@@ -1094,11 +1124,13 @@ function attachItemDragReorder(card, list) {
     e.preventDefault();
     dragging = true;
     startClientY = e.clientY;
+    lastClientY = e.clientY;
     card.classList.add('dragging');
     card.style.zIndex = '50';
     try { handle.setPointerCapture(e.pointerId); } catch (err) {}
     document.addEventListener('pointermove', onPointerMove, { passive: false });
     document.addEventListener('pointerup', onPointerUp);
+    autoScrollFrame = requestAnimationFrame(passoAutoScroll);
   });
 }
 

@@ -35,7 +35,7 @@ document.querySelectorAll('.pp-tab').forEach(tab => {
 async function apiRequest(endpoint, method = 'GET', body = null) {
   try {
     const options = { method };
-    if (body) { options.headers = { 'Content-Type': 'application/json' }; options.body = JSON.stringify(body); }
+    if (body !== null && body !== undefined) { options.headers = { 'Content-Type': 'application/json' }; options.body = JSON.stringify(body); }
     const res = await fetch(`/api${endpoint}`, options);
     atualizarStatusConexao(res.status !== 502 && res.status !== 503);
     if (!res.ok) return null;
@@ -461,6 +461,27 @@ document.getElementById('pp-clear-strip')?.addEventListener('click', (e) => {
   if (btn) limparCamada(btn.dataset.layer);
 });
 document.getElementById('pp-btn-clear-all')?.addEventListener('click', () => limparCamada('all'));
+
+// Grupos de Limpar (presets) que a própria igreja já configura DENTRO do ProPresenter (ex.:
+// "Limpar tudo" com uma combinação específica de camadas) — achado no spec oficial da API
+// (openapi.propresenter.com), não existia antes no app. Mostra só se houver algum configurado.
+async function loadClearGroups() {
+  const wrap = document.getElementById('pp-clear-groups-extra');
+  if (!wrap) return;
+  const grupos = await apiRequest('/v1/clear/groups');
+  const lista = Array.isArray(grupos) ? grupos : [];
+  if (lista.length === 0) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = '<div class="pp-clear-strip-sep"></div>' + lista.map(g => `
+    <button class="pp-clear-btn color-props" data-group-id="${escapeHtml(g.id?.uuid || '')}" title="Grupo de Limpar: ${escapeHtml(g.id?.name || 'Sem nome')}">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7l8-4 8 4-8 4z"/><path d="M4 12l8 4 8-4"/><path d="M4 17l8 4 8-4"/></svg>
+    </button>`).join('');
+}
+document.getElementById('pp-clear-groups-extra')?.addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-group-id]');
+  if (!btn || !btn.dataset.groupId) return;
+  lastUserActionTime = Date.now();
+  await apiRequest(`/v1/clear/group/${encodeURIComponent(btn.dataset.groupId)}/trigger`);
+});
 
 // ==========================================================================
 // Sincronismo ao vivo (mesma proteção contra o "pulo" da pele mobile):
@@ -1123,16 +1144,18 @@ function ligarBotaoTransporte(layer, btnId) {
 ligarBotaoTransporte('presentation', 'pp-btn-pres-playpause');
 ligarBotaoTransporte('announcement', 'pp-btn-announ-playpause');
 
-// Avançar/voltar 10s no vídeo/mídia — testado contra o ProPresenter real: escrever em
-// /v1/transport/{camada}/time muda a posição de verdade (o "-10"/"+10" que tem no vídeo
-// dentro do ProPresenter). Não existe endpoint de marcador na API (isso é só do editor).
+// Avançar/voltar segundos no vídeo/mídia — usa os endpoints nativos skip_forward/
+// skip_backward (achados no spec oficial da API, openapi.propresenter.com) em vez de ler o
+// tempo atual e escrever um novo valor na mão: evita corrida entre leitura e escrita, e é o
+// mesmo mecanismo que o "-10"/"+10" oficial do ProPresenter usa por dentro. Não existe
+// endpoint de marcador na API (isso é só do editor).
 async function pularTempoTransporte(layer, delta) {
   lastUserActionTime = Date.now();
   const st = transportState[layer];
   if (!st.uuid) return;
-  const novoTempo = Math.min(st.duration, Math.max(0, st.currentTime + delta));
-  await apiRequest(`/v1/transport/${layer}/time`, 'PUT', novoTempo);
-  st.currentTime = novoTempo;
+  const acao = delta >= 0 ? 'skip_forward' : 'skip_backward';
+  await apiRequest(`/v1/transport/${layer}/${acao}/${Math.abs(delta)}`);
+  st.currentTime = Math.min(st.duration, Math.max(0, st.currentTime + delta));
   atualizarPainelTransporte(layer);
 }
 document.getElementById('pp-btn-pres-back10')?.addEventListener('click', () => pularTempoTransporte('presentation', -10));
@@ -1494,6 +1517,35 @@ async function checarLookAtual() {
   renderLookMenu();
 }
 
+// Blackout de verdade (liga/desliga a tela da audiência) — achado no spec oficial da API
+// (GET/PUT /v1/status/audience_screens, devolve/aceita um booleano puro). Confere o estado
+// real a cada 2s pra nunca mostrar "ligado" quando alguém desligou por fora do app.
+async function checarBlackout() {
+  const btn = document.getElementById('pp-btn-blackout');
+  if (!btn) return;
+  const ligado = await apiRequest('/v1/status/audience_screens');
+  if (typeof ligado !== 'boolean') return;
+  btn.classList.toggle('is-active', !ligado);
+  btn.title = ligado ? 'Blackout — liga/desliga a tela da audiência' : 'Telas da audiência DESLIGADAS — clique para religar';
+}
+document.getElementById('pp-btn-blackout')?.addEventListener('click', async () => {
+  lastUserActionTime = Date.now();
+  const ligadoAgora = !document.getElementById('pp-btn-blackout').classList.contains('is-active');
+  await apiRequest('/v1/status/audience_screens', 'PUT', !ligadoAgora);
+  await checarBlackout();
+});
+
+// Contador de vídeo pronto da própria API (achado no spec oficial) — mostra "0:00" quando
+// não há nada a contar, então só aparece quando o valor não é zerado.
+async function checarVideoCountdown() {
+  const el = document.getElementById('pp-video-countdown');
+  if (!el) return;
+  const valor = await apiRequest('/v1/timer/video_countdown');
+  const temValor = typeof valor === 'string' && valor.trim() && !/^0?:0?0?:0?0?$/.test(valor.trim());
+  el.classList.toggle('hidden', !temValor);
+  if (temValor) el.textContent = `⏳ ${valor}`;
+}
+
 function renderLookMenu() {
   const list = document.getElementById('pp-look-menu-list');
   if (!list) return;
@@ -1613,6 +1665,7 @@ let idiomaAtual = 'pt-BR';
   await loadCaptureStatus();
   await loadMacros();
   await loadLooks();
+  await loadClearGroups();
   setInterval(pollLiveStatus, 1000);
   setInterval(loadTimers, 1000);
   setInterval(loadCaptureStatus, 1000);
@@ -1620,6 +1673,8 @@ let idiomaAtual = 'pt-BR';
   setInterval(() => checarTransporte('presentation'), 1000);
   setInterval(() => checarTransporte('announcement'), 1000);
   setInterval(checarLookAtual, 2000);
+  setInterval(checarVideoCountdown, 1000);
+  setInterval(checarBlackout, 2000);
   setInterval(atualizarContadorMedia, 1000);
   setInterval(atualizarVuMeter, 160);
 })();

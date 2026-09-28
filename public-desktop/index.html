@@ -44,6 +44,10 @@
           <div class="pp-look-menu-list" id="pp-look-menu-list"></div>
         </div>
       </div>
+      <button class="pp-action-btn" id="pp-btn-blackout" title="Blackout — liga/desliga a tela da audiência">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="1.5"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="18" x2="12" y2="21"/><line x1="5" y1="4" x2="19" y2="18"/></svg>
+        <span class="pp-action-label">Blackout</span>
+      </button>
       <div class="pp-action-dot-wrap" title="Conexão com o ProPresenter">
         <span class="pp-dot on-green" id="pp-conn-dot"></span>
       </div>
@@ -150,6 +154,9 @@
           <button class="pp-clear-btn pp-clear-btn-all" id="pp-btn-clear-preview" data-layer="all" title="Limpar Todas as Telas">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
           </button>
+          <!-- Grupos de Limpar (presets) que a própria igreja já configurou no ProPresenter —
+               preenchido via JS a partir de /v1/clear/groups; vazio quando não há nenhum. -->
+          <div id="pp-clear-groups-extra"></div>
         </div>
         </div>
         <div class="pp-media-transport-row" id="pp-media-transport-row">
@@ -160,6 +167,7 @@
               <button class="pp-btn pp-btn-sm" id="pp-btn-pres-fwd10" title="Avançar 10 segundos">+10</button>
               <span class="pp-mini-transport-name" id="pp-transport-presentation-name">—</span>
               <span class="pp-mini-transport-time" id="pp-transport-presentation-time">00:00 / 00:00</span>
+              <span class="pp-mini-transport-time hidden" id="pp-video-countdown" title="Contagem regressiva de vídeo do ProPresenter">⏳ --:--</span>
             </div>
             <div class="pp-mini-transport-bar"><div class="pp-mini-transport-bar-fill" id="pp-transport-presentation-bar-fill"></div></div>
           </div>

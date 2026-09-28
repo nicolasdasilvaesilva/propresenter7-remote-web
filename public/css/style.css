@@ -2056,6 +2056,9 @@ html, body {
   flex-shrink: 0;
   width: 26px;
   height: 34px;
+  min-width: 44px;   /* área de toque mínima recomendada — o desenho continua do tamanho de antes */
+  min-height: 44px;
+  margin: -5px -9px; /* compensa o espaço extra do min-width/height sem empurrar o resto da linha */
   display: flex;
   align-items: center;
   justify-content: center;
