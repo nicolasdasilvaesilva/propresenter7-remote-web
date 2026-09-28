@@ -190,13 +190,15 @@ async function triggerSlideCue(presUuid, cueIndex, presName, slideText = '', tot
   highlightActiveSlideCard(cueIndex);
   highlightActiveItem();
 
-  // Só sobrepõe a letra quando o fundo vem de uma MÍDIA separada (vídeo/imagem em loop
-  // por trás do texto). Quando o fundo é o thumbnail da própria apresentação, ele já traz
-  // a letra desenhada dentro da imagem (é o próprio render do slide) — sobrepor de novo duplicava.
-  const hasLyrics = Boolean(mediaState.liveUuid) && slideText && slideText.trim().length > 0;
+  // A letra SEMPRE é desenhada em HTML (nítida em qualquer tamanho) quando o slide tem
+  // texto — igual o mobile já fazia. O thumbnail do slide é uma imagem pequena (ex.: 400x150)
+  // que fica borrada esticada no monitor; então só usamos ele como FUNDO quando não há letra
+  // (slide só de imagem) ou quando o fundo é uma mídia separada (vídeo/imagem em loop atrás
+  // do texto — aí sim mostra os dois juntos, cada um na sua função).
+  const hasLyrics = Boolean(slideText && slideText.trim().length > 0);
   const bgUrl = mediaState.liveUuid
     ? `/api/v1/media/${encodeURIComponent(mediaState.liveUuid)}/thumbnail?t=${Date.now()}`
-    : `/api/v1/presentation/${encodeURIComponent(presUuid)}/thumbnail/${cueIndex}?t=${Date.now()}`;
+    : (hasLyrics ? null : `/api/v1/presentation/${encodeURIComponent(presUuid)}/thumbnail/${cueIndex}?t=${Date.now()}`);
   setLivePreview({
     imgUrl: bgUrl,
     fallbackIcon: '📑',
@@ -474,9 +476,11 @@ function refreshLiveComposite() {
   const presUuid = state.livePresentationUuid;
   const idx = state.liveSlideIndex;
   const curSlide = (presUuid && state.currentPresentationUuid === presUuid) ? state.currentPresentationSlides[idx] : null;
-  // Só sobrepõe a letra quando o fundo vem de uma mídia separada (senão o thumbnail do
-  // próprio slide já traz a letra desenhada dentro da imagem, e duplicava o texto).
-  const hasLyrics = Boolean(mediaState.liveUuid) && Boolean(curSlide && curSlide.text && curSlide.text.trim().length > 0);
+  // A letra sempre é desenhada em HTML (nítida) quando o slide tem texto — igual o mobile.
+  // O thumbnail do slide é pequeno (ex.: 400x150) e fica borrado esticado no monitor, então
+  // só vira fundo quando não há letra, ou quando o fundo é uma mídia separada (aí mostra
+  // os dois juntos: vídeo/imagem em loop atrás + letra nítida por cima).
+  const hasLyrics = Boolean(curSlide && curSlide.text && curSlide.text.trim().length > 0);
   const somethingLive = Boolean(mediaState.liveUuid || presUuid);
 
   let imgUrl = null;
@@ -492,7 +496,7 @@ function refreshLiveComposite() {
     imgUrl = `/api/v1/media/${encodeURIComponent(mediaState.liveUuid)}/thumbnail?t=${Date.now()}`;
     fallbackIcon = '🎬';
     if (!presUuid) { title = mediaState.liveName || title; subtitle = mediaState.activeName || '—'; }
-  } else if (presUuid) {
+  } else if (presUuid && !hasLyrics) {
     imgUrl = `/api/v1/presentation/${encodeURIComponent(presUuid)}/thumbnail/${idx}?t=${Date.now()}`;
   }
 
