@@ -627,3 +627,77 @@ disparando errado especificamente pra trocas curtas entre vizinhos em touch. Don
 2. Testar o TRIGGER de um Grupo de Limpar de verdade (so a listagem foi confirmada).
 3. Os 3 itens ja conhecidos: touchscreen real pra auto-deteccao, i18n dos textos dinamicos,
    rodar `Atualizar-Controle-Remoto.bat` no PC de producao.
+
+---
+
+### 13.13 28/09 a noite — BUG DO ARRASTAR NO MOBILE RESOLVIDO + telas presas em exemplo + v1.5.0
+
+**Tentativa de abrir o video (novamente sem sucesso, mas por um motivo diferente desta vez):**
+copiei o .mp4 pro scratchpad da sessao, subi um servidor estatico local com suporte a Range
+(`videoserver.js`) e consegui abrir o video no navegador (antes so dava erro de ferramenta) —
+mas `video.videoWidth`/`videoHeight` ficaram `0` mesmo com `readyState=4` (metadados/duracao
+carregam, o frame nunca decodifica). Bate com um .mp4 gravado em HEVC/H.265 por iPhone sem
+decoder disponivel no Chromium desta maquina. Sem ffmpeg/opencv/python instalados pra
+extrair frame por fora tambem. Segui so com a descricao verbal detalhada (secao 13.12) — foi
+suficiente.
+
+**Causa raiz do bug (achada por LEITURA DE CODIGO, nao do video):** `atualizarPosicaoCartao()`
+dentro de `attachItemDragReorder` (`public/js/app.js`) posiciona o cartao arrastado com
+`transform: translateY(lastClientY - startClientY)` — um deslocamento PURO desde o toque
+inicial. Quando o cartao troca de posicao no DOM (`list.insertBefore`), os vizinhos empurram
+ele pra cima/baixo (~1 altura de card), mas o codigo nunca compensava essa mudanca de layout.
+Resultado: no instante exato da troca, o cartao pulava ~1 card de altura NA TELA sem o dedo
+ter se movido — e esse pulo, sendo do tamanho de um card inteiro, ja cruzava o meio do
+PROXIMO vizinho tambem, disparando uma SEGUNDA troca em cascata na mesma leva de calculo.
+Um arrasto curtinho (soltar do lado de uma musica vizinha) virava assim um salto grande e
+imprevisivel — bate exatamente com a descricao do dono. O teste de longa distancia da rodada
+passada (posicao 1 -> ultima de 31) "passou" porque so conferia a posicao FINAL ao soltar
+(que fica certa de qualquer jeito), nunca expondo o pulo intermediario.
+
+**Correcao:** compensar `startClientY` pela diferenca de layout (`afterRect.top -
+cardRect.top`, medida ANTES/DEPOIS do `insertBefore` com a MESMA transform aplicada) toda vez
+que o cartao troca de posicao, mantendo a posicao visual continua no instante da troca — a
+mesma tecnica do padrao FLIP (First-Last-Invert-Play) usado em bibliotecas de animacao.
+
+**Verificado ANTES de publicar, com teste sintetico isolado** (harness HTML `dragtest.html` no
+scratchpad, 5 cards de 50px, `PointerEvent` reais disparados em 30 micro-passos por
+`document.dispatchEvent`, sem tocar no app de verdade):
+- Com o codigo ANTIGO: arrastar o card B (indice 1) por 55px (so o suficiente pra cruzar o
+  vizinho C) fazia ele pular ate o FIM da lista de 5 (`reordenarItemMobile(1, 4)` em vez de
+  `(1, 2)`) — bug REPRODUZIDO isoladamente, confirmando a causa raiz antes de mexer no codigo.
+- Com o codigo NOVO: o mesmo arrasto de 55px deu o resultado certo (`(1, 2)`, A,C,B,D,E).
+  Testado tambem pra cima (`(3, 2)`) e a distancia longa de novo (`(0, 4)`, sem regressao).
+
+**Confirmado pelo dono AO VIVO num iPad real**, testando direto no servidor de producao/dev
+(`10.0.21.208:3000`) antes de eu publicar a release: "eu acabei de testar no ip 10.0.21.208 e
+ficou muito bom no mobili pra arrastar as letras de posicao."
+
+**Bonus resolvido na mesma rodada** (2 capturas anotadas do dono, imagem 1 = tela ociosa,
+imagem 2 = mesma tela com midia real tocando, os dois com o MESMO circulo vermelho em volta da
+faixa de midia "PCA LIDERANCA/INTERVALO" e da lista de itens "Vem Esta.../Jesus Em..."):
+essas linhas eram conteudo de exemplo HARDCODED direto no `public-desktop/index.html`
+(inclusive o contador fixo "0 ITENS", contradizendo as 4 linhas ao lado dele na mesma tela) —
+so sumia quando `loadPlaylists()`/`loadLibraries()`/`loadMediaPlaylists()` (que rodam UMA VEZ
+SO, na conexao) achavam pelo menos 1 resultado. Se o ProPresenter ainda nao tivesse respondido
+a tempo, a tela ficava presa nesse exemplo pra sempre — so reiniciar o app resolvia. Pedido do
+dono, com as 2 imagens: "deixe sem esse modelos e midia exemplo" + "veja se e possivel... a
+playlist... carregar automaticamente... sem ter que reiniciar o aplicativo". Corrigido com:
+(1) placeholders "Carregando..." honestos no lugar do HTML de exemplo; (2) um relogio de 6s —
+`recarregarArvoresVaziasSeNecessario()` no desktop, `tentarCarregarPlaylistSeVazio()` no
+mobile — que tenta de novo sozinho ate dar certo, sem re-renderizar nada que ja carregou (so
+mexe enquanto o placeholder ainda esta la). Confirmado ao vivo contra o ProPresenter real da
+igreja: biblioteca ("Apresentacoes"/"Celebrai"), playlists reais (DOMINGO/TERCA DA
+ESPERANCA/REDE MULHER/MUSICAL PASCOA), midia real (pre culto, VT27, dizimo, etc.) — tudo
+carregando na primeira tentativa, sem sobrar texto de exemplo em lugar nenhum.
+
+`CACHE_NAME` do service worker (`public/service-worker.js`) subiu de `v3.3` pra `v3.4`, pra
+garantir que o PWA ja instalado no iPad pegue os arquivos novos na proxima abertura.
+
+**v1.5.0 PUBLICADA** (commit `6d08a70`, tag e release no GitHub — dono pediu: "pode comitar e
+subir como nova release", depois de confirmar o teste do arrastar) —
+https://github.com/nicolasdasilvaesilva/propresenter7-remote-web/releases/tag/v1.5.0
+
+**Pendencias que continuam, sem mudanca nesta rodada:** TRIGGER de um Grupo de Limpar
+especifico ainda nao testado ao vivo (so a listagem); touchscreen real pra auto-deteccao
+desktop/mobile; i18n dos textos dinamicos restantes; rodar `Atualizar-Controle-Remoto.bat`
+(Admin) no PC de producao pra aplicar a v1.5.0 la.
