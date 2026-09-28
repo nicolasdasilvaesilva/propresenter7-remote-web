@@ -414,3 +414,75 @@ O dono avisou que o ProPresenter real estava acessivel pela rede em `192.168.100
 **Publicado:** commit `2500b41` (desktop+i18n+reordenar+mock) + commit `51abddd` (fix do fallback) + tag `v1.2.0` + release no GitHub com notas e zip (`ProPresenter-Remote-v1.2.0.zip`, `git archive` a partir da tag).
 
 **Pendente real agora:** nada bloqueando. Proximos passos possiveis: o dono rodar `Atualizar-Controle-Remoto.bat` no PC de producao pra subir a v1.2.0; testar reordenar de verdade numa playlist real (so fiz leitura desta vez, o reordenar em si so foi testado no mock); traduzir textos dinamicos (fase futura).
+
+### 13.8 27/09 (madrugada) — PGM em camadas, faixa de limpar por camada, transporte de audio, contador de midia, busca em popup — AINDA NAO COMMITADO
+
+Dono mandou capturas anotadas do painel OFICIAL pedindo: (1) o PGM do desktop mostrar fundo+letra JUNTOS (camadas) como o mobile ja fazia; (2) uma faixa de icones pra limpar CADA camada (e um X pra limpar tudo), igual o oficial; (3) destacar/mostrar Play na midia e no audio tocando; (4) contador de tempo na midia ao vivo; (5) lupa de busca virar um POPUP (nao mais campo sempre aberto), com preview da letra se der.
+
+**Feito (arquivos: `public-desktop/index.html`, `public-desktop/css/style.css`, `public-desktop/js/app-desktop.js`, `public/js/i18n.js`, `tools/mock-propresenter.js`):**
+- `loadPresentationSlides()`/`triggerSlideCue()` novos no desktop: grid de slides/letras clicavel (igual mobile), SEPARADO de disparar ao vivo — clicar na playlist so CARREGA o grid (`selectPlaylistItem`/`selectLibraryItem`), so dispara de verdade clicando no slide especifico. Isso ja tinha sido feito ANTES desta rodada (sessao anterior) mas achei um bug nao resolvido (navegar marcava "ao vivo" sem disparar) — nao reproduziu de novo nesta rodada com ambiente limpo, tratado como contaminacao de aba antiga do navegador, nao bug real.
+- PGM (`setLivePreview`/`refreshLiveComposite`): agora mostra imagem de fundo (midia OU o proprio slide) E a letra por cima ao mesmo tempo — as "camadas" pedidas. Removido o selo "AO VIVO" (dono achou redundante, o slide/card ja mostra).
+- Faixa de limpar por camada (`#pp-clear-strip`, dentro do proprio PGM): copiada EXATAMENTE do mobile (mesmos SVGs, mesma ordem Audio→Mensagens→Props→Anuncios→Slide→Midia→Video Input→(divisor)→Limpar Tudo por ultimo, mesmas cores por camada `.color-audio` etc.) a pedido do dono ("ficou muito bom no mobile, usa os mesmos icones").
+- Audio: painel "tocando agora" de verdade (`#pp-audio-current` virou `.pp-audio-transport`) com Tocar/Pausar/Anterior/Proxima REAIS (`/v1/transport/audio/play|pause`, `/v1/trigger/audio/next|previous`) e destaque na faixa da lista tocando. **Sem barra de progresso** — a API do ProPresenter nao devolve posicao/tempo decorrido (confirmado: nem o mobile tem isso).
+- Midia: card ao vivo agora mostra um contador de tempo decorrido (`.pp-media-elapsed`), local/aproximado (comeca a contar do momento que detectamos o disparo — a API tambem nao da a posicao real de reproducao de video).
+- Busca virou popup (`#pp-search-overlay`, icone de lupa no lugar do campo sempre aberto): lista de resultados + preview da letra (busca `/v1/presentation/{uuid}` e junta o texto dos slides) + botoes "Adicionar a Playlist" (reaproveita o fluxo que ja existia) e "Abrir" (carrega o grid de slides).
+- **Bug achado e corrigido no PROPRIO MOCK** (nao era bug do app real): `tools/mock-propresenter.js` guardava itens de Midia/Audio SEM aninhar em `.id` (formato errado), enquanto o app sempre le `item.id.uuid`/`item.id.name` (formato certo, confirmado contra o ProPresenter real mais cedo). Isso fazia o teste local mostrar Midia sempre em modo texto (nunca tentava imagem) e Audio destacar a faixa errada. Corrigido no mock; sem qualquer mudanca no app real.
+
+**Pedido para DEPOIS (NAO implementado ainda, so anotado):** arrastar-e-soltar pra reordenar a letra/musica na playlist (em vez de so as setas ▲▼) — dono disse que fica mais pratico. Media NAO da pra reordenar de jeito nenhum (limitacao da API do ProPresenter, so leitura+disparo).
+
+**Nao commitado ainda.** Testado no mock (fresco, sem contaminacao de aba antiga): grid+letra+imagem compostos, faixa de limpar (clique sem erro), audio (troca de faixa destaca certo, painel mostra nome certo), midia (uuid resolvido certo, contador subindo). Falta: revisar visual fino, testar contra o ProPresenter real de novo, e so ai commitar/decidir versao (v1.2.1 ou v1.3.0).
+
+### 13.9 27/09 madrugada — rodada GRANDE de polimento visual do Desktop (a pedido do dono, olhando o app ao vivo), COMMITADA
+
+O dono foi testando ao vivo no navegador (eu com o painel aberto, ele mandando capturas anotadas em vermelho) e pedindo ajustes um atras do outro. Lista completa do que mudou nesta rodada, tudo em `public-desktop/` salvo quando indicado:
+
+**Menu/toolbar:**
+- Removida a barra de menu decorativa (Arquivo/Editar/Apresentacao/Telas/Visualizar/Janela/Ajuda) — nao fazia nada, dono pediu pra tirar em vez de fingir.
+- Menu (toolbar) mudou de CLARO pra ESCURO (variaveis `--toolbar-*` no `:root`), pra combinar com o resto do app.
+- "Aparencia" virou o **Look funcional de verdade** (`#pp-btn-look`, igual o mobile): mostra o nome do Look ativo, abre dropdown com `/v1/looks` + `/v1/look/current`, troca com `/v1/look/{id}/trigger`.
+- "Mostrar" e "Limpar" (do topo) foram REMOVIDOS — "Limpar" ja existe dentro do PGM (a faixa de camadas); "Mostrar" e redundante com clicar no slide/midia especifico OU a seta do teclado.
+- **Setas do teclado** (`ArrowLeft/Right/Up/Down`, `PageUp/Down`, espaco) agora avancam/voltam (`/v1/trigger/next|previous`), protegido contra digitacao em campos e modais abertos.
+- "Conectado" (texto) removido — so o pontinho verde/vermelho, como badge PROPRIO (nao mais grudado na engrenagem, o dono achou confuso "dentro" do icone).
+- Adicionado botao **"Instalar App"** (PWA) no desktop, mesma logica do mobile (`beforeinstallprompt`/`appinstalled`/deteccao de `display-mode:standalone`) — antes so existia no mobile.
+- Corrigido alinhamento: todos os botoes do topo agora tem a mesma altura (`min-height:50px` em `.pp-tool`, e o "Look ▾" parou de quebrar linha porque separei o label+seta num `.pp-label-row` só — antes eram 2 flex-items em coluna, por isso ficava mais alto que os outros).
+
+**PGM (preview ao vivo) e slides:**
+- Monitor agora e SEMPRE 16:9 de verdade (calculado em JS via `ResizeObserver`, `ajustarMonitor16x9()` — CSS `aspect-ratio` sozinho nao dava conta de respeitar largura E altura ao mesmo tempo).
+- Removidos os rotulos redundantes de cima ("nome da musica" pequeno no canto) e de baixo ("Slide N de M") do monitor — ficou so a letra grande centralizada, mais limpo.
+- Adicionada **faixa de limpar por camada** dentro do proprio PGM (`#pp-clear-strip`), copiada EXATAMENTE do mobile: mesmos SVGs e cores, mesma ordem (Audio→Mensagens→Props→Anuncios→Slide→Midia→Video Input→divisor→Limpar Tudo por ultimo).
+- Removidos os botoes "◀ Anterior / Proximo ▶" (redundantes com a seta do teclado); no lugar, um aviso discreto "⌨ Use as setas do teclado pra avancar/voltar".
+- Adicionado **VU meter aproximado** (`#pp-vu-meter`, barra vertical vermelho/amarelo/verde) do lado esquerdo do monitor, que pulsa quando o audio (MP3 ou midia com som) esta tocando — **NAO e uma leitura real de decibeis**, a API do ProPresenter nao devolve volume/posicao, entao e uma animacao "esta tocando" (mesmo espirito das 3 barrinhas que ja existiam no mobile). Simetrico com a altura do monitor (calculado junto no `ajustarMonitor16x9`).
+- Grid de slides/letras: clicar na playlist so CARREGA o grid (nao dispara sozinho); disparar e um clique a parte no slide especifico — igual o mobile e o painel oficial.
+
+**Playlist (lista de musicas):**
+- Reordenar virou **arrastar-e-soltar** (`draggable`, alca "⠿"), as setas ▲▼ foram REMOVIDAS. Endpoint `/api/reorder-playlist-item` (`server.js`) generalizado pra aceitar `toIndex` (posicao arbitraria via `splice`) alem do `direction` antigo (um passo).
+- Removida a etiqueta "presentation" ao lado do nome de cada item — nome da musica ganha o espaco.
+- **Midia (ProContent) NAO da pra reordenar de jeito nenhum** — confirmado e reforcado ao dono: `/v1/media/playlist/{id}` so tem GET na API oficial, nao existe PUT. Nao fingimos um arrastar que nao salva nada.
+- Card de midia ao vivo mostra contador de tempo decorrido (aproximado, local).
+
+**Busca:**
+- Vira **popup** (icone de lupa, `#pp-search-overlay`) em vez de campo sempre aberto: lista de resultados + preview da letra (busca a apresentacao e junta o texto dos slides) + "Adicionar a Playlist" + "Abrir" (carrega o grid).
+
+**Audio:**
+- Painel "tocando agora" de verdade (`.pp-audio-transport`): Tocar/Pausar/Anterior/Proxima REAIS, destaque na faixa certa da lista. Sem barra de progresso (API nao da posicao/tempo).
+
+**PWA / instalacao:**
+- Criado `public-desktop/manifest.json` proprio (antes NAO EXISTIA — por isso instalava so com a letra "P" generica). Aponta pros mesmos icones do mobile (`/img/icon-192.png`, `/img/icon-512.png`).
+- **Auto-deteccao desktop vs mobile**: acessar a RAIZ (`/`) num navegador sem toque agora manda sozinho pra `/desktop/` (script no `<head>` de `public/index.html`, checa `navigator.maxTouchPoints`/`ontouchstart` + User-Agent; iPad continua no mobile mesmo se o UA disser "Macintosh", porque tem toque). `?mobile=1` forca ficar no mobile mesmo num PC, pra testes.
+
+**Estetica geral:**
+- Barra de rolagem **INVISIVEL** em todo o desktop (`scrollbar-width:none` + `::-webkit-scrollbar{display:none}` global), igual o mobile ja fazia — scroll continua funcionando, so a barrinha cinza que sumiu.
+- Achado e corrigido: a classe `.hidden` NUNCA tinha sido definida de verdade no CSS (so variantes especificas tipo `.pp-modal-overlay.hidden`) — adicionado um `.hidden { display:none !important; }` generico no topo do arquivo. Isso pode ter deixado elementos "escondidos" via `classList` sem esconder de verdade antes (mitigado na pratica porque a maioria eram elementos vazios/sem conteudo visivel quando "escondidos").
+
+**COMMITADO** nesta rodada (ver `git log` do repo de deploy pra hash exato — dono pediu commit explicitamente: "vamos comitar e vou testar amanha").
+
+### 13.10 O QUE FALTA PRA FINALIZAR O APLICATIVO (lista pedida pelo dono antes de compactar)
+
+1. **Testar tudo isto contra o ProPresenter REAL** (so foi testado no mock nesta rodada de polimento) — especialmente: Look (trocar de verdade), Instalar App no Windows de verdade (confirmar que o icone aparece certo, nao so a letra P), arrastar-e-soltar da playlist numa playlist real com 3+ itens, VU meter com audio de verdade tocando, teclado numa janela real (nao So via JS sintetico).
+2. **Auto-deteccao desktop/mobile**: testar no PC de producao real (Windows) e, se possivel, num iPad de verdade — a logica usa `maxTouchPoints`, que precisa ser confirmada em hardware real (testado ate agora so no Chromium do painel do Claude, que reporta "sem touch" corretamente, mas nunca testado num touchscreen real tipo Surface/monitor touch).
+3. **Traduzir textos dinamicos** (i18n) que ainda estao so em portugues: toasts, "Slide N de M" (onde ainda aparecer), textos do JS em geral — fase futura ja avisada ao dono varias vezes.
+4. **Arrastar-e-soltar da LETRA/slide dentro da apresentacao** (mudar ordem dos slides dentro de uma musica) — o dono perguntou se e possivel; NAO EXISTE endpoint de reordenar slides dentro de uma apresentacao na API do ProPresenter (so playlist-level). Nao comecado, e provavelmente impossivel pela API.
+5. **Revisar as abas com dados reais**: Mensagens, Props, Video Input, Captura, Macros — testadas so com a instancia de teste (function ou vazias); precisam de dados reais de producao pra validacao final.
+6. Decidir e publicar a proxima versao/release (v1.2.1 ou v1.3.0 — o volume de mudanca desta rodada e grande, talvez mereça v1.3.0) com notas explicando tudo isso pro dono/igreja.
+7. Rodar `Atualizar-Controle-Remoto.bat` (Admin) no PC de producao pra subir a versao nova, uma vez publicada.
+8. Servidores de teste desta sessao (mock + server.js locais) ja foram parados antes de compactar.
