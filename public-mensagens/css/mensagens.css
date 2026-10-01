@@ -35,6 +35,13 @@
   font-size: 22px;
 }
 
+.msg-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
 .msg-conn-dot {
   width: 10px;
   height: 10px;
@@ -47,6 +54,23 @@
 .msg-conn-dot.disconnected {
   background: var(--color-danger);
   box-shadow: 0 0 6px rgba(239, 68, 68, .6);
+}
+
+.msg-logout-btn {
+  background: #3a3d44;
+  color: var(--text-main);
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  min-height: 44px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.msg-logout-btn:active {
+  background: #464a52;
 }
 
 .msg-content {

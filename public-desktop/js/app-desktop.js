@@ -1395,6 +1395,7 @@ function renderMessageBody(msg) {
   body.innerHTML = `
     <div class="pp-item-card">
       ${tokens.filter(t => t.text).map(t => `<div class="pp-field-row"><label>${escapeHtml(t.name)} — Value:</label><input data-token="${escapeHtml(t.name)}" value="${escapeHtml(t.text?.text || '')}"></div>`).join('') || '<div style="font-size:12px;color:var(--text-dim)">Mensagem de texto fixo (sem variáveis)</div>'}
+      <div id="pp-msg-status" style="font-size:12px;margin-top:4px;min-height:16px"></div>
       <div style="text-align:right;margin-top:6px;display:flex;gap:6px;justify-content:flex-end">
         <button class="pp-btn pp-btn-sm" id="pp-msg-clear">Limpar</button>
         <button class="pp-btn primary pp-btn-sm" id="pp-msg-show">Mostrar</button>
@@ -1402,6 +1403,36 @@ function renderMessageBody(msg) {
     </div>`;
   document.getElementById('pp-msg-show').addEventListener('click', () => triggerMessage(msg));
   document.getElementById('pp-msg-clear').addEventListener('click', () => clearMessage(msg));
+  atualizarStatusMensagemAtual(msg.is_active);
+}
+
+function atualizarStatusMensagemAtual(ativo) {
+  const statusEl = document.getElementById('pp-msg-status');
+  if (!statusEl) return;
+  statusEl.innerHTML = ativo ? '<span style="color:#22c55e">● No telão</span>' : '';
+}
+
+// Detecta sozinho quando a mensagem sai do telão — seja pelo "Limpar" aqui, por limpar
+// direto no ProPresenter, ou pelo tempo configurado no modelo estourando sozinho. Só
+// atualiza o rótulo do <select> e o status — nunca mexe no que o operador já digitou.
+async function sincronizarStatusMensagens() {
+  const sel = document.getElementById('pp-msg-select');
+  if (!sel || !sel.options.length) return;
+
+  const data = await apiRequest('/v1/messages');
+  const list = Array.isArray(data) ? data : (Array.isArray(data?.value) ? data.value : []);
+  if (!list.length) return;
+
+  messagesCache = list;
+  const valorSelecionado = sel.value;
+  Array.from(sel.options).forEach(opt => {
+    const m = list.find(x => String(x.id?.uuid ?? x.id?.index) === opt.value);
+    if (m) opt.textContent = `${m.id?.name || 'Mensagem'}${m.is_active ? ' ● NO TELÃO' : ''}`;
+  });
+  sel.value = valorSelecionado;
+
+  const atual = list.find(x => String(x.id?.uuid ?? x.id?.index) === valorSelecionado);
+  if (atual) atualizarStatusMensagemAtual(atual.is_active);
 }
 
 async function triggerMessage(msg) {
@@ -1714,6 +1745,7 @@ let idiomaAtual = 'pt-BR';
   setInterval(() => checarTransporte('announcement'), 1000);
   setInterval(checarLookAtual, 2000);
   setInterval(checarVideoCountdown, 1000);
+  setInterval(sincronizarStatusMensagens, 2000);
   setInterval(checarBlackout, 2000);
   setInterval(atualizarContadorMedia, 1000);
   setInterval(atualizarVuMeter, 160);

@@ -13,8 +13,8 @@
 <meta name="theme-color" content="#121316">
 <!-- Reaproveita o CSS do app mobile: já tem TODAS as classes .pro-msg-*/.pro-token-*
      usadas aqui (é o mesmo cartão do popup "Mensagens no Telão"), zero duplicação. -->
-<link rel="stylesheet" href="/css/style.css?v=1">
-<link rel="stylesheet" href="/mensagens/css/mensagens.css?v=1">
+<link rel="stylesheet" href="/css/style.css?v=2">
+<link rel="stylesheet" href="/mensagens/css/mensagens.css?v=2">
 </head>
 <body>
 <div id="pagina-mensagens">
@@ -23,7 +23,10 @@
       <span class="msg-header-icon">📣</span>
       <span>Enviar Aviso</span>
     </div>
-    <span class="msg-conn-dot" id="msg-conn-dot" title="Conectado ao ProPresenter"></span>
+    <div class="msg-header-right">
+      <span class="msg-conn-dot" id="msg-conn-dot" title="Conectado ao ProPresenter"></span>
+      <button class="msg-logout-btn" id="btn-sair-mensagens">Sair</button>
+    </div>
   </header>
   <main class="msg-content" id="msg-content">
     <div class="loading-spinner-box">
@@ -48,6 +51,6 @@
   </div>
 </div>
 
-<script src="/mensagens/js/app-mensagens.js?v=1"></script>
+<script src="/mensagens/js/app-mensagens.js?v=2"></script>
 </body>
 </html>

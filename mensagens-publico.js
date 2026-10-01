@@ -137,7 +137,7 @@ function arquivoEstatico(res, caminhoAbsoluto) {
   fs.readFile(caminhoAbsoluto, (err, dados) => {
     if (err) { res.writeHead(404); res.end('Não encontrado'); return; }
     const ext = path.extname(caminhoAbsoluto).toLowerCase();
-    res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
+    res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream', 'Cache-Control': 'no-store, no-cache, must-revalidate' });
     res.end(dados);
   });
 }
@@ -228,6 +228,26 @@ const server = http.createServer(async (req, res) => {
   const pathname = url.pathname;
 
   if (pathname.startsWith('/img/')) return arquivoEstatico(res, path.join(PUBLIC_DIR, pathname));
+
+  // manifest.json e service-worker.js ficam FORA do login de propósito: o Chrome busca o
+  // manifest sem mandar o cookie de sessão (é o padrão da especificação, a não ser que a
+  // página peça credenciais explicitamente) — atrás de login, a checagem de "isso é
+  // instalável?" sempre falhava (caía no redirect pro /login), mesmo com o usuário logado
+  // de verdade na aba. Nenhum dos dois arquivos tem informação sigilosa.
+  if (pathname === '/service-worker.js') return arquivoEstatico(res, path.join(MENSAGENS_DIR, 'service-worker.js'));
+  if (pathname === '/mensagens/manifest.json') {
+    try {
+      const manifesto = lerJson(path.join(MENSAGENS_DIR, 'manifest.json'), false);
+      manifesto.start_url = '/';
+      manifesto.scope = '/';
+      manifesto.id = '/';
+      const body = JSON.stringify(manifesto);
+      res.writeHead(200, { 'Content-Type': 'application/manifest+json; charset=utf-8', 'Cache-Control': 'no-store, no-cache, must-revalidate' });
+      return res.end(body);
+    } catch (e) {
+      res.writeHead(404); return res.end();
+    }
+  }
 
   if (pathname === '/login' && req.method === 'GET') {
     return arquivoEstatico(res, path.join(MENSAGENS_DIR, 'login.html'));
@@ -404,21 +424,6 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/' || pathname === '/index.html') return arquivoEstatico(res, path.join(MENSAGENS_DIR, 'index.html'));
   if (pathname === '/mensagens/css/mensagens.css') return arquivoEstatico(res, path.join(MENSAGENS_DIR, 'css', 'mensagens.css'));
   if (pathname === '/mensagens/js/app-mensagens.js') return arquivoEstatico(res, path.join(MENSAGENS_DIR, 'js', 'app-mensagens.js'));
-  if (pathname === '/mensagens/manifest.json') {
-    // O manifest original aponta start_url/scope pra "/mensagens/" (onde ele fica no
-    // servidor principal) — aqui ele fica na raiz, então ajustamos só esses 2 campos.
-    try {
-      const manifesto = lerJson(path.join(MENSAGENS_DIR, 'manifest.json'), false);
-      manifesto.start_url = '/';
-      manifesto.scope = '/';
-      manifesto.id = '/';
-      const body = JSON.stringify(manifesto);
-      res.writeHead(200, { 'Content-Type': 'application/manifest+json; charset=utf-8', 'Cache-Control': 'no-cache' });
-      return res.end(body);
-    } catch (e) {
-      res.writeHead(404); return res.end();
-    }
-  }
   if (pathname === '/css/style.css') return arquivoEstatico(res, path.join(PUBLIC_DIR, 'css', 'style.css'));
 
   if (pathname === '/api/session-info' && req.method === 'GET') {

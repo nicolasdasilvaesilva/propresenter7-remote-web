@@ -1938,13 +1938,52 @@ async function checkAudioTransportStatus() {
 // ==========================================================================
 // MÓDULO DE MENSAGENS NO TELÃO (PROPRESENTER MESSAGES)
 // ==========================================================================
+let messagesStatusInterval = null;
+
 function openMessagesModal() {
   dom.messagesModal?.classList.add('open');
   loadMessages();
+  if (messagesStatusInterval) clearInterval(messagesStatusInterval);
+  messagesStatusInterval = setInterval(sincronizarStatusMensagemAtiva, 4000);
 }
 
 function closeMessagesModal() {
   dom.messagesModal?.classList.remove('open');
+  if (messagesStatusInterval) {
+    clearInterval(messagesStatusInterval);
+    messagesStatusInterval = null;
+  }
+}
+
+// Detecta sozinho quando a mensagem sai do telão — seja pelo "Clear" aqui, por limpar
+// direto no ProPresenter, ou pelo tempo configurado no modelo estourando sozinho.
+async function sincronizarStatusMensagemAtiva() {
+  if (!state.messages.activeTemplate) return;
+
+  const data = await apiRequest('/v1/messages');
+  const list = Array.isArray(data) ? data : (Array.isArray(data?.value) ? data.value : []);
+  const atual = list.find(m => (m.id?.uuid || m.id?.index) === state.messages.activeMessageUuid);
+  if (!atual) return;
+
+  const estavaAtivo = !!state.messages.activeTemplate.is_active;
+  const estaAtivoAgora = !!atual.is_active;
+  if (estavaAtivo === estaAtivoAgora) return;
+
+  state.messages.activeTemplate.is_active = estaAtivoAgora;
+
+  const statusEl = document.getElementById('pro-msg-status');
+  const btnShow = document.getElementById('btn-pro-show');
+  const badge = dom.messagesBodyContainer?.querySelector('.message-template-status-badge');
+
+  if (estaAtivoAgora) {
+    if (statusEl) statusEl.innerHTML = '<span class="status-live">● Exibindo nos Telões (Resolume NDI 1 e 2)!</span>';
+    if (btnShow) { btnShow.className = 'pro-btn-dark btn-pro-show active'; btnShow.textContent = 'Show (Ativo)'; }
+    if (badge) { badge.className = 'message-template-status-badge active'; badge.textContent = '● NO TELÃO'; }
+  } else {
+    if (statusEl) statusEl.innerHTML = '<span>Mensagem saiu do telão.</span>';
+    if (btnShow) { btnShow.className = 'pro-btn-dark btn-pro-show'; btnShow.textContent = 'Show'; }
+    if (badge) { badge.className = 'message-template-status-badge inactive'; badge.textContent = 'PRONTO'; }
+  }
 }
 
 async function loadMessages() {

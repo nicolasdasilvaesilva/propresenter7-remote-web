@@ -313,3 +313,67 @@ async function limparMensagemAtual() {
 }
 
 carregarModelos();
+registrarServiceWorker();
+setInterval(sincronizarStatusAtivo, 4000);
+
+// Detecta sozinho quando a mensagem sai do telão — seja por "Limpar do Telão" aqui,
+// por limpar direto no ProPresenter, ou pelo próprio tempo configurado no modelo
+// estourando sozinho. Assim a pessoa não precisa clicar em nada pra saber que já saiu.
+async function sincronizarStatusAtivo() {
+  if (!st.activeTemplate) return;
+
+  const data = await apiRequest('/v1/messages');
+  const list = Array.isArray(data) ? data : (Array.isArray(data?.value) ? data.value : []);
+  const atual = list.find(m => (m.id?.uuid ?? m.id?.index) === st.activeUuid);
+  if (!atual) return;
+
+  const estavaAtivo = !!st.activeTemplate.is_active;
+  const estaAtivoAgora = !!atual.is_active;
+  if (estavaAtivo === estaAtivoAgora) return;
+
+  st.activeTemplate.is_active = estaAtivoAgora;
+
+  const statusEl = document.getElementById('pro-msg-status');
+  const btnShow = document.getElementById('btn-pro-show');
+  const badge = els.content.querySelector('.message-template-status-badge');
+
+  if (estaAtivoAgora) {
+    if (statusEl) statusEl.innerHTML = '<span class="status-live">● Exibindo no telão!</span>';
+    if (btnShow) { btnShow.className = 'pro-btn-dark btn-pro-show active'; btnShow.textContent = 'No Telão ✓'; }
+    if (badge) { badge.className = 'message-template-status-badge active'; badge.textContent = '● NO TELÃO'; }
+  } else {
+    if (statusEl) statusEl.innerHTML = '<span>Mensagem saiu do telão.</span>';
+    if (btnShow) { btnShow.className = 'pro-btn-dark btn-pro-show'; btnShow.textContent = 'Enviar para o Telão'; }
+    if (badge) { badge.className = 'message-template-status-badge inactive'; badge.textContent = 'PRONTO'; }
+  }
+}
+
+document.getElementById('btn-sair-mensagens')?.addEventListener('click', async () => {
+  await fetch('/logout', { method: 'POST' });
+  window.location.href = '/login';
+});
+
+function registrarServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+
+  navigator.serviceWorker.register('/service-worker.js')
+    .then(reg => {
+      reg.addEventListener('updatefound', () => {
+        const novo = reg.installing;
+        if (!novo) return;
+        novo.addEventListener('statechange', () => {
+          if (novo.state === 'installed' && navigator.serviceWorker.controller) {
+            novo.postMessage({ type: 'SKIP_WAITING' });
+          }
+        });
+      });
+    })
+    .catch(err => console.warn('Aviso ao registrar Service Worker:', err));
+
+  let recarregando = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (recarregando) return;
+    recarregando = true;
+    window.location.reload();
+  });
+}
