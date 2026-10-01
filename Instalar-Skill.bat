@@ -8,6 +8,7 @@ echo ================================================================
 echo.
 echo Skills: propresenter-expert (API, interface, armadilhas)
 echo         propresenter-remote-install (instalar, atualizar, reparar)
+echo         propresenter-https-ssl (HTTPS com win-acme, para instalar como PWA)
 echo.
 echo Uso:  Instalar-Skill.bat             (instala nos DOIS)
 echo       Instalar-Skill.bat claude      (so Claude Code)

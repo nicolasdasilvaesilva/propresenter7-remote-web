@@ -7,7 +7,7 @@ description: Instala, atualiza, confere, repara e desinstala o controle remoto w
 
 > **Compatível com Claude Code e Antigravity** (mesmo formato `SKILL.md`; instale com `Instalar-Skill.bat`). Nos dois, para instalar para todos os usuários / subir ao ligar o Windows, abra o terminal (ou o próprio Claude Code/Antigravity) **como Administrador**.
 
-Esta skill cuida do **servidor Node.js** do controle remoto (repositório `nicolasdasilvaesilva/propresenter7-remote-web`). O conhecimento da API e da interface está na skill `propresenter-expert`.
+Esta skill cuida do **servidor Node.js** do controle remoto (repositório `nicolasdasilvaesilva/propresenter7-remote-web`). O conhecimento da API e da interface está na skill `propresenter-expert`; configurar HTTPS/certificado (pra liberar instalar como PWA no celular) está na skill `propresenter-https-ssl`.
 
 ## 1. Onde as coisas rodam (importante)
 
