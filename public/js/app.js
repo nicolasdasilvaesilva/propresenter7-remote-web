@@ -2654,13 +2654,28 @@ async function openPresentationFromSearch(item) {
 // Também tenta de novo uma vez: assim que uma apresentação/slide fica ao vivo, o ProPresenter
 // às vezes ainda não tem a miniatura pronta no primeiro pedido (ficava sem carregar nunca,
 // já que não havia nova tentativa).
-function carregarImagemAoVivoSemPiscar(url, tentativaExtra = true) {
-  const img = new Image();
-  img.onload = () => { dom.liveSlideImage.src = url; };
-  img.onerror = () => {
+//
+// IMPORTANTE: a miniatura do ProPresenter não manda NENHUM cabeçalho de cache (nem
+// Cache-Control nem validador) — então um `new Image()` separado pra pré-carregar não
+// garante reaproveitar nada: em aparelhos com pouca memória (achado num tablet Android
+// antigo), o navegador pode simplesmente buscar a mesma URL de novo na troca pro `<img>`
+// visível, virando DUAS idas à rede em vez de uma e piorando o atraso num Wi-Fi fraco — o
+// oposto do que essa função deveria fazer. Por isso usamos `fetch` + `Blob` local: busca uma
+// vez só, e só troca a tela com os bytes já na mão (zero segunda requisição).
+let liveImageObjectUrl = null;
+async function carregarImagemAoVivoSemPiscar(url, tentativaExtra = true) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    const novaUrl = URL.createObjectURL(blob);
+    const urlAntiga = liveImageObjectUrl;
+    liveImageObjectUrl = novaUrl;
+    dom.liveSlideImage.src = novaUrl;
+    if (urlAntiga) URL.revokeObjectURL(urlAntiga);
+  } catch (err) {
     if (tentativaExtra) setTimeout(() => carregarImagemAoVivoSemPiscar(url, false), 700);
-  };
-  img.src = url;
+  }
 }
 
 function startStatusPolling() {
@@ -2856,7 +2871,7 @@ async function pollLiveStatusOnce(startedAt) {
           dom.previewTextOverlay.classList.add('hidden');
           dom.liveSlideImage.classList.remove('hidden');
           dom.liveSlideImage.dataset.loadedUuid = '';
-          dom.liveSlideImage.src = `/api/v1/presentation/${presUuid}/thumbnail/${curIdx}?t=${Date.now()}`;
+          carregarImagemAoVivoSemPiscar(`/api/v1/presentation/${presUuid}/thumbnail/${curIdx}?t=${Date.now()}`);
         }
       }
     } catch (err) {
