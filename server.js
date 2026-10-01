@@ -626,7 +626,17 @@ async function tratarRequisicao(req, res) {
     };
 
     const proxyReq = http.request(options, (proxyRes) => {
-      res.writeHead(proxyRes.statusCode, proxyRes.headers);
+      // O ProPresenter não manda NENHUM cabeçalho de cache nas miniaturas — em aparelhos com
+      // pouca memória (achado num tablet Android antigo), o Chrome descarta e busca a mesma
+      // miniatura de novo a cada rolagem da grade de slides, piscando a cada vez (o Firefox,
+      // mais generoso com o cache de imagem, não tinha esse problema). Como o conteúdo de um
+      // slide/item raramente muda enquanto a grade está aberta, um cache curto aqui resolve
+      // sem risco de prender uma miniatura desatualizada por muito tempo.
+      const headers = Object.assign({}, proxyRes.headers);
+      if (pathname.includes('/thumbnail')) {
+        headers['cache-control'] = 'private, max-age=60';
+      }
+      res.writeHead(proxyRes.statusCode, headers);
       proxyRes.pipe(res, { end: true });
     });
 
