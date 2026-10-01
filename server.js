@@ -1,4 +1,5 @@
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -21,6 +22,41 @@ const CONFIG = loadConfig();
 const PORT = Number(process.env.PORT || CONFIG.port || 3000);
 let PROPRESENTER_HOST = process.env.PRO_HOST || CONFIG.proHost || '10.0.21.145';
 let PROPRESENTER_PORT = Number(process.env.PRO_PORT || CONFIG.proPort || 50820);
+
+// HTTPS opcional (ex.: control.SEUDOMINIO.com.br, certificado emitido pelo win-acme via
+// desafio DNS da Cloudflare — ver HTTPS-COMO-INSTALAR.md). Sem isso configurado, o servidor
+// continua exatamente como sempre foi: só HTTP, nada muda pra quem não configurar nada.
+// "httpsCertDir" é uma pasta onde o win-acme deixa os arquivos .pem; o nome exato dos
+// arquivos varia por instalação, então procuramos por padrão de nome em vez de um caminho
+// fixo (mais à prova de erro do que adivinhar a convenção exata da ferramenta).
+const HTTPS_PORT = Number(process.env.HTTPS_PORT || CONFIG.httpsPort || 443);
+const HTTPS_CERT_DIR = CONFIG.httpsCertDir ? path.resolve(CONFIG.httpsCertDir) : null;
+
+function encontrarArquivoCert(pasta, pedacosDoNome) {
+  try {
+    const arquivos = fs.readdirSync(pasta);
+    const nome = arquivos.find(f => {
+      const fLower = f.toLowerCase();
+      return fLower.endsWith('.pem') && pedacosDoNome.some(p => fLower.includes(p));
+    });
+    return nome ? path.join(pasta, nome) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function carregarCredenciaisHttps() {
+  if (!HTTPS_CERT_DIR) return null;
+  const certFile = encontrarArquivoCert(HTTPS_CERT_DIR, ['fullchain', 'chain', 'crt', 'cert']);
+  const keyFile = encontrarArquivoCert(HTTPS_CERT_DIR, ['privkey', 'key']);
+  if (!certFile || !keyFile) return null;
+  try {
+    return { cert: fs.readFileSync(certFile), key: fs.readFileSync(keyFile) };
+  } catch (e) {
+    console.error('[HTTPS] Encontrei os arquivos mas não consegui ler:', e.message);
+    return null;
+  }
+}
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
 // Pele para desktop (visual do painel oficial do ProPresenter), MESMO backend/API que a pele mobile/iPad.
@@ -225,7 +261,9 @@ async function refreshLibraryCache() {
   return libraryCache || [];
 }
 
-const server = http.createServer(async (req, res) => {
+// Função nomeada (em vez de inline) pra poder ser reaproveitada tanto pelo servidor HTTP
+// quanto pelo HTTPS opcional abaixo — o mesmo código atende as duas portas.
+async function tratarRequisicao(req, res) {
   // Sem CORS: o app é servido pelo próprio servidor (mesma origem). Assim, páginas de
   // outros sites abertas na rede não conseguem ler nem comandar a API.
   if (req.method === 'OPTIONS') {
@@ -664,7 +702,9 @@ const server = http.createServer(async (req, res) => {
     });
     fs.createReadStream(filePath).pipe(res);
   });
-});
+}
+
+const server = http.createServer(tratarRequisicao);
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
@@ -695,3 +735,19 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log('======================================================\n');
   refreshLibraryCache().catch(() => {});
 });
+
+// HTTPS: só liga se "httpsCertDir" estiver configurado E os arquivos existirem — do
+// contrário, segue só com o HTTP de sempre (nada muda pra quem não mexeu nisso). Reaproveita
+// o MESMO código de tratarRequisicao, então toda a API/páginas funcionam igual nas duas portas.
+const credenciaisHttps = carregarCredenciaisHttps();
+if (credenciaisHttps) {
+  const servidorHttps = https.createServer(credenciaisHttps, tratarRequisicao);
+  servidorHttps.on('error', (err) => {
+    console.error('[HTTPS] Falha ao iniciar na porta ' + HTTPS_PORT + ':', err.message);
+  });
+  servidorHttps.listen(HTTPS_PORT, '0.0.0.0', () => {
+    console.log('[HTTPS] Também disponível em https://control.SEUDOMINIO:' + HTTPS_PORT + ' (porta ' + HTTPS_PORT + ', certificado em ' + HTTPS_CERT_DIR + ')');
+  });
+} else if (HTTPS_CERT_DIR) {
+  console.log('[HTTPS] "httpsCertDir" configurado em ' + HTTPS_CERT_DIR + ', mas não achei os arquivos de certificado lá ainda — seguindo só com HTTP.');
+}
