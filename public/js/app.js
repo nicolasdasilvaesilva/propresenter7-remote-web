@@ -2647,6 +2647,22 @@ async function openPresentationFromSearch(item) {
 // ==========================================================================
 // POLLING DE STATUS AO VIVO
 // ==========================================================================
+
+// Pré-carrega a miniatura antes de trocar a imagem visível do PGM — sem isso, trocar o
+// `.src` direto deixava a imagem em branco por um instante até a rede responder (aparece
+// como "pisca" a cada troca de slide, mais perceptível em Wi-Fi de tablet que no desktop).
+// Também tenta de novo uma vez: assim que uma apresentação/slide fica ao vivo, o ProPresenter
+// às vezes ainda não tem a miniatura pronta no primeiro pedido (ficava sem carregar nunca,
+// já que não havia nova tentativa).
+function carregarImagemAoVivoSemPiscar(url, tentativaExtra = true) {
+  const img = new Image();
+  img.onload = () => { dom.liveSlideImage.src = url; };
+  img.onerror = () => {
+    if (tentativaExtra) setTimeout(() => carregarImagemAoVivoSemPiscar(url, false), 700);
+  };
+  img.src = url;
+}
+
 function startStatusPolling() {
   if (state.pollTimer) clearInterval(state.pollTimer);
   state.pollTimer = setInterval(fetchLiveSlideStatus, 1000);
@@ -2678,12 +2694,21 @@ async function pollLiveStatusOnce(startedAt) {
   // Descarta a resposta se o usuário tocou em algo depois que esta consulta começou
   const isStale = () => lastUserActionTime > startedAt;
 
+  // Controla se o PGM já foi atualizado pelo bloco "mesmo tipo" abaixo — usado pelo bloco de
+  // fallback (3) pra saber se ainda precisa agir. Sem isso, navegar numa playlist de Mídia
+  // DIFERENTE da que está ao vivo (mesmo tipo "media" dos dois lados) fazia o bloco 1 recusar
+  // (samePlaylist=false, de propósito, pra não trocar a grade navegada) e o bloco 3 TAMBÉM
+  // recusava (só roda quando o TIPO não bate, e aqui o tipo bate) — o PGM ficava travado pra
+  // sempre na última coisa que esteve ao vivo, sem nenhum dos dois blocos agir.
+  let mediaAtualizadoPeloBlocoPrincipal = false;
+
   // 1. SINCRONISMO AO VIVO DE MÍDIA / PROCONTENT (Acompanha automaticamente entre Tablets, Celular e ProPresenter)
   if (state.activePlaylistType === 'media') {
     try {
       const activeMediaData = await apiRequest('/v1/media/playlist/active');
       const samePlaylist = !activeMediaData?.playlist?.uuid || String(activeMediaData.playlist.uuid) === String(state.activePlaylistId);
       if (!isStale() && samePlaylist && activeMediaData && activeMediaData.item) {
+        mediaAtualizadoPeloBlocoPrincipal = true;
         const mItem = activeMediaData.item;
         const mIdx = (mItem.index !== undefined) ? mItem.index : 0;
         const mUuid = mItem.uuid;
@@ -2707,7 +2732,7 @@ async function pollLiveStatusOnce(startedAt) {
           dom.previewPlaceholder.classList.add('hidden');
           dom.previewTextOverlay.classList.add('hidden');
           dom.liveSlideImage.classList.remove('hidden');
-          dom.liveSlideImage.src = `/api/v1/media/${mUuid}/thumbnail?t=${Date.now()}`;
+          carregarImagemAoVivoSemPiscar(`/api/v1/media/${mUuid}/thumbnail?t=${Date.now()}`);
         }
       }
     } catch (err) {
@@ -2762,7 +2787,7 @@ async function pollLiveStatusOnce(startedAt) {
 
               if (dom.liveSlideImage.dataset.loadedUuid !== slideKey) {
                 dom.liveSlideImage.dataset.loadedUuid = slideKey;
-                dom.liveSlideImage.src = `/api/v1/presentation/${presUuid}/thumbnail/${curIdx}?t=${Date.now()}`;
+                carregarImagemAoVivoSemPiscar(`/api/v1/presentation/${presUuid}/thumbnail/${curIdx}?t=${Date.now()}`);
               }
             }
 
@@ -2784,8 +2809,9 @@ async function pollLiveStatusOnce(startedAt) {
   // o que estava no ar, não importa em qual playlist o operador estava navegando. Estes dois
   // blocos cobrem exatamente o caso contrário, só atualizando o quadro do PGM (título,
   // legenda, imagem) — sem tocar na lista/pasta que o operador está navegando nem carregar a
-  // grade de slides dela, pra não trocar a tela dele sem ele pedir.
-  if (state.activePlaylistType !== 'media') {
+  // grade de slides dela, pra não trocar a tela dele sem ele pedir. Roda também quando o tipo
+  // BATE mas é uma playlist de Mídia diferente da ao vivo (o bloco 1 recusou de propósito).
+  if (!mediaAtualizadoPeloBlocoPrincipal) {
     try {
       const activeMediaData = await apiRequest('/v1/media/playlist/active');
       if (!isStale() && activeMediaData && activeMediaData.item) {
@@ -2802,7 +2828,7 @@ async function pollLiveStatusOnce(startedAt) {
           dom.previewTextOverlay.classList.add('hidden');
           dom.liveSlideImage.classList.remove('hidden');
           dom.liveSlideImage.dataset.loadedUuid = '';
-          dom.liveSlideImage.src = `/api/v1/media/${mUuid}/thumbnail?t=${Date.now()}`;
+          carregarImagemAoVivoSemPiscar(`/api/v1/media/${mUuid}/thumbnail?t=${Date.now()}`);
         }
       }
     } catch (err) {
