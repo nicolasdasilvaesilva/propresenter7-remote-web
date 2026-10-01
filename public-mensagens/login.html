@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Enviar Aviso — Entrar</title>
+<link rel="icon" type="image/png" href="/img/favicon.png">
+<meta name="theme-color" content="#121316">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: #121316;
+    color: #f3f4f6;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .login-card {
+    width: 100%;
+    max-width: 340px;
+    background: #1e2025;
+    border: 1px solid #2d3139;
+    border-radius: 16px;
+    padding: 28px 24px;
+    text-align: center;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  }
+  .icon { font-size: 34px; margin-bottom: 10px; }
+  h1 { font-size: 19px; font-weight: 700; margin-bottom: 6px; }
+  p.sub { font-size: 13px; color: #9ca3af; margin-bottom: 22px; line-height: 1.5; }
+  label { display: block; text-align: left; font-size: 12px; font-weight: 700; color: #9ca3af; letter-spacing: .4px; margin-bottom: 6px; }
+  .campo { margin-bottom: 14px; }
+  input {
+    width: 100%;
+    background: #282828;
+    border: 1px solid #3e3e3e;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 16px;
+    padding: 13px 14px;
+    outline: none;
+  }
+  input:focus { border-color: #10b981; box-shadow: 0 0 0 2px rgba(16,185,129,.2); }
+  button {
+    width: 100%;
+    background: #10b981;
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  button:active { transform: scale(.98); }
+  button:disabled { opacity: .6; cursor: default; }
+  .erro { color: #ef4444; font-size: 13px; margin-top: 14px; min-height: 18px; }
+</style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="icon">🔒</div>
+    <h1>Enviar Aviso</h1>
+    <p class="sub">Entre com seu usuário pra mandar avisos pro telão da igreja.</p>
+    <form id="form-login">
+      <div class="campo" style="text-align:left">
+        <label for="usuario">Usuário</label>
+        <input type="text" id="usuario" autocomplete="username" autocapitalize="off" autofocus>
+      </div>
+      <div class="campo" style="text-align:left">
+        <label for="senha">Senha</label>
+        <input type="password" id="senha" autocomplete="current-password">
+      </div>
+      <button type="submit" id="btn-entrar">Entrar</button>
+      <div class="erro" id="erro"></div>
+    </form>
+  </div>
+  <script>
+    const form = document.getElementById('form-login');
+    const usuarioInput = document.getElementById('usuario');
+    const senhaInput = document.getElementById('senha');
+    const erroEl = document.getElementById('erro');
+    const btn = document.getElementById('btn-entrar');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      erroEl.textContent = '';
+      btn.disabled = true;
+      btn.textContent = 'Entrando...';
+      try {
+        const res = await fetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ usuario: usuarioInput.value, senha: senhaInput.value })
+        });
+        if (res.ok) {
+          window.location.href = '/';
+        } else if (res.status === 429) {
+          erroEl.textContent = 'Muitas tentativas erradas. Aguarde alguns minutos.';
+        } else {
+          erroEl.textContent = 'Usuário ou senha incorretos.';
+          senhaInput.value = '';
+          senhaInput.focus();
+        }
+      } catch (err) {
+        erroEl.textContent = 'Falha de conexão. Tente de novo.';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Entrar';
+      }
+    });
+  </script>
+</body>
+</html>

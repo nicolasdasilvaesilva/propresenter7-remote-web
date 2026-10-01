@@ -1,0 +1,18 @@
+{
+  "_leiame": "Copie este arquivo para 'mensagens-publico-config.json' (sem o .exemplo) e ajuste. Esse arquivo fica FORA do Git (tem senha/hash dentro). NÃO edite a senha aqui direto — gere o hash com 'node mensagens-publico.js --gerar-senha \"a-senha-nova\"' e cole o resultado no campo senhaHash.",
+  "port": 3001,
+  "usuarios": {
+    "estacionamento": {
+      "senhaHash": "GERE_COM___node mensagens-publico.js --gerar-senha \"cs7ytVZXgrGJRt\"",
+      "modelos": ["CARROS"]
+    },
+    "kids": {
+      "senhaHash": "GERE_COM___node mensagens-publico.js --gerar-senha \"YgmMsPnrTRY5bL\"",
+      "modelos": ["KIDS"]
+    },
+    "espacoconexao": {
+      "senhaHash": "GERE_COM___node mensagens-publico.js --gerar-senha \"C7zjteh6K4j29v\"",
+      "modelos": ["CARROS", "KIDS"]
+    }
+  }
+}

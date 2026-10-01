@@ -20,6 +20,10 @@ const st = {
   activeUuid: null,
   activeTemplate: null,
   tokenValues: {},
+  // Lista de nomes de modelo que este login pode ver/usar (ex.: ["CARROS"]), ou null
+  // quando não há restrição (uso normal, na rede local, como o operador treinado).
+  // Quem define isso é o servidor (via /api/session-info) — nunca o navegador.
+  modelosPermitidos: null,
 };
 
 function escapeHtml(str) {
@@ -58,14 +62,22 @@ async function apiRequest(endpoint, method = 'GET', body = null) {
 }
 
 async function carregarModelos() {
+  // Só existe em servidores restritos (ex.: o público, atrás do Caddy); no servidor
+  // normal da rede local essa rota não existe, a resposta vem null e nada muda.
+  const sessao = await apiRequest('/session-info');
+  st.modelosPermitidos = Array.isArray(sessao?.allowedTemplates) ? sessao.allowedTemplates : null;
+
   const data = await apiRequest('/v1/messages');
-  const list = Array.isArray(data) ? data : (Array.isArray(data?.value) ? data.value : []);
+  let list = Array.isArray(data) ? data : (Array.isArray(data?.value) ? data.value : []);
+  if (st.modelosPermitidos) {
+    list = list.filter(m => st.modelosPermitidos.includes((m.id?.name || '').toUpperCase()));
+  }
   st.list = list;
 
   if (list.length === 0) {
     els.content.innerHTML = `
       <div class="slides-empty-notice">
-        <p>Nenhum modelo de mensagem configurado no ProPresenter.</p>
+        <p>Nenhum modelo de mensagem disponível pra este login.</p>
       </div>
     `;
     return;
@@ -108,13 +120,18 @@ function selecionarModelo(msg) {
       }).join('')
     : `<div style="font-size:12px;color:var(--text-dim);padding:12px 14px;background:#1e1e1e;">Esta mensagem é de texto fixo (sem variáveis).</div>`;
 
+  // Só mostra o seletor (o "↕" pra trocar de modelo) quando há mais de um modelo
+  // disponível pra este login — um login restrito a um só modelo (ex.: "kids") nem
+  // sabe que existem outros.
+  const podeTrocarModelo = st.list.length > 1;
+
   els.content.innerHTML = `
     <div class="pro-messages-container" id="pro-messages-card">
       <div class="pro-msg-header">
-        <div class="pro-msg-select-trigger" id="pro-msg-select-trigger" title="Selecionar modelo de mensagem">
+        <div class="pro-msg-select-trigger" id="pro-msg-select-trigger" title="${podeTrocarModelo ? 'Selecionar modelo de mensagem' : ''}" style="${podeTrocarModelo ? '' : 'cursor:default'}">
           <svg class="pro-msg-send-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
           <span class="pro-msg-current-name">${escapeHtml(msgName)}</span>
-          <span class="pro-msg-chevron">↕</span>
+          ${podeTrocarModelo ? '<span class="pro-msg-chevron">↕</span>' : ''}
         </div>
 
         <div class="pro-msg-dropdown-list hidden" id="pro-msg-dropdown-list">
@@ -157,7 +174,7 @@ function selecionarModelo(msg) {
 
   const triggerBtn = document.getElementById('pro-msg-select-trigger');
   const dropdownList = document.getElementById('pro-msg-dropdown-list');
-  if (triggerBtn && dropdownList) {
+  if (triggerBtn && dropdownList && podeTrocarModelo) {
     triggerBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       dropdownList.classList.toggle('hidden');

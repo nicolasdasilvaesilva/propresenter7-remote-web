@@ -1,0 +1,41 @@
+; Serviço systemd do "Enviar Aviso" público, pro servidor Linux (Ubuntu).
+;
+; Instalação:
+;   sudo cp scripts/mensagens-publico.service /etc/systemd/system/
+;   sudo systemctl daemon-reload
+;   sudo systemctl enable --now mensagens-publico
+;
+; Ver logs:   sudo journalctl -u mensagens-publico -f
+; Reiniciar:  sudo systemctl restart mensagens-publico
+
+[Unit]
+Description=ProPresenter Remote — Enviar Aviso (servidor isolado, so mensagens)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+; Ajuste o caminho abaixo pra onde voce clonou o repositorio no Ubuntu:
+WorkingDirectory=/opt/propresenter-remote
+ExecStart=/usr/bin/node mensagens-publico.js
+Restart=on-failure
+RestartSec=3
+User=mensagens-publico
+; Cria o usuario dedicado (SEM sudo, sem grupo nenhum) com:
+;   sudo useradd -r -s /usr/sbin/nologin mensagens-publico
+;   sudo chown -R mensagens-publico:mensagens-publico /opt/propresenter-remote
+; Importante: nunca rode este servico com um usuario que tenha sudo (ex.: o seu proprio
+; usuario de login) — se algum dia aparecer um bug de seguranca no codigo, o estrago fica
+; limitado a essa conta sem privilegio nenhum, em vez de virar root na maquina inteira.
+
+; Hardening extra do systemd — reduz ainda mais o que o processo consegue fazer mesmo que
+; seja comprometido: sem escalar privilegio, raiz do sistema soh-leitura (exceto a pasta do
+; app), sem acesso a /home, /tmp isolado.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/propresenter-remote
+
+[Install]
+WantedBy=multi-user.target
