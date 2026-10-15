@@ -274,6 +274,7 @@ node --check public\js\app.js; node --check public-desktop\js\app-desktop.js  # 
 ---
 
 ## 📦 Versões
+* **v1.5.14** — alinhamento automático de slide ativo ao topo no mobile/tablet com rolagem livre (scroll suave sem travar o operador) e atualização do cache PWA para v3.8.
 * **v1.5.13** — a skill `propresenter-expert` agora documenta as armadilhas descobertas nas versões anteriores (itens 10, 11 e 15 a 18 da seção "Armadilhas CONFIRMADAS"): PGM seguindo o ao vivo mesmo em outra playlist, `uuid` dos tokens de mensagem, leitura de layout travada em monitor de Stage recém-criado (bug do ProPresenter), miniaturas sem cabeçalho de cache, Cloudflare ignorando `no-cache` (subir `?v=` e `CACHE_NAME` a cada deploy) e manifest/service worker que precisam ficar fora do login.
 * **v1.5.12** — removido `loading="lazy"` das miniaturas da grade de mídia/slides (segunda tentativa de corrigir o pisca ao rolar, visto só no Chrome de um tablet Android parado em 2020). Não resolveu naquele aparelho e foi aceito como limitação dele; auditoria completa contra a v1.5.4 não achou nenhuma regressão no código de sincronismo ao vivo.
 * **v1.5.11** — cache curto (60 s) nas miniaturas servidas pelo proxy: a API do ProPresenter não manda nenhum cabeçalho de cache nelas, e o Chrome em aparelhos com pouca memória buscava a mesma miniatura de novo a cada rolagem da grade.

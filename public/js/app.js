@@ -1319,7 +1319,7 @@ function highlightActiveMediaCard(activeIdx) {
       card.classList.add('live');
       const badge = card.querySelector('.live-badge-tag');
       if (badge) badge.classList.remove('hidden');
-      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else {
       card.classList.remove('live');
       const badge = card.querySelector('.live-badge-tag');
@@ -1476,7 +1476,7 @@ function highlightActiveSlide(cueIndex) {
       card.classList.add('live');
       const badge = card.querySelector('.live-badge-tag');
       if (badge) badge.classList.remove('hidden');
-      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else {
       card.classList.remove('live');
       const badge = card.querySelector('.live-badge-tag');

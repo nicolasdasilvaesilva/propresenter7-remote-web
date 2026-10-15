@@ -274,6 +274,7 @@ node --check public\js\app.js; node --check public-desktop\js\app-desktop.js  # 
 ---
 
 ## 📦 Versiones
+* **v1.5.14** — alineación automática de diapositiva activa al tope en móvil/tablet con desplazamiento libre (scroll suave sin bloquear al operador) y actualización de caché PWA a v3.8.
 * **v1.5.13** — la skill `propresenter-expert` ahora documenta las trampas descubiertas en las versiones anteriores (ítems 10, 11 y 15 a 18 de la sección "Trampas CONFIRMADAS"): el PGM siguiendo lo que está en vivo incluso en otra playlist, `uuid` de los tokens de mensaje, lectura de layout trabada en un monitor de Stage recién creado (bug de ProPresenter), miniaturas sin cabeceras de caché, Cloudflare ignorando `no-cache` (subir `?v=` y `CACHE_NAME` en cada deploy) y el manifest/service worker que deben quedar fuera del login.
 * **v1.5.12** — se quitó `loading="lazy"` de las miniaturas de la grilla de medios/slides (segundo intento de corregir el parpadeo al desplazarse, visto solo en el Chrome de una tablet Android detenida en 2020). No lo resolvió en ese equipo y se aceptó como limitación suya; una auditoría completa contra la v1.5.4 no encontró ninguna regresión en el código de sincronismo en vivo.
 * **v1.5.11** — caché corto (60 s) en las miniaturas servidas por el proxy: la API de ProPresenter no envía ninguna cabecera de caché en ellas, y Chrome en equipos con poca memoria volvía a buscar la misma miniatura en cada desplazamiento de la grilla.

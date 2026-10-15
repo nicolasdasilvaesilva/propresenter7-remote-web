@@ -275,6 +275,7 @@ node --check public\js\app.js; node --check public-desktop\js\app-desktop.js  # 
 ---
 
 ## 📦 Versions
+* **v1.5.14** — automatic active slide scroll-to-top docking in mobile/tablet with free scrolling (smooth non-blocking scroll for the operator) and PWA cache bump to v3.8.
 * **v1.5.13** — the `propresenter-expert` skill now documents the pitfalls found in the previous versions (items 10, 11 and 15 to 18 of the "CONFIRMED pitfalls" section): the PGM following what is live even on another playlist, message token `uuid`s, a Stage layout read that stays stuck on a newly created monitor (a ProPresenter bug), thumbnails with no cache headers, Cloudflare ignoring `no-cache` (bump `?v=` and `CACHE_NAME` on every deploy) and the manifest/service worker that must stay outside the login.
 * **v1.5.12** — removed `loading="lazy"` from the media/slide grid thumbnails (second attempt at fixing the flicker on scroll, seen only on the Chrome of an Android tablet stuck on 2020). It did not fix that device and was accepted as its limitation; a full audit against v1.5.4 found no regression in the live-sync code.
 * **v1.5.11** — short cache (60 s) on thumbnails served by the proxy: ProPresenter's API sends no cache headers on them, and Chrome on low-memory devices kept fetching the same thumbnail again on every grid scroll.
